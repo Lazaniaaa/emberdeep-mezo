@@ -99,6 +99,7 @@ node scripts/sprite-sheets.mjs [heroes|mobs|bosses|props|lobby] [назва]   #
 | --- | --- | --- |
 | **Arc Microgrants** (20 × 500 USDC) | Живий деплой на **Arc mainnet** + публічний репозиторій | **14 жовтня** |
 | **Superteam Ukraine Demo Day**, Open Track | Онлайн 9 жовтня, Київ 10 жовтня. За dev.ua, проєкт треба також подати на **Colosseum Crypto World's Fair** | CWF — **12 жовтня** |
+| Chogathon 2026 (Chog NFT на Monad, $15K, 50 призів) | Пропущено: реєстрація закрилась 11 жовтня, до кінця хакатону. Ідея була: Chog = делвер, риси = перки, рекорди на token ID. **Урок: перевіряти дедлайн реєстрації окремо від дедлайну подачі** | — |
 | Colosseum, трек Robinhood | Пропускаємо (дорогий деплой) | — |
 | Rare Friends Vibeathon | Завершено: не в топ-10 Economy Potential, нагорода за участь — 1 Gen-1 NFT. Організатор просив EVM-адресу в PR: відповідати тільки публічною адресою | — |
 
