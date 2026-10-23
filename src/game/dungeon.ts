@@ -1,3 +1,4 @@
+import { PAINTED_FLOORS } from "./painted-floors";
 import { BOSS_DEPTH, BOSS_HP, BOSS_SIZE, HP_SCALE, enemyCount, floorHeight, floorScale, floorWidth } from "./config";
 import { enemyDef, pickEnemy, type EnemySpecies } from "./enemies";
 import { PROPS, propCounts, propDef, type PropKind } from "./props";
@@ -100,115 +101,6 @@ const DIRS: readonly Point[] = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 },
 type RoomSlot = "A" | "B" | "C" | "D" | "E" | "F";
 type RoomLink = { from: RoomSlot; to: RoomSlot; via?: Point[] };
 type RoomLayout = { rooms: RoomSlot[]; links: RoomLink[]; spawn: RoomSlot; stairs: RoomSlot };
-type Rect = { x: number; y: number; w: number; h: number };
-type AuthoredRoute = { points: Point[]; width: number };
-type AuthoredMap = {
-  roomCount: number;
-  rooms: Rect[];
-  routes: AuthoredRoute[];
-  spawn: Point;
-  stairs: Point;
-};
-
-const route = (points: Point[], width = 2): AuthoredRoute => ({ points, width });
-
-/** Walkable areas traced against the seven illustrated floors: 34×22 tiles for floors 1-3, 27×17 for the rest. */
-function authoredMap(depth: number): AuthoredMap | null {
-  switch (depth) {
-    case 1:
-      return {
-        roomCount: 2,
-        rooms: [{ x: 3, y: 7, w: 7, h: 8 }, { x: 22, y: 6, w: 10, h: 10 }],
-        routes: [route([{ x: 9, y: 10 }, { x: 22, y: 10 }], 3)],
-        spawn: { x: 5, y: 10 }, stairs: { x: 26, y: 10 },
-      };
-    case 2:
-      return {
-        roomCount: 3,
-        rooms: [
-          { x: 3, y: 5, w: 7, h: 9 }, { x: 15, y: 6, w: 5, h: 6 }, { x: 25, y: 6, w: 7, h: 9 },
-          { x: 16, y: 17, w: 4, h: 2 },
-        ],
-        routes: [
-          route([{ x: 9, y: 9 }, { x: 15, y: 9 }], 2),
-          route([{ x: 19, y: 10 }, { x: 25, y: 10 }], 2),
-          route([{ x: 18, y: 12 }, { x: 18, y: 17 }], 2),
-        ],
-        spawn: { x: 5, y: 9 }, stairs: { x: 28, y: 9 },
-      };
-    case 3:
-      return {
-        roomCount: 3,
-        rooms: [
-          { x: 3, y: 5, w: 9, h: 8 }, { x: 22, y: 4, w: 10, h: 6 }, { x: 10, y: 16, w: 16, h: 3 },
-        ],
-        routes: [
-          route([{ x: 11, y: 7 }, { x: 22, y: 7 }], 2),
-          route([{ x: 9, y: 12 }, { x: 9, y: 17 }], 3),
-          route([{ x: 26, y: 9 }, { x: 26, y: 15 }], 3),
-        ],
-        spawn: { x: 5, y: 9 }, stairs: { x: 26, y: 7 },
-      };
-    case 4:
-      return {
-        roomCount: 4,
-        rooms: [
-          { x: 2, y: 6, w: 5, h: 5 }, { x: 11, y: 2, w: 5, h: 4 },
-          { x: 20, y: 6, w: 5, h: 5 }, { x: 11, y: 12, w: 5, h: 3 },
-          { x: 11, y: 7, w: 5, h: 3 },
-        ],
-        routes: [
-          route([{ x: 13, y: 5 }, { x: 13, y: 7 }], 3),
-          route([{ x: 6, y: 8 }, { x: 11, y: 8 }], 2),
-          route([{ x: 15, y: 8 }, { x: 20, y: 8 }], 2),
-          route([{ x: 13, y: 9 }, { x: 13, y: 12 }], 3),
-        ],
-        spawn: { x: 4, y: 8 }, stairs: { x: 22, y: 8 },
-      };
-    case 5:
-      return {
-        roomCount: 4,
-        rooms: [
-          { x: 2, y: 5, w: 7, h: 7 }, { x: 11, y: 2, w: 6, h: 4 },
-          { x: 19, y: 5, w: 7, h: 7 }, { x: 11, y: 12, w: 6, h: 3 },
-          { x: 12, y: 7, w: 4, h: 4 },
-        ],
-        routes: [
-          route([{ x: 8, y: 8 }, { x: 12, y: 8 }], 2),
-          route([{ x: 15, y: 8 }, { x: 19, y: 8 }], 2),
-          route([{ x: 13, y: 5 }, { x: 13, y: 7 }], 3),
-          route([{ x: 13, y: 10 }, { x: 13, y: 12 }], 3),
-        ],
-        spawn: { x: 4, y: 8 }, stairs: { x: 22, y: 8 },
-      };
-    case 6:
-      return {
-        roomCount: 5,
-        rooms: [
-          { x: 3, y: 6, w: 4, h: 5 }, { x: 11, y: 2, w: 6, h: 3 },
-          { x: 11, y: 7, w: 6, h: 4 }, { x: 11, y: 12, w: 6, h: 3 },
-          { x: 20, y: 6, w: 6, h: 5 },
-        ],
-        routes: [
-          route([{ x: 6, y: 8 }, { x: 11, y: 8 }], 2),
-          route([{ x: 13, y: 4 }, { x: 13, y: 7 }], 3),
-          route([{ x: 16, y: 8 }, { x: 20, y: 8 }], 2),
-          route([{ x: 13, y: 10 }, { x: 13, y: 12 }], 3),
-        ],
-        spawn: { x: 4, y: 8 }, stairs: { x: 22, y: 8 },
-      };
-    case 7:
-      return {
-        roomCount: 1,
-        rooms: [{ x: 8, y: 3, w: 11, h: 10 }, { x: 10, y: 13, w: 7, h: 1 }],
-        routes: [route([{ x: 13, y: 13 }, { x: 13, y: 14 }], 3)],
-        spawn: { x: 13, y: 14 }, stairs: { x: 13, y: 3 },
-      };
-    default:
-      return null;
-  }
-}
-
 const ROOM_CENTERS: Record<RoomSlot, Point> = {
   A: { x: 4, y: 4 }, B: { x: 13, y: 4 }, C: { x: 22, y: 4 },
   D: { x: 4, y: 12 }, E: { x: 13, y: 12 }, F: { x: 22, y: 12 },
@@ -286,7 +178,7 @@ export function generateFloor(rng: Rng, depth: number, options: FloorOptions): F
   const w = floorWidth(depth), h = floorHeight(depth);
   const at = (x: number, y: number) => y * w + x;
   const tiles = new Array<number>(w * h).fill(WALL);
-  const authored = authoredMap(depth);
+  const authored = PAINTED_FLOORS[depth];
   const layout = authored ? null : layoutForDepth(depth);
   const mirror = !authored && chance(rng, 0.5);
   const mirrorPoint = (p: Point): Point => ({ x: mirror ? w - 1 - p.x : p.x, y: p.y });
@@ -300,29 +192,15 @@ export function generateFloor(rng: Rng, depth: number, options: FloorOptions): F
   let spawn: Point;
   let stairs: Point;
   if (authored) {
-    for (const room of authored.rooms) {
-      for (let y = room.y; y < room.y + room.h; y++) {
-        for (let x = room.x; x < room.x + room.w; x++) carve(x, y);
-      }
-    }
-    for (const path of authored.routes) {
-      const offsetStart = -Math.floor(path.width / 2);
-      for (let i = 1; i < path.points.length; i++) {
-        const from = path.points[i - 1], to = path.points[i];
-        if (from.x !== to.x && from.y !== to.y) throw new Error("Dungeon room links must use orthogonal segments");
-        const dx = Math.sign(to.x - from.x), dy = Math.sign(to.y - from.y);
-        const length = Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
-        for (let step = 0; step <= length; step++) {
-          const x = from.x + dx * step, y = from.y + dy * step;
-          for (let offset = 0; offset < path.width; offset++) {
-            if (dx !== 0) carve(x, y + offsetStart + offset);
-            else carve(x + offsetStart + offset, y);
-          }
-        }
-      }
-    }
-    spawn = authored.spawn;
-    stairs = authored.stairs;
+    if (authored.rows.length !== h || authored.rows.some(row => row.length !== w)) throw new Error("Invalid painted floor dimensions");
+    let rift: Point | undefined, down: Point | undefined;
+    authored.rows.forEach((row, y) => [...row].forEach((cell, x) => {
+      if (cell !== "#") tiles[at(x, y)] = FLOOR;
+      if (cell === "R") rift = { x, y };
+      if (cell === "S") down = { x, y };
+    }));
+    if (!rift || !down) throw new Error("Painted floor needs a rift and stairs");
+    spawn = rift; stairs = down;
   } else {
     for (const slot of layout!.rooms) {
       const center = centers[slot];
@@ -370,7 +248,7 @@ export function generateFloor(rng: Rng, depth: number, options: FloorOptions): F
     for (let tries = 0; tries < 200; tries++) {
       const c = cells[int(rng, 0, cells.length - 1)];
       const k = at(c.x, c.y);
-      if (taken.has(k) || dist[k] < minDist) continue;
+      if (taken.has(k) || dist[k] < minDist || [spawn, stairs].some(p => Math.max(Math.abs(c.x-p.x), Math.abs(c.y-p.y)) <= 2)) continue;
       taken.add(k);
       return c;
     }
@@ -403,7 +281,7 @@ export function generateFloor(rng: Rng, depth: number, options: FloorOptions): F
       // Cerberus replaces the first dimling. It takes a 2x2 patch of open floor close to the stairs it seals.
       const free = (c: Point) => cells.some(o => o.x === c.x && o.y === c.y) && !taken.has(at(c.x, c.y));
       const guard = cells
-        .filter(c => footprint({ ...c, size: BOSS_SIZE }).every(free) && dimlingDistance({ ...c, size: BOSS_SIZE }, stairs) >= 2)
+        .filter(c => footprint({ ...c, size: BOSS_SIZE }).every(free) && footprint({ ...c, size: BOSS_SIZE }).every(p => [spawn, stairs].every(exit => Math.max(Math.abs(p.x-exit.x), Math.abs(p.y-exit.y)) > 2)))
         .sort((a, b) => dimlingDistance({ ...a, size: BOSS_SIZE }, stairs) - dimlingDistance({ ...b, size: BOSS_SIZE }, stairs) || a.y - b.y || a.x - b.x)[0];
       if (guard) {
         for (const c of footprint({ ...guard, size: BOSS_SIZE })) taken.add(at(c.x, c.y));

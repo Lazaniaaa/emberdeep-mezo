@@ -1,7 +1,7 @@
 import { footprint, hasFloorDecor, idx, tileHash, visibleSet, type Dimling, type FloorTheme, type Point } from "@/game/dungeon";
 import { attackTiles, windupProgress } from "@/game/enemy-ai";
 import { DEFAULT_SPECIES } from "@/game/enemies";
-import { ART_DOORWAYS, ART_PATCHES } from "@/game/map-art";
+import { paintMap } from "./painted-map";
 import { currentRadius, propsOf, type RunState } from "@/game/run";
 import { cerberusSheet, cerberusFrame, cerberusFacing, CERBERUS_CELL_W, CERBERUS_CELL_H, CERBERUS_FOOT_X, CERBERUS_FOOT_Y, CERBERUS_TEXTURE_SCALE } from "./cerberus-sprites";
 import { CreatureAnimator, restPose, type Pose } from "./creature-anim";
@@ -96,6 +96,8 @@ const THEME_PALETTE: Record<FloorTheme, {
 export type View = { x: number; y: number; w: number; h: number };
 
 export type DrawOptions = {
+  /** UI panels transformed into world pixels by the canvas host. */
+  feedbackAvoid?: { x: number; y: number; w: number; h: number }[];
   time: number;
   reducedMotion: boolean;
   /** The delver's picture this frame; it is drawn at `playerPos`. */
@@ -145,24 +147,7 @@ function mapArtwork(depth: number, width: number, height: number) {
   canvas.width = width * TILE;
   canvas.height = height * TILE;
   const ctx = canvas.getContext("2d")!;
-  ctx.imageSmoothingEnabled = false;
-  const scale = Math.min(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
-  const drawW = Math.round(image.naturalWidth * scale);
-  const drawH = Math.round(image.naturalHeight * scale);
-  ctx.drawImage(image, Math.floor((canvas.width - drawW) / 2), Math.floor((canvas.height - drawH) / 2), drawW, drawH);
-  const ox = Math.floor((canvas.width - drawW) / 2), oy = Math.floor((canvas.height - drawH) / 2);
-  for (const p of ART_PATCHES[depth] ?? []) {
-    const at = (v: number) => Math.round(v * scale);
-    ctx.drawImage(canvas, ox + at(p.from.x), oy + at(p.from.y), at(p.w), at(p.h), ox + at(p.x), oy + at(p.y), at(p.w), at(p.h));
-  }
-
-  for (const door of ART_DOORWAYS[depth] ?? []) {
-    for (let y = door.y; y < door.y + door.h; y++) {
-      for (let x = door.x; x < door.x + door.w; x++) {
-        ctx.drawImage(canvas, door.sample.x * TILE, door.sample.y * TILE, TILE, TILE, x * TILE, y * TILE, TILE, TILE);
-      }
-    }
-  }
+  paintMap(ctx, image, depth, canvas.width, canvas.height);
   MAP_ART_CANVASES.set(key, canvas);
   return canvas;
 }
@@ -548,6 +533,8 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
   const visible = visibleSet(floor, state.player, radius);
   const nightVision = state.light <= 0 && state.nightVision > 0;
   const artwork = mapArtwork(floor.depth, floor.w, floor.h);
+  // The masks trace the painted ground at cell centres. Feet belong there, not on the next row's wall cap.
+  const actorLift = artwork ? 12 : 0;
   const litAtlas = tileAtlas(floor.theme, palette, true);
   const dimAtlas = tileAtlas(floor.theme, palette, false);
   const occupied = new Set<number>([
@@ -607,6 +594,7 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
   }
   if (floor.seen[idx(floor, floor.stairs.x, floor.stairs.y)]) iconAt(floor.stairs, ICONS.stairs, COLORS.white);
 
+  ctx.save(); ctx.translate(0, -actorLift);
   for (const item of floor.items) {
     if (!showAt(item)) continue;
     const bob = opts.reducedMotion ? 0 : Math.round(Math.sin(opts.time / 250 + item.id) * 1.5);
@@ -634,6 +622,7 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
     }
   }
 
+  ctx.restore();
   // Each creature's picture follows its pose. Reduced motion skips the animation and shows them standing on their tiles.
   const creatures = opts.creatures ?? animator;
   if (!opts.creatures) creatures.updateRun(state, opts.time);
@@ -662,11 +651,13 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
     else drawCreature(ctx, d, pose);
   };
   const behind = (s: (typeof shown)[number]) => s.pose.y + (s.d.size ?? 1) - 1 <= pp.y;
+  ctx.save(); ctx.translate(0, -actorLift);
   shown.filter(behind).forEach(drawOne);
   drawHero(ctx, opts.hero, pp.x * TILE, pp.y * TILE, TILE, "rgba(0,0,0,0.4)");
   // The hero hides the mark under their feet, so the mark is drawn again over them, half seen so the hero still reads.
   if (heroThreat !== null) {
     ctx.save();
+    ctx.translate(0, actorLift); // The warning stays on the ground beneath the actor.
     ctx.globalAlpha = 0.5;
     drawDanger(ctx, [heroTile], heroThreat, opts.time, opts.reducedMotion);
     ctx.restore();
@@ -677,6 +668,7 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
     if (s.d.boss) drawCerberusMarks(ctx, s.d, s.pose);
     else drawCreatureMarks(ctx, s.d, s.pose, opts.time, opts.reducedMotion);
   }
+  ctx.restore();
 
   const cx = pp.x * TILE + TILE / 2, cy = pp.y * TILE + TILE / 2;
   const flicker = opts.reducedMotion ? 0 : Math.sin(opts.time / 90) * 3 + Math.sin(opts.time / 37) * 2;
@@ -728,5 +720,8 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
       return drawCell(c, sheet, sheet && breakingFrame(sheet, k, hp, maxHp), x, baseY);
     },
   };
-  opts.fx.draw(ctx, opts.time, opts.reducedMotion, art);
+  const reserved = [...(opts.feedbackAvoid ?? []).map(r=>({...r,y:r.y+actorLift})), ...shown.filter(s => s.d.boss).map(s => ({ x: s.pose.x * TILE - 3, y: s.pose.y * TILE - 38, w: 70, h: 24 }))];
+  ctx.save(); ctx.translate(0, -actorLift);
+  opts.fx.draw(ctx, opts.time, opts.reducedMotion, art, { x: vx, y: vy + actorLift, w: W, h: H }, reserved);
+  ctx.restore();
 }

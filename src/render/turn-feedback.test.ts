@@ -114,7 +114,7 @@ describe("RunPresentation", () => {
     const p = new RunPresentation(s); p.observe(next, 1000);
     expect(p.death).toBe("Last loss: −3 light · boss");
     const texts: string[] = [];
-    p.fx.draw({ save() {}, restore() {}, strokeText() {}, fillText(text: string) { texts.push(text); } } as unknown as CanvasRenderingContext2D, 1000, true);
+    p.fx.draw({ save() {}, restore() {}, strokeText() {}, fillRect() {}, measureText(t: string) { return { width: t.length * 5 }; }, fillText(text: string) { texts.push(text); } } as unknown as CanvasRenderingContext2D, 1000, true);
     expect(texts).toContain("−3 light · boss");
     expect(next).toEqual(saved);
   });

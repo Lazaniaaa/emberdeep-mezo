@@ -14,6 +14,7 @@ function room(over: Partial<Parameters<typeof startRun>[0]> = {}): RunState {
   for (let y = 2; y <= 12; y++) for (let x = 2; x <= 12; x++) s.floor.tiles[idx(s.floor, x, y)] = 1;
   s.floor.items = [];
   s.floor.dimlings = [];
+  s.floor.props = [];
   s.player = { x: 6, y: 6, facing: "right" };
   return s;
 }
@@ -264,7 +265,7 @@ describe("the creatures and the floors they live on", () => {
     }
   });
 
-  it("makes floors 1-3 about 60% bigger than the rest", () => {
+  it("keeps the larger early-floor canvases without carving through painted walls for a tile quota", () => {
     for (let depth = 1; depth <= 3; depth++) {
       expect([floorWidth(depth), floorHeight(depth)]).toEqual([34, 22]);
       expect(floorScale(depth)).toBeGreaterThanOrEqual(1.6);
@@ -276,11 +277,9 @@ describe("the creatures and the floors they live on", () => {
       expect([floorWidth(depth), floorHeight(depth)]).toEqual([MAP_W, MAP_H]);
       expect(generateFloor(createRng(depth), depth, { findPct: 0 }).tiles).toHaveLength(MAP_W * MAP_H);
     }
-    // In practice that is 60% more floor to walk on than the traced 27 x 17 layouts had.
+    // Actual walkable area follows the art, not an arbitrary minimum that would re-open torches and walls.
     const walkable = (depth: number) => generateFloor(createRng(depth), depth, { findPct: 0 }).tiles.filter(t => t === 1).length;
-    expect(walkable(1)).toBeGreaterThanOrEqual(185);
-    expect(walkable(2)).toBeGreaterThanOrEqual(190);
-    expect(walkable(3)).toBeGreaterThanOrEqual(225);
+    for (let depth=1;depth<=3;depth++) expect(walkable(depth)).toBeGreaterThan(walkable(depth+3));
   });
 
   it("carries a saved floor of any depth through a copy without losing its creatures' state", () => {
@@ -290,5 +289,33 @@ describe("the creatures and the floors they live on", () => {
     expect(copy.floor.dimlings[0]).toMatchObject({ phase: "windup", windupLeft: 2, aim: { x: 0, y: 1 } });
     // The next turn behaves the same on the copy.
     expect(wait(copy).floor.dimlings[0].windupLeft).toBe(1);
+  });
+});
+
+describe("props provide cover", () => {
+  for (const species of ["chaincoil", "fourfold-bell"] as const) it(`${species}: every arm stops before a prop, including warnings`, () => {
+    for (const aim of [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}]) {
+      const s=room(), d=creature({x:6,y:6,species,aim});
+      const p={x:6+aim.x,y:6+aim.y};
+      const target={x:6+aim.x*2,y:6+aim.y*2};
+      s.floor.props=[{...p,id:99,kind:"crate",hp:1,maxHp:2}];
+      expect(attackTiles(s.floor,d).some(t=>t.x===p.x&&t.y===p.y)).toBe(false);
+      expect(attackTiles(s.floor,d).some(t=>t.x===target.x&&t.y===target.y)).toBe(false);
+      expect(reachDirection(s.floor,d,target)).toBeNull();
+      s.floor.props=[];
+      expect(attackTiles(s.floor,d)).toContainEqual(target);
+      expect(reachDirection(s.floor,d,target)).toEqual(aim);
+    }
+  });
+  it("rechecks cover when a wound-up strike resolves; a broken prop opens the line immediately", () => {
+    const s=room();
+    s.floor.dimlings=[creature({x:9,y:6,species:"chaincoil",phase:"windup",windupLeft:1,aim:{x:-1,y:0}})];
+    s.floor.props=[{id:90,x:7,y:6,kind:"urn",hp:1,maxHp:1}];
+    const protectedTurn=wait(s);
+    expect(protectedTurn.events).not.toContain("drain");
+    expect(protectedTurn.events).toContain("miss");
+    const exposed=applyAction(s,{type:"move",dx:1,dy:0});
+    expect(exposed.floor.props).toHaveLength(0);
+    expect(exposed.events).toContain("drain");
   });
 });

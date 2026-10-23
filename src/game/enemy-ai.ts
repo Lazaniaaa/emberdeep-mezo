@@ -2,9 +2,11 @@ import { enemyDef } from "./enemies";
 import { isFloor, type Dimling, type Floor, type Point } from "./dungeon";
 
 const DIRS: readonly Point[] = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
+const openToStrike = (floor: Floor, x: number, y: number) => isFloor(floor, x, y)
+  && !(floor.props ?? []).some(p => p.x === x && p.y === y);
 
 /**
- * The tiles a creature's next blow covers: the four arms of a cross, or the one line it is aimed along. Walls stop it.
+ * The tiles a creature's next blow covers: four arms of a cross, or one aimed line. Walls and intact props stop it.
  * While a creature winds up these are the tiles marked on the floor, and stepping off them is how a blow is dodged.
  */
 export function attackTiles(floor: Floor, d: Dimling): Point[] {
@@ -14,7 +16,7 @@ export function attackTiles(floor: Floor, d: Dimling): Point[] {
   for (const dir of dirs) {
     for (let k = 1; k <= def.range; k++) {
       const x = d.x + dir.x * k, y = d.y + dir.y * k;
-      if (!isFloor(floor, x, y)) break;
+      if (!openToStrike(floor, x, y)) break;
       tiles.push({ x, y });
     }
   }
@@ -31,7 +33,7 @@ export function reachDirection(floor: Floor, d: Dimling, player: Point): Point |
   const distance = Math.abs(dx) + Math.abs(dy);
   if (distance > enemyDef(d.species).range) return null;
   const dir = { x: Math.sign(dx), y: Math.sign(dy) };
-  for (let k = 1; k <= distance; k++) if (!isFloor(floor, d.x + dir.x * k, d.y + dir.y * k)) return null;
+  for (let k = 1; k <= distance; k++) if (!openToStrike(floor, d.x + dir.x * k, d.y + dir.y * k)) return null;
   return dir;
 }
 

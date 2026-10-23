@@ -3,7 +3,7 @@ import { TurnSounds } from "@/audio/turn-sounds";
 import { CreatureAnimator } from "./creature-anim";
 import { FxQueue } from "./fx";
 import { HeroAttacks, HERO_WINDUP_MS, turnEffects } from "./hero-anim";
-import { deathExplanation, lightLoss, lightNumber, sameFloor } from "./turn-feedback";
+import { deathExplanation, lightLoss, sameFloor } from "./turn-feedback";
 
 /** UI-only history; deliberately separate from RunState, replay, settlement and the signing server. */
 export class RunPresentation {
@@ -14,7 +14,6 @@ export class RunPresentation {
   readonly sounds = new TurnSounds();
   hurtAt = -Infinity;
   death: string | null = null;
-  private lossLane = 0;
 
   constructor(run: RunState) {
     this.previous = run;
@@ -34,10 +33,7 @@ export class RunPresentation {
     if (turn.attack) this.hero.add(now, next.player.facing);
     if (turn.hurt) this.hurtAt = now;
     const loss = lightLoss(prev, next);
-    if (loss) {
-      this.fx.add({ kind: "text", x: next.player.x, y: next.player.y - 0.2 - (this.lossLane++ % 3) * 0.25,
-        text: `−${lightNumber(loss.amount)} light · ${loss.cause}`, color: loss.cause === "step" ? "#e2d6ba" : "#ff997a", at: now });
-    }
+    if (loss) this.fx.light.add(loss, next.player, now);
     this.death = deathExplanation(prev, next) ?? this.death;
     this.creatures.updateRun(next, now);
     this.sounds.add(next.events, now, now + HERO_WINDUP_MS);

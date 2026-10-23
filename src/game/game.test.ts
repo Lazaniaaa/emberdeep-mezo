@@ -138,7 +138,7 @@ describe("dungeon", () => {
     for (const y of [9, 10, 11]) expect(first.tiles[idx(first, 13, y)]).toBe(1);
     for (const y of [8, 12]) expect(first.tiles[idx(first, 13, y)]).toBe(0);
 
-    const stairs = [[26, 10], [28, 9], [26, 7], [22, 8], [22, 8], [22, 8], [13, 3]];
+    const stairs = [[26, 10], [28, 9], [26, 6], [22, 7], [22, 8], [23, 8], [13, 3]];
     for (let depth = 1; depth <= 7; depth++) {
       const floor = generateFloor(createRng(depth), depth, { findPct: 0 });
       expect([floor.stairs.x, floor.stairs.y]).toEqual(stairs[depth - 1]);
@@ -441,6 +441,8 @@ describe("cerberus", () => {
 
   it("pays out the hoard when the delver walks over it, and only then", () => {
     let s = bossFight({ weaponDamage: 40 });
+    s.player = { x: 13, y: 10, facing: "right" }; // An open arena cell, not the now single-file rift entrance.
+    s.floor.props = [];
     s.floor.items = [{ id: 9, x: s.player.x + 1, y: s.player.y, kind: "hoard" }];
     s.floor.dimlings = [];
     const before = { gold: s.gold, heal: s.bag.heal, rage: s.bag.rage };
@@ -459,6 +461,8 @@ describe("cerberus", () => {
     const runs = 600;
     for (let seed = 1; seed <= runs; seed++) {
       const s = bossFight({ seed });
+      s.player = { x: 13, y: 10, facing: "right" };
+      s.floor.props = [];
       s.floor.items = [{ id: 9, x: s.player.x + 1, y: s.player.y, kind: "hoard" }];
       s.floor.dimlings = [];
       if (applyAction(s, { type: "move", dx: 1, dy: 0 }).sigils > 0) sigils++;

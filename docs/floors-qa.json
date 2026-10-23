@@ -1,0 +1,107 @@
+{
+  "results": [
+    {
+      "screen": "desktop",
+      "depth": 1,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "desktop",
+      "depth": 2,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "desktop",
+      "depth": 3,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "desktop",
+      "depth": 4,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "desktop",
+      "depth": 5,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "desktop",
+      "depth": 6,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "desktop",
+      "depth": 7,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "desktop",
+      "feedback": {
+        "samples": 3,
+        "overlaps": false,
+        "light": 280
+      },
+      "reducedMotion": "passed"
+    },
+    {
+      "screen": "phone",
+      "depth": 1,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "phone",
+      "depth": 2,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "phone",
+      "depth": 3,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "phone",
+      "depth": 4,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "phone",
+      "depth": 5,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "phone",
+      "depth": 6,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "phone",
+      "depth": 7,
+      "barrier": "passed",
+      "stairApproach": "passed"
+    },
+    {
+      "screen": "phone",
+      "feedback": {
+        "samples": 3,
+        "overlaps": false,
+        "light": 280
+      },
+      "reducedMotion": "passed"
+    }
+  ],
+  "errors": []
+}

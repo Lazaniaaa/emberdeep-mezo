@@ -1,4 +1,5 @@
 import type { PropKind } from "@/game/props";
+import { LightLabels, type LabelRect } from "./light-labels";
 
 /** One game tile in logical pixels, as in renderer.ts (not imported, to keep the renderer free to import this file). */
 const TILE = 32;
@@ -39,6 +40,7 @@ const ease = (k: number) => 1 - (1 - k) * (1 - k);
 
 export class FxQueue {
   private list: Fx[] = [];
+  readonly light = new LightLabels();
 
   add(fx: Fx) {
     this.list.push(fx);
@@ -47,13 +49,15 @@ export class FxQueue {
 
   clear() {
     this.list = [];
+    this.light.clear();
   }
 
   /**
    * Draws the live effects and forgets the finished ones. An effect whose `at` is still ahead waits for it. With reduced
    * motion, numbers stay put and nothing sweeps.
    */
-  draw(ctx: CanvasRenderingContext2D, time: number, still: boolean, art: FxArt = NO_ART) {
+  draw(ctx: CanvasRenderingContext2D, time: number, still: boolean, art: FxArt = NO_ART,
+    bounds: LabelRect = { x: -10000, y: -10000, w: 20000, h: 20000 }, reserved: LabelRect[] = []) {
     this.list = this.list.filter(fx => time - fx.at < LIFE[fx.kind]);
     for (const fx of this.list) {
       if (time < fx.at) continue;
@@ -149,5 +153,15 @@ export class FxQueue {
       }
       ctx.restore();
     }
+    // Reserve the entire rising path, rather than a single frame, so damage and loot never collide with light loss.
+    const avoid = [...reserved];
+    ctx.save(); ctx.font = "8px Silkscreen, monospace";
+    for (const fx of this.list) {
+      if (time < fx.at || (fx.kind !== "text" && fx.kind !== "drop")) continue;
+      const w = ctx.measureText(fx.text).width + (fx.kind === "drop" ? 28 : 8);
+      avoid.push({ x: fx.x * TILE + 16 - (fx.kind === "drop" ? 8 : w / 2), y: fx.y * TILE - 45 - (fx.kind === "drop" ? fx.lift : 0), w, h: 48 });
+    }
+    ctx.restore();
+    this.light.draw(ctx, time, bounds, avoid);
   }
 }

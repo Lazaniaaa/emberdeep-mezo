@@ -42,10 +42,10 @@ export const MAX_KEYS = 999;
 export const FIELD_WEEK_SPEND = 20_000;
 /**
  * Simulated crowd: gold banked per cent they spend. The simulated 70/20/10 crowd of unperked, held-Delver and top-build
- * bots banks about 7.9 since a blow burns no light (2026-10-11; 6.4 before that, and 4.8 before props gave a kind of
- * loot each, 2026-10-10); real players make mistakes the bots do not, so the crowd is set a little below that.
+ * bots banked about 6.59 after tracing the painted floors and adding prop cover (2026-10-23).
+ * Owner-approved calibration: 6.4, below that bot baseline. Prices, loot, pool split and return cap are unchanged.
  */
-export const FIELD_GOLD_PER_CENT = 6.8;
+export const FIELD_GOLD_PER_CENT = 6.4;
 /**
  * The most a delver takes back from the round pool, as a multiple of what they put into descents that round
  * (entry keys plus oil): +60% at the very best. Whatever the cap withholds stays in the pool for the next round.

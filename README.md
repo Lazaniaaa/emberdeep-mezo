@@ -127,8 +127,8 @@ Money is simulated USDC. The game counts it in cents, so every rule below is exa
   delvers' spend and gold. Every new round opens with a simulated crowd already in it.
 - `src/game/sim.ts` has two bots: one that sees the whole map and one that plays under fog of
   war. Both almost never die, so they are an **upper bound** on skilled play, not a forecast.
-  A 2-flask delver with no perks banks about 3.9 gold per cent spent (key included). The
-  simulated crowd banks 4.2, a little below what a 70/20/10 crowd of unperked, Delver-holding and
+  A 2-flask delver with no perks banks about 6.0 gold per cent spent (key included). The
+  simulated crowd banks 6.4, a little below what a 70/20/10 crowd of unperked, Delver-holding and
   top-build bots banks (a test checks it stays between 70% and 100% of that), so a lone delver in the demo is
   measured against a crowd with good gear. Real players make mistakes the bots do not, so the true figure is probably
   lower, and the cap covers that case.

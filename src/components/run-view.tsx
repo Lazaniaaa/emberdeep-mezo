@@ -156,7 +156,7 @@ export function RunView() {
       <Header overlay />
 
       {/* Light and loot */}
-      <div className="pointer-events-none absolute top-14 left-3 z-20 flex w-[13.5rem] flex-col gap-2 sm:top-[4.25rem] sm:w-64">
+      <div data-run-hud className="pointer-events-none absolute top-14 left-3 z-20 flex w-[13.5rem] flex-col gap-2 sm:top-[4.25rem] sm:w-64">
         <section className="rounded-xl border border-white/20 bg-[#150c2b]/85 px-3 py-2 backdrop-blur-sm" aria-label="Lantern">
           <div className="flex items-baseline justify-between">
             <span className="text-[10px] tracking-wider text-muted-foreground uppercase">Light</span>
@@ -202,14 +202,14 @@ export function RunView() {
       </div>
 
       {/* Potions */}
-      <section className="absolute top-14 right-3 z-20 grid grid-cols-1 gap-1.5 sm:top-[4.25rem] sm:grid-cols-2" aria-label="Potions">
+      <section data-run-hud className="absolute top-14 right-3 z-20 grid grid-cols-1 gap-1.5 sm:top-[4.25rem] sm:grid-cols-2" aria-label="Potions">
         {POTION_IDS.filter(id => POTIONS[id].shop || run.bag[id] > 0).map(id => (
           <PotionButton key={id} id={id} run={run} onUse={() => dispatch({ type: "potion", id })} />
         ))}
       </section>
 
       {/* Actions, warnings and the log share one stack, so nothing sits on the touch pad */}
-      <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex w-[calc(100%-10.5rem)] max-w-[26rem] flex-col gap-1.5 sm:bottom-4 lg:w-[26rem]">
+      <div data-run-hud className="pointer-events-none absolute bottom-3 left-3 z-20 flex w-[calc(100%-10.5rem)] max-w-[26rem] flex-col gap-1.5 sm:bottom-4 lg:w-[26rem]">
         <div className="pointer-events-auto flex flex-col items-start gap-1.5">
           {atStairs && playing && !sealed && (
             <Button size="lg" className="font-pixel shadow-lg" onClick={contextAction}><ArrowDown data-icon="inline-start" /> Descend to depth {run.depth + 1} <Kbd>E</Kbd></Button>
@@ -242,7 +242,7 @@ export function RunView() {
         </section>
       </div>
 
-      <div className="absolute right-3 bottom-4 z-20 opacity-90 lg:hidden">
+      <div data-run-hud className="absolute right-3 bottom-4 z-20 opacity-90 lg:hidden">
         <DPad compact disabled={!playing} onMove={(dx, dy) => dispatch({ type: "move", dx, dy })} onWait={() => dispatch({ type: "wait" })} />
       </div>
 
@@ -337,7 +337,12 @@ function GameCanvas({ run, animal, reducedMotion, view: viewSize, zoom, onMove, 
       presentation.sounds.flush(time, useGame.getState().muted, event => playSfx(event, false));
       const view = cameraFor(pos, run.floor.w, run.floor.h, viewW, viewH);
       camera.current = view;
-      drawRun(ctx, run, { time, reducedMotion, hero: { animal, ...m }, fx: presentation.fx, creatures: presentation.creatures, playerPos: pos, view, zoom });
+      const canvasRect = canvas.getBoundingClientRect();
+      const panels = presentation.fx.light.active ? [...(canvas.parentElement?.parentElement?.querySelectorAll<HTMLElement>("[data-run-hud], header") ?? [])] : [];
+      const feedbackAvoid = panels.map(el => el.getBoundingClientRect()).filter(r => r.width > 0 && r.height > 0).map(r => ({
+        x: view.x*TILE + (r.left-canvasRect.left)/zoom, y: view.y*TILE + (r.top-canvasRect.top)/zoom, w: r.width/zoom, h: r.height/zoom,
+      }));
+      drawRun(ctx, run, { time, reducedMotion, hero: { animal, ...m }, fx: presentation.fx, creatures: presentation.creatures, playerPos: pos, view, zoom, feedbackAvoid });
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
