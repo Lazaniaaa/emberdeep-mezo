@@ -1,4 +1,4 @@
-import { dimlingDistance, footprint, hasFloorDecor, idx, tileHash, visibleSet, type Dimling, type FloorTheme, type Point } from "@/game/dungeon";
+import { footprint, hasFloorDecor, idx, tileHash, visibleSet, type Dimling, type FloorTheme, type Point } from "@/game/dungeon";
 import { attackTiles, windupProgress } from "@/game/enemy-ai";
 import { DEFAULT_SPECIES } from "@/game/enemies";
 import { ART_DOORWAYS, ART_PATCHES } from "@/game/map-art";
@@ -102,6 +102,8 @@ export type DrawOptions = {
   hero: HeroPose;
   /** Effects of the last turns, drawn over everything else. */
   fx: FxQueue;
+  /** Optional instance already fed every UI action, so batched React renders cannot lose a turn's pose. */
+  creatures?: CreatureAnimator;
   playerPos: Point;
   view: View;
   /** Screen pixels per logical pixel. Whole numbers keep the pixel art sharp. */
@@ -633,9 +635,9 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
   }
 
   // Each creature's picture follows its pose. Reduced motion skips the animation and shows them standing on their tiles.
-  animator.update(`${state.seed}:${floor.depth}`, floor.dimlings, state.player, opts.time, state.steps,
-    state.events.includes("drain") && floor.dimlings.some(d => d.boss && dimlingDistance(d, state.player) === 1));
-  const poseOf = (d: Dimling) => (opts.reducedMotion ? restPose(d) : animator.pose(d, opts.time));
+  const creatures = opts.creatures ?? animator;
+  if (!opts.creatures) creatures.updateRun(state, opts.time);
+  const poseOf = (d: Dimling) => (opts.reducedMotion ? restPose(d) : creatures.pose(d, opts.time));
 
   // The tiles a creature is about to hit are marked in red, stronger the closer the blow.
   const heroTile = { x: Math.round(opts.playerPos.x), y: Math.round(opts.playerPos.y) };

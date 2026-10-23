@@ -12,6 +12,7 @@ import { useGame, type RunReport } from "@/state/store";
 import { useWallet } from "@/state/wallet";
 import { nftVisual } from "./hero-info";
 import { HeroAvatar } from "./art";
+import { reportDeath } from "./death-cause";
 
 export function ReportDialog() {
   const report = useGame(s => s.lastReport);
@@ -20,9 +21,11 @@ export function ReportDialog() {
   if (!report) return null;
 
   const extracted = report.outcome === "extracted";
+  const cause = reportDeath(report);
   const share = [
     `Emberdeep`,
     extracted ? `Extracted from depth ${report.depth}` : `Lost in the dark at depth ${report.depth}`,
+    cause,
     extracted ? `${report.gold} gold banked for the round` : `${report.gold} gold lost in the dark`,
     `Spent ${usd(report.spent)} of simulated USDC on oil`,
     report.bossSlain ? `Slew Cerberus` : null,
@@ -51,6 +54,8 @@ export function ReportDialog() {
             {report.bossSlain && <span className="text-sigil"> · Cerberus slain</span>}
           </DialogDescription>
         </DialogHeader>
+
+        {cause && <p className="text-sm text-orange-200" aria-label="Last cause">{cause}</p>}
 
         <div className="grid grid-cols-2 gap-2 text-sm">
           <Row label="Oil spent" value={usd(report.spent)} sub="Simulated USDC · 1 entry key used" />

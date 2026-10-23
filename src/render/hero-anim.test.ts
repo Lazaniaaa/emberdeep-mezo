@@ -3,7 +3,7 @@ import { NO_PERKS } from "@/game/catalog";
 import { idx, type Dimling } from "@/game/dungeon";
 import { applyAction, emptyBag, startRun, type RunState } from "@/game/run";
 import type { Fx } from "./fx";
-import { HERO_HURT_MS, HERO_STRIKE_MS, HERO_WINDUP_MS, heroMotion, turnEffects } from "./hero-anim";
+import { HERO_HURT_MS, HERO_STRIKE_MS, HERO_WINDUP_MS, HeroAttacks, heroMotion, turnEffects } from "./hero-anim";
 
 /** An open room with the delver in the middle facing right, and nothing else on the floor. */
 function room(over: Partial<Parameters<typeof startRun>[0]> = {}): RunState {
@@ -24,6 +24,25 @@ const creature = (over: Partial<Dimling> = {}): Dimling => ({
 const of = <K extends Fx["kind"]>(fx: Fx[], kind: K) => fx.filter((f): f is Extract<Fx, { kind: K }> => f.kind === kind);
 
 describe("heroMotion", () => {
+  it("keeps each contact visible while a key submits attacks every 90 ms, with no growing animation backlog", () => {
+    const attacks = new HeroAttacks();
+    const pose = (t: number, still = false) => attacks.pose(t, "down", false, 0, -Infinity, still);
+    attacks.add(0, "right"); expect(pose(45).frame).toBe("w");
+    for (let at = 90; at <= 900; at += 90) {
+      attacks.add(at, "right");
+      expect(pose(at + 10)).toMatchObject({ frame: "s", dir: "right" });
+      expect(pose(at + 55).frame).toBe("w");
+    }
+    expect(pose(1010, true)).toMatchObject({ frame: "s", offX: 0, offY: 0 });
+    expect(pose(1200).frame).toBe("a");
+    attacks.add(1300, "left"); attacks.clear(); expect(pose(1400).frame).toBe("a");
+  });
+  it("shows a contact even if the next render misses its usual 45 ms contact window", () => {
+    const attacks = new HeroAttacks(); attacks.add(0, "right"); attacks.add(90, "right");
+    expect(attacks.pose(145, "right", false, 0, -Infinity, false).frame).toBe("s");
+    expect(attacks.pose(175, "right", false, 0, -Infinity, false).frame).toBe("w");
+    expect(attacks.pose(200, "right", false, 0, -Infinity, false).frame).toBe("s");
+  });
   it("stands still, and walks with the leading foot swapping tile by tile", () => {
     expect(heroMotion(1000, "down", false, 0, -Infinity, -Infinity, false).frame).toBe("a");
     expect(heroMotion(1000, "down", true, 4, -Infinity, -Infinity, false).frame).toBe("c");

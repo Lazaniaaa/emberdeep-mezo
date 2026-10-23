@@ -1,8 +1,10 @@
 import type { Dimling, Point } from "@/game/dungeon";
 import { windupProgress } from "@/game/enemy-ai";
 import { DEFAULT_SPECIES, enemyDef, type EnemySpecies } from "@/game/enemies";
-import { HERO_WINDUP_MS } from "./hero-anim";
+import { HERO_CONTACT_MS, HERO_WINDUP_MS } from "./hero-anim";
 import type { MobFrame } from "./mob-sheets";
+import type { RunState } from "@/game/run";
+import { bossDrained } from "./turn-feedback";
 
 /**
  * Which picture of a creature to show, and where. A creature glides between tiles on a walk cycle with a small hop, turns
@@ -60,6 +62,7 @@ export type Pose = {
   striking: boolean;
 };
 
+type BossContact = { at: number; lunge: Point };
 type Track = {
   fromX: number; fromY: number; toX: number; toY: number; movedAt: number;
   flip: boolean;
@@ -69,6 +72,9 @@ type Track = {
   /** When its own blow landed, and the way it lunged. */
   strikeAt: number; lunge: Point;
   turn: number;
+  contacts: BossContact[];
+  lastContact?: BossContact;
+  shownContact?: BossContact;
 };
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
@@ -85,6 +91,18 @@ export const restPose = (d: Point): Pose => ({ x: d.x, y: d.y, lift: 0, offX: 0,
 export class CreatureAnimator {
   private tracks = new Map<number, Track>();
   private key = "";
+  private lastRun: RunState | null = null;
+  private action = 0;
+
+  /** Immutable state identity counts render-side actions, including blows with unchanged game steps. */
+  updateRun(run: RunState, time: number) {
+    const prev = this.lastRun;
+    const changed = prev !== run;
+    if (changed) this.action++;
+    this.update(`${run.seed}:${run.depth}:${run.runId ?? ""}`, run.floor.dimlings, run.player, time, this.action,
+      !!prev && changed && bossDrained(prev, run));
+    this.lastRun = run;
+  }
 
   private position(t: Track, time: number) {
     const k = clamp01((time - t.movedAt) / CREATURE_MOVE_MS);
@@ -104,7 +122,7 @@ export class CreatureAnimator {
       if (!t) {
         this.tracks.set(d.id, {
           fromX: d.x, fromY: d.y, toX: d.x, toY: d.y, movedAt: -Infinity, flip: facing ?? false, last: d,
-          hitAt: -Infinity, knock: { x: 0, y: 0 }, strikeAt: -Infinity, lunge: { x: 0, y: 0 }, turn,
+          hitAt: -Infinity, knock: { x: 0, y: 0 }, strikeAt: -Infinity, lunge: { x: 0, y: 0 }, turn, contacts: [],
         });
         continue;
       }
@@ -122,6 +140,8 @@ export class CreatureAnimator {
         t.strikeAt = time;
         const middle = ((d.size ?? 2) - 1) / 2;
         t.lunge = toward({ x: d.x + middle, y: d.y + middle }, player);
+        t.contacts.push({ at: time + BOSS_ANTICIPATION_MS, lunge: t.lunge });
+        if (t.contacts.length > 32) t.contacts.shift();
       }
       t.turn = turn;
       if (d.x !== t.toX || d.y !== t.toY) {
@@ -144,7 +164,17 @@ export class CreatureAnimator {
     const moving = k < 1 && (t.fromX !== t.toX || t.fromY !== t.toY);
     const pose: Pose = { x, y, lift: 0, offX: 0, offY: 0, frame: "a", flip: t.flip, flash: false, striking: false };
 
-    const struck = time - t.strikeAt;
+    let struck = time - t.strikeAt, lunge = t.lunge;
+    if (d.boss) {
+      while (t.contacts.length && t.contacts[0].at <= time) t.lastContact = t.contacts.shift();
+      const last = t.lastContact;
+      const firstFrame = last && last !== t.shownContact && time - last.at < STRIKE_MS - BOSS_ANTICIPATION_MS;
+      if (firstFrame) t.shownContact = last;
+      const contact = firstFrame || (last && time - last.at < HERO_CONTACT_MS);
+      const active = contact ? last : t.contacts[0] ?? last;
+      struck = active ? time - active.at + BOSS_ANTICIPATION_MS : Infinity;
+      lunge = active?.lunge ?? lunge;
+    }
     const hit = time - t.hitAt;
     const p = windupProgress(d);
     if (struck >= 0 && struck < STRIKE_MS) {
@@ -154,8 +184,8 @@ export class CreatureAnimator {
       const reach = Math.round(Math.sin((Math.PI * struck) / STRIKE_MS) * (shoots ? -2 : LUNGE_PX));
       pose.frame = d.boss && struck < BOSS_ANTICIPATION_MS ? "w" : "s";
       pose.striking = true;
-      pose.offX = t.lunge.x * reach;
-      pose.offY = t.lunge.y * reach;
+      pose.offX = lunge.x * reach;
+      pose.offY = lunge.y * reach;
     } else if (p !== null) {
       // Winding up: its attack pose, trembling more as the blow gets closer.
       pose.frame = "w";

@@ -8,6 +8,16 @@ const creature = (over: Partial<Dimling> = {}): Dimling => ({
 });
 
 describe("CreatureAnimator", () => {
+  it("does not let a new boss contact erase an unshown strike on a slower render frame", () => {
+    const a = new CreatureAnimator(), boss = creature({ boss: true, size: 2 });
+    a.update("slow", [boss], { x: 4, y: 5 }, 0, 0);
+    a.update("slow", [boss], { x: 4, y: 5 }, 1000, 1, true);
+    expect(a.pose(boss, 1050).frame).toBe("w");
+    a.update("slow", [boss], { x: 4, y: 5 }, 1090, 2, true);
+    expect(a.pose(boss, 1110).frame).toBe("s");
+    expect(a.pose(boss, 1140).frame).toBe("w");
+    expect(a.pose(boss, 1160).frame).toBe("s");
+  });
   it("shows a creature standing on its tile when it has not moved", () => {
     const a = new CreatureAnimator();
     const d = creature();

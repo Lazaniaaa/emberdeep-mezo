@@ -1,0 +1,105 @@
+{
+  "desktop": {
+    "attacks": {
+      "hits": 8,
+      "sounds": 8,
+      "soundDelays": [
+        103.59999999403954,
+        120.39999999403972,
+        129.69999999403944,
+        137.5999999999999,
+        111.30000000000018,
+        122.09999998807916,
+        130.59999998807916,
+        105.49999998807925
+      ],
+      "frames": [
+        "w",
+        "s",
+        "a"
+      ],
+      "hp": 1872,
+      "steps": 0,
+      "hitLabel": true
+    },
+    "boss": {
+      "drains": 8,
+      "steps": 0,
+      "strikes": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "label": true,
+      "weight": "boss"
+    },
+    "step": {
+      "label": true,
+      "weight": "none"
+    },
+    "death": "boss; persisted through report and reload",
+    "reduced": {
+      "weight": "none",
+      "animations": 0,
+      "hurt": false
+    },
+    "soundCleanup": "mute, hide/resume and unmount: no delayed hit"
+  },
+  "phone": {
+    "attacks": {
+      "hits": 8,
+      "sounds": 8,
+      "soundDelays": [
+        129.49999998807903,
+        91.90000000596046,
+        138.1999999821187,
+        96.29999998807898,
+        106.39999998807912,
+        100.99999998211842,
+        111.49999998807925,
+        119.30000000596056
+      ],
+      "frames": [
+        "a",
+        "w",
+        "s"
+      ],
+      "hp": 1872,
+      "steps": 0,
+      "hitLabel": true
+    },
+    "boss": {
+      "drains": 8,
+      "steps": 0,
+      "strikes": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "label": true,
+      "weight": "boss"
+    },
+    "step": {
+      "label": true,
+      "weight": "none"
+    },
+    "death": "boss; persisted through report and reload",
+    "reduced": {
+      "weight": "none",
+      "animations": 0,
+      "hurt": false
+    },
+    "soundCleanup": "mute, hide/resume and unmount: no delayed hit"
+  },
+  "errors": []
+}

@@ -17,6 +17,8 @@ export const HERO_WINDUP_MS = 90;
 export const HERO_STRIKE_MS = 170;
 /** How long the red flash lasts when a creature's blow lands on the delver. */
 export const HERO_HURT_MS = 260;
+/** Preserve at least one visible contact frame even when attacks arrive every 90 ms. */
+export const HERO_CONTACT_MS = 45;
 /** How far the lunge reaches, in canvas pixels. */
 const LUNGE_PX = 5;
 
@@ -44,6 +46,31 @@ export function heroMotion(time: number, dir: HeroDir, walking: boolean, stride:
   const hurt = time - hurtAt;
   if (hurt >= 0 && hurt < HERO_HURT_MS) motion.flash = still ? 0.45 : 0.65 * (1 - hurt / HERO_HURT_MS);
   return motion;
+}
+
+/** A bounded presentation timeline. Turns resolve immediately; overlapping swings shorten only their shown wind-up. */
+export class HeroAttacks {
+  private pending: { at: number; dir: HeroDir }[] = [];
+  private last: { at: number; dir: HeroDir } | null = null;
+  private shown: { at: number; dir: HeroDir } | null = null;
+
+  add(at: number, dir: HeroDir) {
+    this.pending.push({ at: at + HERO_WINDUP_MS, dir });
+    if (this.pending.length > 32) this.pending.shift();
+  }
+
+  clear() { this.pending = []; this.last = null; this.shown = null; }
+
+  pose(time: number, dir: HeroDir, walking: boolean, stride: number, hurtAt: number, still: boolean) {
+    while (this.pending.length && this.pending[0].at <= time) this.last = this.pending.shift()!;
+    // A new input must never erase a contact that has just landed. No input or rule is delayed here.
+    const firstFrame = this.last && this.last !== this.shown && time - this.last.at < HERO_STRIKE_MS;
+    if (firstFrame) this.shown = this.last;
+    const contact = firstFrame || (this.last && time - this.last.at < HERO_CONTACT_MS);
+    const active = contact ? this.last : this.pending[0] ?? this.last;
+    const facing = active && time < active.at + HERO_STRIKE_MS ? active.dir : dir;
+    return { dir: facing, ...heroMotion(time, facing, walking, stride, active ? active.at - HERO_WINDUP_MS : -Infinity, hurtAt, still) };
+  }
 }
 
 /** The events of a turn in which the delver struck something. */

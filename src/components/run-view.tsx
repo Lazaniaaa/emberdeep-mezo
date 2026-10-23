@@ -16,13 +16,14 @@ import { GEAR } from "@/game/props";
 import { baseDamage, bossAlive, currentRadius, currentStepCost, levelOf, onRift, onStairs, xpOf, type RunAction, type RunState } from "@/game/run";
 import { percent } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { FxQueue } from "@/render/fx";
-import { heroMotion, turnEffects } from "@/render/hero-anim";
+import { RunPresentation } from "@/render/run-presentation";
+import { lightNumber, riftEstimate, SHAKE_PX, shakeWeight, type ShakeWeight } from "@/render/turn-feedback";
 import { COLORS, TILE, cameraFor, drawRun, type View } from "@/render/renderer";
 import { settle, useRun } from "@/state/run-store";
 import { holdRunLock } from "@/state/run-lock";
 import { useGame } from "@/state/store";
 import { resolveHero } from "./hero-info";
+import { rememberDeath, reportDeath } from "./death-cause";
 
 type Screen = { w: number; h: number };
 
@@ -39,8 +40,9 @@ export function RunView() {
   const clear = useRun(s => s.clear);
   const game = useGame();
   const hero = resolveHero(game.hero, game.heroes);
-  const [shake, setShake] = useState(0);
-  const [hurt, setHurt] = useState(0);
+  const [presentation] = useState(() => new RunPresentation(run));
+  const [impact, setImpact] = useState({ id: 0, weight: "none" as ShakeWeight });
+  const shakeRoot = useRef<HTMLDivElement>(null);
   const lastKey = useRef(0);
   const root = useRef<HTMLDivElement>(null);
   const [screen, setScreen] = useState<Screen>({ w: 1280, h: 720 });
@@ -56,13 +58,37 @@ export function RunView() {
   }, []);
 
 
-  const dispatch = useCallback((action: RunAction) => {
-    const next = act(action);
-    if (!next) return;
-    const muted = useGame.getState().muted;
-    for (const e of new Set(next.events)) playSfx(e, muted);
-    if (next.events.includes("drain") && !useGame.getState().reducedMotion) { setShake(s => s + 1); setHurt(h => h + 1); }
-  }, [act]);
+  // Observe every action synchronously, even if React batches multiple store notifications into one render.
+  useEffect(() => {
+    const unsubscribe = useRun.subscribe(({ run: next }) => {
+      if (!next || next === presentation.previous) return;
+      const prev = presentation.previous;
+      presentation.observe(next, performance.now());
+      if (document.hidden) presentation.sounds.clear();
+      if (prev.status === "playing" && next.status === "dead" && presentation.death) rememberDeath(next, presentation.death);
+      const weight = shakeWeight(prev, next, useGame.getState().reducedMotion);
+      setImpact(last => ({ id: last.id + 1, weight }));
+    });
+    const hide = () => { if (document.hidden) presentation.sounds.clear(); };
+    document.addEventListener("visibilitychange", hide);
+    return () => { unsubscribe(); document.removeEventListener("visibilitychange", hide); presentation.sounds.clear(); };
+  }, [presentation]);
+
+  useEffect(() => { if (game.muted) presentation.sounds.clear(); }, [game.muted, presentation]);
+
+  useEffect(() => {
+    const px = game.reducedMotion ? 0 : SHAKE_PX[impact.weight];
+    if (!px || !shakeRoot.current) return;
+    // Animate the existing wrapper. A keyed wrapper used to remount Canvas and erase its strike history on every hit.
+    const animation = shakeRoot.current.animate([
+      { transform: "translate(0,0)" }, { transform: `translate(${-px}px,${px / 2}px)` },
+      { transform: `translate(${px}px,${-px / 2}px)` }, { transform: `translate(${-px / 2}px,${px / 3}px)` },
+      { transform: "translate(0,0)" },
+    ], { duration: impact.weight === "death" ? 260 : 180, easing: "ease-in-out" });
+    return () => animation.cancel();
+  }, [impact, game.reducedMotion]);
+
+  const dispatch = useCallback((action: RunAction) => { act(action); }, [act]);
 
   const contextAction = useCallback(() => {
     const r = useRun.getState().run;
@@ -115,14 +141,17 @@ export function RunView() {
   const windingUp = run.floor.dimlings.some(d => !d.boss && d.phase === "windup");
   const level = levelOf(run);
   const xpPct = level >= MAX_LEVEL ? 100 : Math.min(100, (xpOf(run) / xpToNext(level)) * 100);
+  const back = riftEstimate(run);
+  const death = presentation.death ?? (game.lastReport ? reportDeath(game.lastReport) : null);
 
   return (
     <div ref={root} className="fixed inset-0 overflow-hidden bg-black text-white">
-      <div key={shake} className={cn("absolute inset-0", shake > 0 && "animate-[shake_180ms_ease-in-out]")}>
+      <div ref={shakeRoot} className="absolute inset-0" data-shake={game.reducedMotion ? "none" : impact.weight}>
         <GameCanvas run={run} animal={game.animal} reducedMotion={game.reducedMotion} view={view} zoom={zoom}
+          presentation={presentation}
           onMove={(dx, dy) => dispatch({ type: "move", dx, dy })} />
       </div>
-      {hurt > 0 && <div key={`hurt-${hurt}`} aria-hidden className="pointer-events-none absolute inset-0 z-10 animate-[hurt_450ms_ease-out_forwards]" />}
+      {!game.reducedMotion && impact.weight !== "none" && <div key={`hurt-${impact.id}`} aria-hidden className="pointer-events-none absolute inset-0 z-10 animate-[hurt_450ms_ease-out_forwards]" />}
 
       <Header overlay />
 
@@ -144,6 +173,11 @@ export function RunView() {
             {(run.rage ?? 0) > 0 && <Badge className="bg-red-500 text-white">Rage {run.rage}</Badge>}
             {(run.regen ?? 0) > 0 && <Badge className="bg-emerald-500 text-black">Regen {run.regen}</Badge>}
           </div>
+          <p className="mt-1 text-[10px] leading-tight text-muted-foreground" aria-label="Rift walk estimate"
+            title="Lower bound for walking over seen tiles only. Threats, occupants and refills are excluded; survival is not guaranteed.">
+            {back ? `Rift estimate: ≈${lightNumber(back.light)}+ light · ${back.steps} steps` : "Rift estimate: no known route"}
+            <span className="block opacity-80">Lower bound · not a guarantee</span>
+          </p>
         </section>
         <section className="rounded-xl border border-white/20 bg-[#150c2b]/85 px-3 py-1.5 backdrop-blur-sm" aria-label="Level">
           <div className="flex items-baseline justify-between">
@@ -223,6 +257,7 @@ export function RunView() {
                 ? `You made it home from depth ${run.deepest} with ${run.gold} gold. It joins this round's pool share.`
                 : `The deep keeps your ${run.gold} gold. It counts for nobody, so the pool is split among the delvers who made it home.`}
             </p>
+            {run.status === "dead" && <p className="text-sm text-orange-200" aria-label="Last cause">{death ?? "Light exhausted · final source unavailable"}</p>}
             <Button size="lg" className="font-pixel" onClick={finish} autoFocus>Return to camp</Button>
           </div>
         </div>
@@ -262,17 +297,14 @@ function PotionButton({ id, run, onUse }: { id: PotionId; run: RunState; onUse: 
   );
 }
 
-function GameCanvas({ run, animal, reducedMotion, view: viewSize, zoom, onMove }: {
-  run: RunState; animal: Animal; reducedMotion: boolean; view: View; zoom: number; onMove: (dx: number, dy: number) => void;
+function GameCanvas({ run, animal, reducedMotion, view: viewSize, zoom, onMove, presentation }: {
+  run: RunState; animal: Animal; reducedMotion: boolean; view: View; zoom: number; onMove: (dx: number, dy: number) => void; presentation: RunPresentation;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const camera = useRef<View>({ x: 0, y: 0, w: viewSize.w, h: viewSize.h });
   const live = useRef({ run, animal, reducedMotion });
   useEffect(() => { live.current = { run, animal, reducedMotion }; });
   const tween = useRef({ from: { x: run.player.x, y: run.player.y }, to: { x: run.player.x, y: run.player.y }, at: 0, depth: run.depth });
-  const fx = useRef(new FxQueue());
-  const motion = useRef({ attackAt: -Infinity, hurtAt: -Infinity });
-  const shown = useRef(run);
 
   useEffect(() => {
     const t = tween.current;
@@ -280,19 +312,6 @@ function GameCanvas({ run, animal, reducedMotion, view: viewSize, zoom, onMove }
     if (p.x === t.to.x && p.y === t.to.y && run.depth === t.depth) return;
     const teleport = run.depth !== t.depth || Math.abs(p.x - t.to.x) + Math.abs(p.y - t.to.y) > 1;
     tween.current = { from: teleport ? { ...p } : { ...t.to }, to: { x: p.x, y: p.y }, at: performance.now(), depth: run.depth };
-  }, [run]);
-
-  // Each turn leaves its effects: the delver's swing, numbers, puffs, and the bursts of creatures' blows.
-  useEffect(() => {
-    const prev = shown.current;
-    shown.current = run;
-    if (prev === run) return;
-    if (prev.depth !== run.depth || prev.seed !== run.seed) fx.current.clear();
-    const now = performance.now();
-    const turn = turnEffects(prev, run, now);
-    turn.fx.forEach(f => fx.current.add(f));
-    if (turn.attack) motion.current.attackAt = now;
-    if (turn.hurt) motion.current.hurtAt = now;
   }, [run]);
 
   useEffect(() => {
@@ -304,7 +323,7 @@ function GameCanvas({ run, animal, reducedMotion, view: viewSize, zoom, onMove }
     let lastDraw = -Infinity;
     const frame = (time: number) => {
       raf = requestAnimationFrame(frame);
-      if (document.hidden) return;
+      if (document.hidden) { presentation.sounds.clear(); return; }
       const { run, animal, reducedMotion } = live.current;
       const interval = reducedMotion ? 100 : 1000 / 30;
       if (time - lastDraw < interval) return;
@@ -313,18 +332,18 @@ function GameCanvas({ run, animal, reducedMotion, view: viewSize, zoom, onMove }
       const k = reducedMotion ? 1 : Math.min(1, (time - t.at) / MOVE_MS);
       const walking = k < 1;
       const pos = { x: t.from.x + (t.to.x - t.from.x) * k, y: t.from.y + (t.to.y - t.from.y) * k };
-      const dir = run.player.facing;
       // Every step to a neighbouring tile changes x + y by one, so its parity swaps the leading foot step by step.
-      const m = heroMotion(time, dir, walking, t.to.x + t.to.y, motion.current.attackAt, motion.current.hurtAt, reducedMotion);
+      const m = presentation.hero.pose(time, run.player.facing, walking, t.to.x + t.to.y, presentation.hurtAt, reducedMotion);
+      presentation.sounds.flush(time, useGame.getState().muted, event => playSfx(event, false));
       const view = cameraFor(pos, run.floor.w, run.floor.h, viewW, viewH);
       camera.current = view;
-      drawRun(ctx, run, { time, reducedMotion, hero: { animal, dir, ...m }, fx: fx.current, playerPos: pos, view, zoom });
+      drawRun(ctx, run, { time, reducedMotion, hero: { animal, ...m }, fx: presentation.fx, creatures: presentation.creatures, playerPos: pos, view, zoom });
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
     // The loop reads live state from refs; only a change of view size or zoom needs a restart.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewSize.w, viewSize.h, zoom]);
+  }, [viewSize.w, viewSize.h, zoom, presentation]);
 
   const onPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
