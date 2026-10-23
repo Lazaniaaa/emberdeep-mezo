@@ -2,6 +2,7 @@ import { footprint, hasFloorDecor, idx, tileHash, visibleSet, type Dimling, type
 import { attackTiles, windupProgress } from "@/game/enemy-ai";
 import { DEFAULT_SPECIES } from "@/game/enemies";
 import { paintMap } from "./painted-map";
+import { decorOccupants, drawCatacombsCell, usesCatacombsTiles } from "./catacombs";
 import { currentRadius, propsOf, type RunState } from "@/game/run";
 import { cerberusSheet, cerberusFrame, cerberusFacing, CERBERUS_CELL_W, CERBERUS_CELL_H, CERBERUS_FOOT_X, CERBERUS_FOOT_Y, CERBERUS_TEXTURE_SCALE } from "./cerberus-sprites";
 import { CreatureAnimator, restPose, type Pose } from "./creature-anim";
@@ -96,6 +97,8 @@ const THEME_PALETTE: Record<FloorTheme, {
 export type View = { x: number; y: number; w: number; h: number };
 
 export type DrawOptions = {
+  /** Initial spawn cells stay reserved after occupants move. Null disables floor decorations. */
+  decorBlocked?: ReadonlySet<number> | null;
   /** UI panels transformed into world pixels by the canvas host. */
   feedbackAvoid?: { x: number; y: number; w: number; h: number }[];
   time: number;
@@ -130,7 +133,7 @@ const THEME_ORDER: FloorTheme[] = ["catacombs", "mycelium", "cinderworks", "holl
 
 /** Approved map illustrations are cached as one tile-sized canvas per floor. */
 function mapArtwork(depth: number, width: number, height: number) {
-  if (depth < 1 || depth > 7) return null;
+  if (depth < 3 || depth > 7) return null;
   const key = `${depth}:${width}:${height}`;
   const cached = MAP_ART_CANVASES.get(key);
   if (cached) return cached;
@@ -533,6 +536,8 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
   const visible = visibleSet(floor, state.player, radius);
   const nightVision = state.light <= 0 && state.nightVision > 0;
   const artwork = mapArtwork(floor.depth, floor.w, floor.h);
+  const tiled = usesCatacombsTiles(floor.depth);
+  const decorBlocked = opts.decorBlocked === undefined ? decorOccupants(floor) : opts.decorBlocked;
   // The masks trace the painted ground at cell centres. Feet belong there, not on the next row's wall cap.
   const actorLift = artwork ? 12 : 0;
   const litAtlas = tileAtlas(floor.theme, palette, true);
@@ -540,6 +545,7 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
   const occupied = new Set<number>([
     idx(floor, floor.spawn.x, floor.spawn.y), idx(floor, floor.stairs.x, floor.stairs.y),
     ...floor.items.map(p => idx(floor, p.x, p.y)), ...floor.dimlings.flatMap(d => footprint(d).map(p => idx(floor, p.x, p.y))),
+    ...propsOf(floor).map(p => idx(floor, p.x, p.y)),
     idx(floor, Math.round(opts.playerPos.x), Math.round(opts.playerPos.y)),
   ]);
   const floorAt = (x: number, y: number) => x >= 0 && y >= 0 && x < floor.w && y < floor.h && floor.tiles[idx(floor, x, y)] === 1;
@@ -554,7 +560,9 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
       const px = x * TILE, py = y * TILE;
       const atlas = lit ? litAtlas : dimAtlas;
       const variant = hash(x, y) % ATLAS_VARIANTS;
-      if (artwork) {
+      if (tiled) {
+        drawCatacombsCell(ctx, floor, x, y, lit, decorBlocked, occupied);
+      } else if (artwork) {
         ctx.drawImage(artwork, px, py, TILE, TILE, px, py, TILE, TILE);
         if (!lit) {
           ctx.fillStyle = "rgba(0,0,0,0.48)";

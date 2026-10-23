@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import sharp from "sharp";
+import { writeTiles } from "./tile-sheets.mjs";
 
 const COLS = 5, ROWS = 4;
 export const CELL_W = 64, CELL_H = 56;
@@ -275,6 +276,7 @@ export const CURB_ORDER = ["curb-h", "curb-v", "curb-outer", "curb-inner", "curb
 export const CURB_HEIGHT = { "curb-h": 8, "curb-v": 32, "curb-outer": 32, "curb-inner": 32, "curb-end-h": 8, "curb-end-v": 32 };
 
 const KINDS = {
+  tiles: { raw: "art/tiles/raw/", out: "public/tiles/" },
   // Cerberus: down/left/right/up, idle/step/wind-up/attack, retaining the source eyes at 2x density.
   bosses: { raw: "art/bosses/raw/", out: "public/bosses/", cols: 4, rows: 4, cellW: 128, cellH: 112, footX: 64, footY: 104, main: true, height: () => 72, textureScale: 2, fixes: {} },
   heroes: { raw: "art/heroes/raw/", out: "public/heroes/", cols: COLS, rows: ROWS, cellW: CELL_W, cellH: CELL_H, footX: FOOT_X, footY: FOOT_Y, main: false, height: () => FIGURE_H, textureScale: HERO_TEXTURE_SCALE, fixes: FIXES },
@@ -534,6 +536,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   for (const [id, k] of Object.entries(KINDS)) {
     if (kind && kind !== id) continue;
     if (!existsSync(k.raw)) continue;
+    if (id === "tiles") {
+      if (!only || only === "catacombs" || only === "catacombs-v5") {
+        mkdirSync(k.out, { recursive: true });
+        await writeTiles(k.raw + "catacombs-v5.webp", k.out + "catacombs.png");
+      }
+      continue;
+    }
     for (const f of readdirSync(k.raw)) {
       const name = f.replace(/\.webp$/, "");
       if (!only || only === name) await convert(name, k);

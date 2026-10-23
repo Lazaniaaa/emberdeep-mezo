@@ -342,7 +342,7 @@ function GameCanvas({ run, animal, reducedMotion, view: viewSize, zoom, onMove, 
       const feedbackAvoid = panels.map(el => el.getBoundingClientRect()).filter(r => r.width > 0 && r.height > 0).map(r => ({
         x: view.x*TILE + (r.left-canvasRect.left)/zoom, y: view.y*TILE + (r.top-canvasRect.top)/zoom, w: r.width/zoom, h: r.height/zoom,
       }));
-      drawRun(ctx, run, { time, reducedMotion, hero: { animal, ...m }, fx: presentation.fx, creatures: presentation.creatures, playerPos: pos, view, zoom, feedbackAvoid });
+      drawRun(ctx, run, { time, reducedMotion, hero: { animal, ...m }, fx: presentation.fx, creatures: presentation.creatures, playerPos: pos, view, zoom, feedbackAvoid, decorBlocked: presentation.decor.blocked });
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);

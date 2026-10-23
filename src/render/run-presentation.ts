@@ -4,6 +4,7 @@ import { CreatureAnimator } from "./creature-anim";
 import { FxQueue } from "./fx";
 import { HeroAttacks, HERO_WINDUP_MS, turnEffects } from "./hero-anim";
 import { deathExplanation, lightLoss, sameFloor } from "./turn-feedback";
+import { CatacombsDecor } from "./catacombs";
 
 /** UI-only history; deliberately separate from RunState, replay, settlement and the signing server. */
 export class RunPresentation {
@@ -12,11 +13,13 @@ export class RunPresentation {
   readonly hero = new HeroAttacks();
   readonly creatures = new CreatureAnimator();
   readonly sounds = new TurnSounds();
+  readonly decor: CatacombsDecor;
   hurtAt = -Infinity;
   death: string | null = null;
 
   constructor(run: RunState) {
     this.previous = run;
+    this.decor = new CatacombsDecor(run);
     this.creatures.updateRun(run, 0);
   }
 
@@ -25,6 +28,7 @@ export class RunPresentation {
     if (prev === next) return;
     this.previous = next;
     if (!sameFloor(prev, next)) {
+      this.decor.reset(next, true);
       this.fx.clear(); this.hero.clear(); this.sounds.clear(); this.hurtAt = -Infinity;
       if (prev.seed !== next.seed || prev.runId !== next.runId) this.death = null;
     }

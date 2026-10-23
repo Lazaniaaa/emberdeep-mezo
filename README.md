@@ -49,7 +49,7 @@ The original **Lanterns Below** soundtrack is synthesized locally after your fir
 
 1. **Get in.** A descent needs an **entry key** ($0.50). New saves start with three, and $20 of simulated USDC.
 2. **Fill your lantern.** Buy oil flasks at camp ($0.20 each, 80 light per flask).
-3. **Descend.** The descent fills the whole screen like the camp. Floors 1-7 have hand-traced layouts with painted art
+3. **Descend.** The descent fills the whole screen like the camp. Floors 1-7 have hand-traced layouts: 1-2 use 32px catacombs tiles, 3-7 painted art
    (floors 1-3 are 60% larger than the rest), deeper floors are generated, and all of them sit under fog of war. Every step
    burns light. Vision stays at radius 5 until light drops below 25; then it narrows at 20, 10 and 5 light.
 4. **Push or pull out.** Deeper floors multiply loot (+40% per depth) but each step burns
@@ -323,7 +323,7 @@ server (`deploy/attest.ps1`); see [docs/arc/README.md](docs/arc/README.md).
 
 Vite, React 19, TypeScript, Tailwind CSS v4, shadcn/ui (Base UI), zustand, viem and Vitest. The Hall of Descents
 contract is Solidity 0.8.28 on Solady, tested in an in-memory EVM (ethereumjs); its signing server is plain Node.
-The game is rendered on Canvas 2D. The camp and seven dungeon floors use painted WebP art; delvers, creatures and loot use pixel sprite sheets. Portraits and UI icons are drawn in code. The camp has animated fire, light, crystals and water, with a code-drawn fallback if its painting cannot load.
+The game is rendered on Canvas 2D. The camp and floors 3-7 use painted WebP art; floors 1-2 use a 32px catacombs tileset over the same hand-traced grids. Delvers, creatures and loot use pixel sprite sheets. Portraits and UI icons are drawn in code. The camp has animated fire, light, crystals and water, with a code-drawn fallback if its painting cannot load. See [the catacombs art pipeline](docs/art/catacombs-tiles.md) to rebuild the tile atlas.
 
 ## Integration notes for the next on-chain steps
 
