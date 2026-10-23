@@ -62,10 +62,13 @@ afterAll(() => close.forEach(c => c()));
 
 describe("attestation server", () => {
   it("replays a descent that came home, signs exactly its result, and the Hall accepts it", async () => {
-    // The wider low-light view changes the bot's route; this seed still extracts with nonzero loot and kills.
-    const { moves, final } = play(() => simulateFogRun(1000, 2));
+    // Three-wide catacombs change the bot's route. Keep an extracting fixture, not an obsolete survival assumption.
+    const seed = 8919;
+    const { moves, final } = play(() => simulateFogRun(seed, 2));
     expect(final.status).toBe("extracted");
-    const res = await post(base, { player: PLAYER, setup: setupFor(1000, 2), moves });
+    expect(final.gold).toBeGreaterThan(0);
+    expect(final.kills).toBeGreaterThan(0);
+    const res = await post(base, { player: PLAYER, setup: setupFor(seed, 2), moves });
     expect(res.status).toBe(200);
     const { descent, signature } = await res.json() as Attestation;
     expect(descent).toMatchObject({ depth: final.deepest, gold: final.gold, kills: final.kills, home: true, deadline: String(EVM_NOW + 3600n) });

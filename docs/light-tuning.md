@@ -20,10 +20,10 @@ Light comes back from four places: oil jars lying on the floor, broken props, de
 
 | Scenario | 1 flask | 2 flasks | 3 flasks | 5 flasks | Expert, 3 flasks | Expert, 5 flasks | Sloppy, 3 flasks |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **No creature oil** | 4.0 (83% / 45% / 0%) | 4.7 (83% / 70% / 8%) | 5.1 (85% / 73% / 23%) | 5.8 (90% / 75% / 63%) | 5.5 (85% / 78% / 55%) | 5.8 (85% / 75% / 63%) | 6.8 (100% / 98% / 90%) |
-| **Flat prop oil** | 5.1 (90% / 75% / 15%) | 5.4 (90% / 73% / 35%) | 5.6 (85% / 70% / 60%) | 6.3 (90% / 75% / 65%) | 5.7 (83% / 73% / 60%) | 6.0 (80% / 68% / 57%) | 8.3 (100% / 100% / 98%) |
-| **Chosen** | 5.2 (90% / 78% / 18%) | 5.5 (88% / 78% / 40%) | 5.6 (85% / 73% / 60%) | 6.4 (90% / 75% / 68%) | 5.7 (85% / 75% / 60%) | 6.4 (83% / 70% / 63%) | 8.6 (100% / 100% / 100%) |
-| **+30% oil (test)** | 5.4 (93% / 75% / 35%) | 5.8 (90% / 75% / 60%) | 6.1 (85% / 73% / 65%) | 6.9 (90% / 78% / 75%) | 5.8 (80% / 70% / 57%) | 6.8 (85% / 73% / 63%) | 10.6 (100% / 100% / 100%) |
+| **No creature oil** | 3.9 (75% / 45% / 3%) | 4.5 (73% / 63% / 13%) | 4.8 (75% / 65% / 23%) | 5.3 (80% / 70% / 53%) | 4.9 (78% / 65% / 40%) | 5.4 (80% / 70% / 53%) | 7.0 (100% / 100% / 88%) |
+| **Flat prop oil** | 4.6 (85% / 57% / 10%) | 5.2 (85% / 68% / 35%) | 5.8 (85% / 80% / 60%) | 6.1 (85% / 75% / 60%) | 5.8 (85% / 78% / 63%) | 6.2 (83% / 78% / 63%) | 8.0 (100% / 100% / 100%) |
+| **Chosen** | 4.9 (88% / 68% / 18%) | 5.0 (80% / 68% / 25%) | 5.6 (85% / 78% / 50%) | 6.2 (85% / 83% / 65%) | 5.9 (83% / 78% / 70%) | 6.3 (85% / 78% / 65%) | 8.0 (100% / 100% / 98%) |
+| **+30% oil (test)** | 5.0 (83% / 68% / 30%) | 5.8 (85% / 83% / 60%) | 6.0 (83% / 78% / 70%) | 7.1 (85% / 83% / 73%) | 6.3 (83% / 80% / 70%) | 7.5 (90% / 85% / 75%) | 10.2 (100% / 100% / 100%) |
 
 Each cell is the mean deepest floor, then the share of descents that got to floor 3 / floor 5 / floor 7. These are newcomers unless the column says expert.
 
@@ -31,10 +31,10 @@ Each cell is the mean deepest floor, then the share of descents that got to floo
 
 | Scenario | Start | Oil jars | Props | Creatures | Levels | Steps | Blows taken | Collector gold per cent (2 flasks) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **No creature oil** | 240 | 0 | 217 | 0 | 69 | -448 | -86 | 5.82 |
-| **Flat prop oil** | 240 | 0 | 227 | 100 | 75 | -516 | -140 | 6.39 |
-| **Chosen** | 240 | 0 | 226 | 104 | 75 | -512 | -150 | 6.07 |
-| **+30% oil (test)** | 240 | 0 | 280 | 145 | 81 | -578 | -182 | 6.86 |
+| **No creature oil** | 240 | 0 | 197 | 0 | 64 | -401 | -105 | 5.38 |
+| **Flat prop oil** | 240 | 0 | 201 | 106 | 75 | -497 | -139 | 6.43 |
+| **Chosen** | 240 | 0 | 212 | 110 | 75 | -502 | -150 | 5.86 |
+| **+30% oil (test)** | 240 | 0 | 265 | 153 | 81 | -556 | -201 | 6.90 |
 
 ### What each scenario means
 
@@ -51,25 +51,25 @@ Light gained and spent on each floor, averaged over the descents that reached it
 
 | Floor | Descents there | Oil jars | Props | Creatures | **Drops** | Levels | Steps | Blows taken | **Net** |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 40 of 40 | 0 | 50 | 12 | **62** | 20 | -78 | -24 | **-22** |
-| 2 | 36 of 40 | 0 | 45 | 13 | **58** | 19 | -74 | -17 | **-13** |
-| 3 | 34 of 40 | 0 | 32 | 14 | **47** | 11 | -93 | -13 | **-48** |
-| 4 | 31 of 40 | 0 | 23 | 18 | **41** | 10 | -79 | -20 | **-49** |
-| 5 | 29 of 40 | 0 | 39 | 27 | **65** | 11 | -116 | -18 | **-58** |
-| 6 | 28 of 40 | 0 | 51 | 28 | **79** | 12 | -125 | -23 | **-57** |
-| 7 | 24 of 40 | 0 | 45 | 25 | **70** | 7 | -92 | -91 | **-106** |
+| 1 | 40 of 40 | 0 | 39 | 15 | **54** | 19 | -67 | -26 | **-21** |
+| 2 | 36 of 40 | 0 | 44 | 12 | **56** | 18 | -65 | -20 | **-11** |
+| 3 | 34 of 40 | 0 | 31 | 12 | **43** | 14 | -93 | -14 | **-50** |
+| 4 | 32 of 40 | 0 | 27 | 22 | **49** | 10 | -95 | -21 | **-57** |
+| 5 | 31 of 40 | 0 | 37 | 28 | **64** | 12 | -112 | -16 | **-52** |
+| 6 | 29 of 40 | 0 | 44 | 28 | **72** | 9 | -122 | -25 | **-66** |
+| 7 | 20 of 40 | 0 | 45 | 30 | **75** | 10 | -89 | -92 | **-96** |
 
 **+30% oil (test):**
 
 | Floor | Descents there | Oil jars | Props | Creatures | **Drops** | Levels | Steps | Blows taken | **Net** |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 40 of 40 | 0 | 60 | 15 | **75** | 19 | -78 | -24 | **-8** |
-| 2 | 37 of 40 | 0 | 49 | 18 | **66** | 18 | -73 | -17 | **-5** |
-| 3 | 34 of 40 | 0 | 37 | 18 | **55** | 11 | -98 | -14 | **-46** |
-| 4 | 32 of 40 | 0 | 25 | 23 | **49** | 10 | -84 | -22 | **-46** |
-| 5 | 29 of 40 | 0 | 42 | 29 | **71** | 11 | -110 | -17 | **-45** |
-| 6 | 29 of 40 | 0 | 52 | 27 | **79** | 12 | -133 | -26 | **-68** |
-| 7 | 26 of 40 | 0 | 58 | 43 | **101** | 12 | -110 | -117 | **-115** |
+| 1 | 40 of 40 | 0 | 49 | 19 | **68** | 19 | -68 | -27 | **-8** |
+| 2 | 36 of 40 | 0 | 53 | 14 | **67** | 18 | -66 | -22 | **-4** |
+| 3 | 33 of 40 | 0 | 33 | 15 | **48** | 13 | -89 | -9 | **-37** |
+| 4 | 31 of 40 | 0 | 29 | 25 | **54** | 11 | -101 | -20 | **-55** |
+| 5 | 31 of 40 | 0 | 40 | 32 | **72** | 11 | -112 | -19 | **-48** |
+| 6 | 30 of 40 | 0 | 44 | 33 | **78** | 10 | -121 | -24 | **-58** |
+| 7 | 28 of 40 | 0 | 58 | 41 | **98** | 13 | -104 | -135 | **-127** |
 
 ## What was chosen, and why
 
@@ -80,7 +80,7 @@ Light gained and spent on each floor, averaged over the descents that reached it
 - **A blow burns no light** (2026-10-11, the owner: only steps should): hitting a creature or a prop costs a turn but no oil; walking and waiting burn it. An urn or a sack breaks at the first blow, a crate or a barrel at the second, whatever the weapon.
 - **`dropOil` multiplies all the oil that drops** (jars, props, creatures). It is 1 for everyone; the owner can try 1.3 in local play with `VITE_DROP_OIL=1.3` in `.env.local`.
 
-With the chosen values 3 flasks take a newcomer to floor 5.6 on average, and 68% of 5-flask newcomers reach Cerberus. With +30% oil the same 3 flasks reach floor 6.1 and 75% of 5-flask newcomers reach the boss; a collector banks 6.86 gold per cent spent instead of 6.07, and one flask comes close to paying as well as two, which the economy tests do not allow. So +30% stays a local test until the owner decides.
+With the chosen values 3 flasks take a newcomer to floor 5.6 on average, and 65% of 5-flask newcomers reach Cerberus. With +30% oil the same 3 flasks reach floor 6.0 and 73% of 5-flask newcomers reach the boss; a collector banks 6.90 gold per cent spent instead of 5.86, and one flask comes close to paying as well as two, which the economy tests do not allow. So +30% stays a local test until the owner decides.
 
 ## What this does not show
 

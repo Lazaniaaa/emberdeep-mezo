@@ -2,6 +2,8 @@
 
 The owner supplied `art/tiles/raw/catacombs-v5.webp`. This is existing art processing, with no generated replacement art.
 
+Current geometry: the subsequent [three-lane corridor checkpoint](../design/catacombs-width-2026-10.md) changes the walk map for floors 1-2 and opens their exits. That later change **does require rebuilding the signing server with the site**. The rendering-only conversion described below did not change rules.
+
 Rebuild only this atlas (does not touch any other sprite sheets):
 
 ```powershell
@@ -35,7 +37,8 @@ Lighting, seen tiles, line of sight, rift/stair markers, combat, spawning and th
 Repeat after a change with the local dev server on port 5741:
 
 ```powershell
-$env:SMOKE_CHANNEL='msedge'; node scripts/catacombs-smoke.mjs after
+$env:SMOKE_CHANNEL='msedge'; node scripts/catacombs-smoke.mjs after http://127.0.0.1:5741/ catacombs-wide
 ```
 
 The `before` phase records a new baseline and should only be run deliberately before a future visual change; it overwrites the saved baseline. The original baseline here was captured before replacing the catacombs paintings.
+The `catacombs-wide` suite stores separate evidence and expects changed grids on 1-2 but unchanged renders on 3-7. Omit that argument only to compare the original rendering-only snapshots against their historical grid.

@@ -1,7 +1,8 @@
-/** Hand-traced collision masks over the approved map canvases, in 32px tiles.
+/** Authored 32px collision masks: tile-based catacombs (1-2), traced painted floors (3-7).
  * # masonry/torch/pillar/well edge; . floor; R rift; S the sole descent tile.
  * Edit with scripts/floor-overlay.mjs, then check every overlay and multi-seed tests.
- * Narrow painted links stay narrow; the renderer must never invent broad corridors. */
+ * Catacombs corridors have three lanes around their original axes; exits sit on open room floor.
+ * Painted links on 3-7 stay narrow; the renderer must never invent walkable corridors. */
 export const PAINTED_FLOORS: Readonly<Record<number, { roomCount: number; rows: readonly string[] }>> = {
   1: { roomCount: 2, rows: [
     "##################################", // 0
@@ -13,9 +14,9 @@ export const PAINTED_FLOORS: Readonly<Record<number, { roomCount: number; rows: 
     "######################..........##", // 6
     "###.......############..........##", // 7
     "###.......############..........##", // 8
-    "###.......#.........##...###....##", // 9
-    "###..R...................#S#....##", // 10
-    "###.......#.........##...#.#....##", // 11
+    "###.............................##", // 9
+    "###..R....................S.....##", // 10
+    "###.............................##", // 11
     "###.......############..........##", // 12
     "###.......############..........##", // 13
     "###..##...############..........##", // 14
@@ -36,13 +37,13 @@ export const PAINTED_FLOORS: Readonly<Record<number, { roomCount: number; rows: 
     "###.......########################", // 5
     "##........#####.....#####.......##", // 6
     "##........#####.....#####.......##", // 7
-    "##........#####.....#####..###..##", // 8
-    "##...R..............#####..#S#..##", // 9
-    "##........#####............#.#..##", // 10
-    "##........######....#####..#.#..##", // 11
-    "###.......#######.#######.......##", // 12
-    "###...#..########.#######.......##", // 13
-    "#################.################", // 14
+    "##..................#####.......##", // 8
+    "##...R......................S...##", // 9
+    "##..............................##", // 10
+    "##........######................##", // 11
+    "###.......######...######.......##", // 12
+    "###...#..#######...######.......##", // 13
+    "################...###############", // 14
     "##################################", // 15
     "##################################", // 16
     "##################################", // 17

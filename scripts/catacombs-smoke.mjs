@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 const phase=process.argv[2],base=process.argv[3]??'http://127.0.0.1:5741/';
+const suite=process.argv[4]??'catacombs',wide=suite==='catacombs-wide';
+assert(['catacombs','catacombs-wide'].includes(suite));
 assert(['before','after'].includes(phase));
 assert(['localhost','127.0.0.1'].includes(new URL(base).hostname));
 const out='docs/screenshots';mkdirSync(out,{recursive:true});
@@ -34,10 +36,10 @@ try {
           draw();await new Promise(r=>setTimeout(r,250));draw();return c.toDataURL('image/png').split(',')[1];
         });
         renders[depth]=createHash('sha256').update(png).digest('hex');
-        if(depth<=2)writeFileSync(`${out}/catacombs-0${depth}-${phase}-render.png`,Buffer.from(png,'base64'));
+        if(depth<=2)writeFileSync(`${out}/${suite}-0${depth}-${phase}-render.png`,Buffer.from(png,'base64'));
       }
       if(depth>2)continue;
-      await page.screenshot({path:`${out}/catacombs-0${depth}-${phase}-${screen}.png`});
+      await page.screenshot({path:`${out}/${suite}-0${depth}-${phase}-${screen}.png`});
       const path=await page.evaluate(()=>{
         const s=window.__emberdeep.useRun.getState().run,f=s.floor,start=f.spawn.y*f.w+f.spawn.x,end=f.stairs.y*f.w+f.stairs.x;
         const queue=[start],prev=new Map([[start,null]]);
@@ -60,9 +62,13 @@ try {
           actions++;await page.waitForTimeout(110);
         }
         assert(reached,`Could not reach ${JSON.stringify(target)}`);
+        if(wide && target.x===(depth===1?15:12) && target.y===(depth===1?10:9)) {
+          await page.waitForTimeout(130);
+          await page.screenshot({path:`${out}/${suite}-0${depth}-${phase}-${screen}-corridor.png`});
+        }
       }
       await page.getByRole('button',{name:new RegExp(`Descend to depth ${depth+1}`)}).waitFor();
-      await page.screenshot({path:`${out}/catacombs-0${depth}-${phase}-${screen}-stairs.png`});
+      await page.screenshot({path:`${out}/${suite}-0${depth}-${phase}-${screen}-stairs.png`});
       results.push({screen,depth,gridHash:createHash('sha256').update(grid).digest('hex'),routeTiles:path.length,actions});
       if(phase==='after'){
         await page.evaluate(async()=>{
@@ -75,7 +81,7 @@ try {
           useGame.setState({reducedMotion:false,runId:s.runId});useRun.setState({run:s});
         });
         await page.keyboard.press('Space');await page.waitForTimeout(350);
-        await page.screenshot({path:`${out}/catacombs-0${depth}-after-${screen}-fog.png`});
+        await page.screenshot({path:`${out}/${suite}-0${depth}-after-${screen}-fog.png`});
       }
     }
     if(phase==='after'){
@@ -87,10 +93,11 @@ try {
   }
   assert.deepEqual(errors,[]);
   if(phase==='after'){
-    const before=JSON.parse(readFileSync('docs/catacombs-before-qa.json','utf8'));
+    const before=JSON.parse(readFileSync(`docs/${suite}-before-qa.json`,'utf8'));
     for(let d=3;d<=7;d++)assert.equal(renders[d],before.renders[d],`Painting ${d} unchanged`);
-    assert.deepEqual(results.map(r=>r.gridHash),before.results.map(r=>r.gridHash),'Generated floors unchanged');
+    if(wide)for(let i=0;i<results.length;i++)assert.notEqual(results[i].gridHash,before.results[i].gridHash,'Catacombs layout intentionally changed');
+    else assert.deepEqual(results.map(r=>r.gridHash),before.results.map(r=>r.gridHash),'Generated floors unchanged');
   }
-  writeFileSync(`docs/catacombs-${phase}-qa.json`,JSON.stringify({results,renders,errors},null,2)+'\n');
+  writeFileSync(`docs/${suite}-${phase}-qa.json`,JSON.stringify({results,renders,errors},null,2)+'\n');
   console.log(JSON.stringify({results,errors},null,2));
 }finally{await browser.close();}
