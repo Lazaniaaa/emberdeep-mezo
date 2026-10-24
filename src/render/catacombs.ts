@@ -4,7 +4,7 @@ import { loadSheet } from "./sheets";
 
 const SIZE = 32, SAVE_KEY = "emberdeep-catacombs-decor-v1";
 export const usesCatacombsTiles = (depth: number) => depth === 1 || depth === 2;
-export const usesTiledFloor = (depth: number) => depth >= 1 && depth <= 4;
+export const usesTiledFloor = (depth: number) => depth >= 1 && depth <= 7;
 
 /** A face occupies the wall cell itself, never the floor in front of it. */
 export function catacombsRow(floor: Pick<Floor, "tiles" | "w" | "h">, x: number, y: number) {

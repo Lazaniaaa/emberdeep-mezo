@@ -274,7 +274,7 @@ describe("the creatures and the floors they live on", () => {
     }
   });
 
-  it("keeps the larger early-floor canvases without carving through painted walls for a tile quota", () => {
+  it("keeps the larger early-floor canvases independently of each authored floor's walkable area", () => {
     for (let depth = 1; depth <= 3; depth++) {
       expect([floorWidth(depth), floorHeight(depth)]).toEqual([34, 22]);
       expect(floorScale(depth)).toBeGreaterThanOrEqual(1.6);
@@ -286,10 +286,7 @@ describe("the creatures and the floors they live on", () => {
       expect([floorWidth(depth), floorHeight(depth)]).toEqual([MAP_W, MAP_H]);
       expect(generateFloor(createRng(depth), depth, { findPct: 0 }).tiles).toHaveLength(MAP_W * MAP_H);
     }
-    // Compare with unchanged paintings (5-7); tiled floor 4 now has deliberately wider links and open exit rooms.
-    // Canvas dimensions remain fixed above; do not shrink the new geometry to preserve an old area ranking.
-    const walkable = (depth: number) => generateFloor(createRng(depth), depth, { findPct: 0 }).tiles.filter(t => t === 1).length;
-    for (let depth=1;depth<=3;depth++) expect(walkable(depth)).toBeGreaterThan(walkable(depth+4));
+    // Independent layout tests cover the actual area and three-lane links; canvas size is not an area quota.
   });
 
   it("carries a saved floor of any depth through a copy without losing its creatures' state", () => {

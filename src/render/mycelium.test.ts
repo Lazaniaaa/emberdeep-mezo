@@ -16,7 +16,7 @@ describe("mycelium presentation",()=>{
     expect(counts[1]/10000).toBeGreaterThan(0.08);expect(counts[1]/10000).toBeLessThan(0.12);
     for(const i of [0,2,3])expect(counts[i]/10000).toBeGreaterThan(0.27);
     expect([1,2,3,4,5,6,7].map(usesMyceliumTiles)).toEqual([false,false,true,true,false,false,false]);
-    expect([1,2,3,4,5,6,7].map(usesTiledFloor)).toEqual([true,true,true,true,false,false,false]);
+    expect([1,2,3,4,5,6,7].map(usesTiledFloor)).toEqual([true,true,true,true,true,true,true]);
   });
   for(const depth of [3,4])it(`floor ${depth}: full-cell wall orientation and spawn-safe, visual-only decoration`,()=>{
     const s=startRun({seed:42,flasks:5,perks:NO_PERKS,weaponDamage:16,bag:emptyBag()});

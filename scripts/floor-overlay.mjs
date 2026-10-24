@@ -12,14 +12,20 @@ try {
   const floors = await page.evaluate(async phase => {
     const { generateFloor } = await import("/src/game/dungeon.ts");
     const { createRng } = await import("/src/game/rng.ts");
-    const { paintMap } = await import("/src/render/painted-map.ts");
+    const { drawRun } = await import("/src/render/renderer.ts");
+    const { startRun, emptyBag } = await import("/src/game/run.ts");
+    const { NO_PERKS } = await import("/src/game/catalog.ts");
+    const { FxQueue } = await import("/src/render/fx.ts");
+    const { HeroAttacks } = await import("/src/render/hero-anim.ts");
     const results = [];
     for (let depth = 1; depth <= 7; depth++) {
       const floor = generateFloor(createRng(20261023 + depth), depth, { findPct: 0 });
-      const image = new Image(); image.src = `/maps/depth-${String(depth).padStart(2, "0")}.webp`; await image.decode();
       const art = document.createElement("canvas"); art.width = floor.w * 32; art.height = floor.h * 32;
       const a = art.getContext("2d"); a.imageSmoothingEnabled = false;
-      paintMap(a,image,depth,art.width,art.height);
+      const state = startRun({seed:20261023+depth,flasks:5,perks:{...NO_PERKS,radius:100},weaponDamage:16,bag:emptyBag()});
+      state.floor={...floor,seen:floor.tiles.map(()=>1),items:[],props:[],dimlings:[]};state.depth=depth;state.player={...floor.spawn,facing:"right"};
+      const render=()=>drawRun(a,state,{time:1000,reducedMotion:true,hero:{animal:"cat-scottish-fold",...new HeroAttacks().pose(1000,"right",false,0,-Infinity,true)},fx:new FxQueue(),playerPos:state.player,view:{x:0,y:0,w:floor.w,h:floor.h},zoom:1});
+      render();await new Promise(r=>setTimeout(r,250));render();
       const c = document.createElement("canvas"); c.width=art.width+32;c.height=art.height+80;
       const ctx=c.getContext("2d");ctx.fillStyle="#121423";ctx.fillRect(0,0,c.width,c.height);
       ctx.fillStyle="#fff";ctx.font="14px monospace";ctx.fillText(`Depth ${depth} · ${phase} · seed ${20261023+depth} · green=floor P=prop I=item M=mob B=boss S=stairs R=rift`,8,20);
@@ -40,6 +46,6 @@ try {
     return results;
   }, phase);
   for (const {depth,png} of floors) writeFileSync(`${out}/floor-${String(depth).padStart(2,"0")}-${phase}.png`,Buffer.from(png,"base64"));
-  writeFileSync(`${out}/floors-${phase}.json`,JSON.stringify(floors.map(({png,...rest})=>rest),null,2)+"\n");
+  writeFileSync(`${out}/floors-${phase}.json`,JSON.stringify(floors.map(({png,...rest})=>rest))+"\n");
   console.log(`Saved ${phase} overlays for all 7 floors`);
 } finally { await browser.close(); }

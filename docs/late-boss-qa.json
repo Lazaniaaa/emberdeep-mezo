@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "screen": "desktop",
+      "bossAnchor": {
+        "x": 12,
+        "y": 7
+      },
+      "windup": true,
+      "strike": 40,
+      "recoveryTurns": 2,
+      "dodge": true,
+      "ward": true,
+      "slain": true,
+      "hoard": 1,
+      "blows": 19
+    },
+    {
+      "screen": "phone",
+      "bossAnchor": {
+        "x": 12,
+        "y": 7
+      },
+      "windup": true,
+      "strike": 40,
+      "recoveryTurns": 2,
+      "dodge": true,
+      "ward": true,
+      "slain": true,
+      "hoard": 1,
+      "blows": 19
+    }
+  ],
+  "errors": []
+}

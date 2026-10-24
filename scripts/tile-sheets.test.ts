@@ -51,3 +51,31 @@ describe("approved mycelium tilesheet",()=>{
     expect(Buffer.compare(expected,actual)).toBe(0);
   });
 });
+
+for(const theme of ["cinderworks","hollowglass"])describe(`${theme} production tiles`,()=>{
+  it("reproduces slab joints, deeper rock crops and fringe-free transparent art, including crystal face holes",async()=>{
+    const sheet=await cutTiles(`art/tiles/raw/${theme}-v1.webp`,theme);
+    const png=await sharp(await readFile(`public/tiles/${theme}.png`)).ensureAlpha().raw().toBuffer();
+    expect(sheet.boxes).toHaveLength(18);expect(Buffer.compare(sheet.data,png)).toBe(0);
+    let faceHoles=0;
+    for(let row=0;row<5;row++)for(let col=0;col<(row===4?2:4);col++){
+      let solid=0;
+      for(let y=0;y<32;y++)for(let x=0;x<32;x++){
+        const p=((row*32+y)*128+col*32+x)*4,rgba=[...png.subarray(p,p+4)];
+        if(rgba[3]){solid++;expect(isTileMatte(...rgba.slice(0,3))).toBe(false);}
+        if(row===0||row===1||(row===2&&theme!=="hollowglass"))expect(rgba[3]).toBe(255);
+        if(row===0&&(x===0||y===0||x===31||y===31))expect(rgba).toEqual(JOINT);
+        if(row===2&&!rgba[3])faceHoles++;
+        if(row>=3&&(x===0||y===0||x===31||y===31))expect(rgba[3]).toBe(0);
+      }
+      expect(solid).toBeGreaterThan(40);
+    }
+    if(theme==="hollowglass")expect(faceHoles).toBeGreaterThan(5);
+    else expect(faceHoles).toBe(0);
+    const box=sheet.boxes.find((b:{row:number;col:number})=>b.row===1&&b.col===0)!;
+    const ix=Math.max(3,Math.round(box.width*0.025)),iy=Math.max(3,Math.round(box.height*0.025));
+    const expected=await sharp(`art/tiles/raw/${theme}-v1.webp`).extract({left:box.left+ix,top:box.top+iy,width:box.width-2*ix,height:box.height-2*iy}).resize(32,32,{kernel:"nearest",fit:"fill"}).ensureAlpha().raw().toBuffer();
+    for(let p=0;p<expected.length;p+=4)if(isTileMatte(expected[p],expected[p+1],expected[p+2]))expected.set(JOINT,p);
+    const actual=await sharp(`public/tiles/${theme}.png`).extract({left:0,top:32,width:32,height:32}).raw().toBuffer();expect(Buffer.compare(expected,actual)).toBe(0);
+  });
+});

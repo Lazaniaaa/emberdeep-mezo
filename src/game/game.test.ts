@@ -133,7 +133,7 @@ describe("dungeon", () => {
     expect(themeForDepth(3)).not.toBe(themeForDepth(5));
   });
 
-  it("keeps illustrated entrances and the boss arena on the walkable grid", () => {
+  it("keeps authored entrances and the open boss arena on the walkable grid", () => {
     const first = generateFloor(createRng(1), 1, { findPct: 0 });
     for (const y of [9, 10, 11]) expect(first.tiles[idx(first, 13, y)]).toBe(1);
     for (const y of [8, 12]) expect(first.tiles[idx(first, 13, y)]).toBe(0);
@@ -148,9 +148,9 @@ describe("dungeon", () => {
 
     const arena = generateFloor(createRng(7), 7, { findPct: 0 });
     for (let y = 3; y <= 12; y++) {
-      for (let x = 8; x <= 18; x++) expect(arena.tiles[idx(arena, x, y)]).toBe(1);
-      expect(arena.tiles[idx(arena, 7, y)]).toBe(0);
-      expect(arena.tiles[idx(arena, 19, y)]).toBe(0);
+      for (let x = 7; x <= 19; x++) expect(arena.tiles[idx(arena, x, y)]).toBe(1);
+      expect(arena.tiles[idx(arena, 6, y)]).toBe(0);
+      expect(arena.tiles[idx(arena, 20, y)]).toBe(0);
     }
     expect(arena.tiles[idx(arena, 13, 14)]).toBe(1);
     expect(arena.tiles[idx(arena, 13, 15)]).toBe(0);

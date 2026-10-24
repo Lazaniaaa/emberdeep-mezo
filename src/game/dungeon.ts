@@ -1,4 +1,4 @@
-import { PAINTED_FLOORS } from "./painted-floors";
+import { FLOOR_LAYOUTS } from "./floor-layouts";
 import { BOSS_DEPTH, BOSS_HP, BOSS_SIZE, HP_SCALE, enemyCount, floorHeight, floorScale, floorWidth } from "./config";
 import { enemyDef, pickEnemy, type EnemySpecies } from "./enemies";
 import { PROPS, propCounts, propDef, type PropKind } from "./props";
@@ -178,7 +178,7 @@ export function generateFloor(rng: Rng, depth: number, options: FloorOptions): F
   const w = floorWidth(depth), h = floorHeight(depth);
   const at = (x: number, y: number) => y * w + x;
   const tiles = new Array<number>(w * h).fill(WALL);
-  const authored = PAINTED_FLOORS[depth];
+  const authored = FLOOR_LAYOUTS[depth];
   const layout = authored ? null : layoutForDepth(depth);
   const mirror = !authored && chance(rng, 0.5);
   const mirrorPoint = (p: Point): Point => ({ x: mirror ? w - 1 - p.x : p.x, y: p.y });
@@ -192,14 +192,14 @@ export function generateFloor(rng: Rng, depth: number, options: FloorOptions): F
   let spawn: Point;
   let stairs: Point;
   if (authored) {
-    if (authored.rows.length !== h || authored.rows.some(row => row.length !== w)) throw new Error("Invalid painted floor dimensions");
+    if (authored.rows.length !== h || authored.rows.some(row => row.length !== w)) throw new Error("Invalid authored floor dimensions");
     let rift: Point | undefined, down: Point | undefined;
     authored.rows.forEach((row, y) => [...row].forEach((cell, x) => {
       if (cell !== "#") tiles[at(x, y)] = FLOOR;
       if (cell === "R") rift = { x, y };
       if (cell === "S") down = { x, y };
     }));
-    if (!rift || !down) throw new Error("Painted floor needs a rift and stairs");
+    if (!rift || !down) throw new Error("Authored floor needs a rift and stairs");
     spawn = rift; stairs = down;
   } else {
     for (const slot of layout!.rooms) {
@@ -243,12 +243,16 @@ export function generateFloor(rng: Rng, depth: number, options: FloorOptions): F
   }
 
   const taken = new Set<number>([at(spawn.x, spawn.y), at(stairs.x, stairs.y)]);
+  const bossClearance = new Set<number>();
+  const bossAnchor = depth === BOSS_DEPTH ? {x:Math.floor((spawn.x+stairs.x)/2)-1,y:Math.floor((spawn.y+stairs.y)/2)-1} : null;
+  // Reserve the central fight before items are placed, so unlucky chest positions cannot remove the boss spawn.
+  if(bossAnchor)for(let y=bossAnchor.y-2;y<bossAnchor.y+BOSS_SIZE+2;y++)for(let x=bossAnchor.x-2;x<bossAnchor.x+BOSS_SIZE+2;x++)bossClearance.add(at(x,y));
   let nextId = 1;
   const place = (minDist: number) => {
     for (let tries = 0; tries < 200; tries++) {
       const c = cells[int(rng, 0, cells.length - 1)];
       const k = at(c.x, c.y);
-      if (taken.has(k) || dist[k] < minDist || [spawn, stairs].some(p => Math.max(Math.abs(c.x-p.x), Math.abs(c.y-p.y)) <= 2)) continue;
+      if (taken.has(k) || bossClearance.has(k) || dist[k] < minDist || [spawn, stairs].some(p => Math.max(Math.abs(c.x-p.x), Math.abs(c.y-p.y)) <= 2)) continue;
       taken.add(k);
       return c;
     }
@@ -278,13 +282,18 @@ export function generateFloor(rng: Rng, depth: number, options: FloorOptions): F
   const dimlings = Math.min(enemyCount(depth), Math.floor(cells.length / 12));
   for (let i = 0; i < dimlings; i++) {
     if (i === 0 && depth === BOSS_DEPTH) {
-      // Cerberus replaces the first dimling. It takes a 2x2 patch of open floor close to the stairs it seals.
+      // Cerberus replaces the first dimling in the central arena reserved between the rift and sealed stairs.
       const free = (c: Point) => cells.some(o => o.x === c.x && o.y === c.y) && !taken.has(at(c.x, c.y));
       const guard = cells
+        .filter(c => c.x===bossAnchor!.x && c.y===bossAnchor!.y)
         .filter(c => footprint({ ...c, size: BOSS_SIZE }).every(free) && footprint({ ...c, size: BOSS_SIZE }).every(p => [spawn, stairs].every(exit => Math.max(Math.abs(p.x-exit.x), Math.abs(p.y-exit.y)) > 2)))
+        // Place the body between the exits, with two full lanes for reading and dodging every marked edge.
+        .filter(c => c.y > stairs.y && c.y + BOSS_SIZE - 1 < spawn.y
+          && Array.from({length:(BOSS_SIZE+4)**2},(_,i)=>({x:c.x-2+i%(BOSS_SIZE+4),y:c.y-2+Math.floor(i/(BOSS_SIZE+4))})).every(free))
         .sort((a, b) => dimlingDistance({ ...a, size: BOSS_SIZE }, stairs) - dimlingDistance({ ...b, size: BOSS_SIZE }, stairs) || a.y - b.y || a.x - b.x)[0];
       if (guard) {
         for (const c of footprint({ ...guard, size: BOSS_SIZE })) taken.add(at(c.x, c.y));
+        for(let y=guard.y-2;y<guard.y+BOSS_SIZE+2;y++)for(let x=guard.x-2;x<guard.x+BOSS_SIZE+2;x++)bossClearance.add(at(x,y));
         floor.dimlings.push({ ...guard, id: nextId++, hp: BOSS_HP, maxHp: BOSS_HP, awake: false, boss: true, size: BOSS_SIZE });
         continue;
       }

@@ -1,0 +1,56 @@
+{
+  "results": [
+    {
+      "screen": "desktop",
+      "depth": 5,
+      "gridHash": "126c68b703d5e610dca2f76266bf5a212dd2229681ad2efd6c9441e3676134fe",
+      "routeTiles": 24,
+      "actions": 32
+    },
+    {
+      "screen": "desktop",
+      "depth": 6,
+      "gridHash": "8e209c3fc8d857d63c212e1cbb1e4dfa5e8fe6f9fe7de14d221203a186b8cd71",
+      "routeTiles": 27,
+      "actions": 33
+    },
+    {
+      "screen": "desktop",
+      "depth": 7,
+      "gridHash": "87512b1e47410d06336dbad08973a0f72466e001950dc4a3bd8216378d67d626",
+      "routeTiles": 11,
+      "actions": 16
+    },
+    {
+      "screen": "phone",
+      "depth": 5,
+      "gridHash": "126c68b703d5e610dca2f76266bf5a212dd2229681ad2efd6c9441e3676134fe",
+      "routeTiles": 24,
+      "actions": 32
+    },
+    {
+      "screen": "phone",
+      "depth": 6,
+      "gridHash": "8e209c3fc8d857d63c212e1cbb1e4dfa5e8fe6f9fe7de14d221203a186b8cd71",
+      "routeTiles": 27,
+      "actions": 33
+    },
+    {
+      "screen": "phone",
+      "depth": 7,
+      "gridHash": "87512b1e47410d06336dbad08973a0f72466e001950dc4a3bd8216378d67d626",
+      "routeTiles": 11,
+      "actions": 16
+    }
+  ],
+  "renders": {
+    "1": "bfa13856636c123778091ebec4b9cf5a3e2331f0e61b4a3afbc25d29e6b417a4",
+    "2": "4ad6b8cdb90e9110616bed1db8615e81462a0d3ab13d239c1876bac377f931a9",
+    "3": "fe1ae3b72408e716e309dd61bce5ef66c0598f9f5968337afa484201de49083a",
+    "4": "679c5c48a399704cd0977549281f58c487819cb798494c35d7170d1450cf7851",
+    "5": "06af78a2b7744f3ee8c800d2180f42529fe18a906d202ab2138c4322bf2c53ec",
+    "6": "b61e8a157cd0cb81b901cecd6b29f2e4e5fe46ed0c293d01715516f08826ff2a",
+    "7": "290486af6039309494b20c92834c0a03243bb0fb4f3f15b830b36696adac7114"
+  },
+  "errors": []
+}

@@ -415,10 +415,10 @@ Everything stays inside its own frame. Plain flat magenta background (#FF00FF).
 Власник: лоббі має виглядати «+- як печера», усі локації (Dungeon Gate і будиночки) лишаються, але в темі; стару схему
 тримати не обов'язково, «можна трохи логічніше розкидати». Тож розкладка нова, за змістом: зайшов знизу з поверхні → табличка
 з поясненнями → вогнище посередині → ворота вниз у глибині. Гра візьме картинку фоном, як карти поверхів
-(`public/maps/depth-0X.webp`), а клітинки будівель, стіни й вода підганяються під неї. Теперішнє лоббі для порівняння:
+(`art/maps/painted/depth-0X.webp`, тепер лише архів), а клітинки будівель, стіни й вода підганяються під неї. Теперішнє лоббі для порівняння:
 `docs/art/lobby-layout-now.png`.
 
-Прикріпи `public/maps/depth-01.webp` (стиль печери):
+Прикріпи `art/maps/painted/depth-01.webp` (стиль печери, архів):
 
 ```
 Top-down pixel-art game map (seen from above at a slight angle), the same style, palette and pixel density as the attached cave floor. Wide 3:2 landscape, the whole map in frame, no text, no labels, no UI, no characters.

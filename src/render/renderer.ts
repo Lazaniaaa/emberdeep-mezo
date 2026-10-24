@@ -1,9 +1,9 @@
 import { footprint, hasFloorDecor, idx, tileHash, visibleSet, type Dimling, type FloorTheme, type Point } from "@/game/dungeon";
 import { attackTiles, windupProgress } from "@/game/enemy-ai";
 import { DEFAULT_SPECIES } from "@/game/enemies";
-import { paintMap } from "./painted-map";
 import { decorOccupants, drawCatacombsCell, usesTiledFloor } from "./catacombs";
 import { drawMyceliumCell, usesMyceliumTiles } from "./mycelium";
+import { drawCrystalGate, drawLateCell, usesLateTiles } from "./late-tiles";
 import { currentRadius, propsOf, type RunState } from "@/game/run";
 import { cerberusSheet, cerberusFrame, cerberusFacing, CERBERUS_CELL_W, CERBERUS_CELL_H, CERBERUS_FOOT_X, CERBERUS_FOOT_Y, CERBERUS_TEXTURE_SCALE } from "./cerberus-sprites";
 import { CreatureAnimator, restPose, type Pose } from "./creature-anim";
@@ -129,33 +129,7 @@ const hash = tileHash;
 
 const ATLAS_VARIANTS = 8;
 const TILE_ATLASES = new Map<string, HTMLCanvasElement>();
-const MAP_ART_IMAGES = new Map<number, HTMLImageElement>();
-const MAP_ART_CANVASES = new Map<string, HTMLCanvasElement>();
 const THEME_ORDER: FloorTheme[] = ["catacombs", "mycelium", "cinderworks", "hollowglass"];
-
-/** Approved map illustrations are cached as one tile-sized canvas per floor. */
-function mapArtwork(depth: number, width: number, height: number) {
-  if (depth < 5 || depth > 7) return null;
-  const key = `${depth}:${width}:${height}`;
-  const cached = MAP_ART_CANVASES.get(key);
-  if (cached) return cached;
-
-  let image = MAP_ART_IMAGES.get(depth);
-  if (!image) {
-    image = new Image();
-    image.src = `${import.meta.env.BASE_URL}maps/depth-${String(depth).padStart(2, "0")}.webp`;
-    MAP_ART_IMAGES.set(depth, image);
-  }
-  if (!image.complete || image.naturalWidth === 0) return null;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width * TILE;
-  canvas.height = height * TILE;
-  const ctx = canvas.getContext("2d")!;
-  paintMap(ctx, image, depth, canvas.width, canvas.height);
-  MAP_ART_CANVASES.set(key, canvas);
-  return canvas;
-}
 
 /**
  * Cerberus: three heads on a broad body, drawn at 64x64 (2x2 tiles) from rectangles. Sleeping it is dull and still;
@@ -544,11 +518,10 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
   const radius = currentRadius(state);
   const visible = visibleSet(floor, state.player, radius);
   const nightVision = state.light <= 0 && state.nightVision > 0;
-  const artwork = mapArtwork(floor.depth, floor.w, floor.h);
   const tiled = usesTiledFloor(floor.depth);
   const decorBlocked = opts.decorBlocked === undefined ? decorOccupants(floor) : opts.decorBlocked;
-  // The masks trace the painted ground at cell centres. Feet belong there, not on the next row's wall cap.
-  const actorLift = artwork ? 12 : 0;
+  // Feet align with the tile base.
+  const actorLift = 0;
   const litAtlas = tileAtlas(floor.theme, palette, true);
   const dimAtlas = tileAtlas(floor.theme, palette, false);
   const occupied = new Set<number>([
@@ -571,13 +544,8 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
       const variant = hash(x, y) % ATLAS_VARIANTS;
       if (tiled) {
         if (usesMyceliumTiles(floor.depth)) drawMyceliumCell(ctx,floor,x,y,lit,decorBlocked,occupied,opts.time,opts.reducedMotion);
+        else if (usesLateTiles(floor.depth)) drawLateCell(ctx,floor,x,y,lit,decorBlocked,occupied);
         else drawCatacombsCell(ctx, floor, x, y, lit, decorBlocked, occupied);
-      } else if (artwork) {
-        ctx.drawImage(artwork, px, py, TILE, TILE, px, py, TILE, TILE);
-        if (!lit) {
-          ctx.fillStyle = "rgba(0,0,0,0.48)";
-          ctx.fillRect(px, py, TILE, TILE);
-        }
       } else if (floor.tiles[k] === 1) {
         ctx.drawImage(atlas, variant * TILE, 0, TILE, TILE, px, py, TILE, TILE);
         if (lit && !occupied.has(k) && hasFloorDecor(x, y)) {
@@ -600,6 +568,7 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
     }
   }
 
+  drawCrystalGate(ctx,floor,visible);
   const showAt = (p: Point) => floor.seen[idx(floor, p.x, p.y)] && (visible.has(idx(floor, p.x, p.y)) || floor.revealed);
   const iconAt = (p: Point, mask: Mask, color: string) =>
     drawMask(ctx, mask, p.x * TILE + 4, p.y * TILE + 4, 3, color, false, "#000");

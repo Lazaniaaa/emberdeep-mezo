@@ -12,17 +12,17 @@ Strength: a perk you only hold works at ×0.6. A lock starts at ×0.8, gains ×0
 
 | Strategy | Cost per descent | Gold banked per cent spent | vs unperked, 2 flasks | Died | Avg deepest floor |
 | --- | --- | --- | --- | --- | --- |
-| Unperked, 1 flask | $0.70 | 2.19 | ×0.39 | 3% | 1.3 |
-| Unperked, 2 flasks | $0.90 | 5.63 | ×1.00 | 5% | 2.9 |
-| Unperked, 3 flasks | $1.10 | 6.75 | ×1.20 | 9% | 3.8 |
-| Rare Prospector, held (×0.6), 2 flasks | $0.90 | 6.43 | ×1.14 | 5% | 2.9 |
-| Rare Prospector, locked 4 rounds (×1.00), 2 flasks | $0.90 | 7.11 | ×1.26 | 5% | 2.9 |
-| Rare Prospector, locked 10+ rounds (×1.3), 2 flasks | $0.90 | 7.50 | ×1.33 | 5% | 2.9 |
-| Strongest build, held (×0.6), 3 flasks | $1.10 | 8.71 | ×1.55 | 5% | 4.4 |
-| Strongest build, just locked (×0.8), 3 flasks | $1.10 | 9.16 | ×1.63 | 14% | 4.6 |
-| Strongest build, locked 4 rounds (×1.00), 3 flasks | $1.10 | 9.35 | ×1.66 | 18% | 4.9 |
-| Strongest build, locked 10+ rounds (×1.3), 3 flasks | $1.10 | 10.76 | ×1.91 | 20% | 5.3 |
-| Strongest build locked 10+ rounds and $50.00 staked, 3 flasks | $1.10 | 11.88 | ×2.11 | 20% | 5.3 |
+| Unperked, 1 flask | $0.70 | 2.19 | ×0.40 | 3% | 1.3 |
+| Unperked, 2 flasks | $0.90 | 5.48 | ×1.00 | 6% | 2.9 |
+| Unperked, 3 flasks | $1.10 | 7.05 | ×1.29 | 6% | 3.8 |
+| Rare Prospector, held (×0.6), 2 flasks | $0.90 | 6.26 | ×1.14 | 6% | 2.9 |
+| Rare Prospector, locked 4 rounds (×1.00), 2 flasks | $0.90 | 6.92 | ×1.26 | 6% | 2.9 |
+| Rare Prospector, locked 10+ rounds (×1.3), 2 flasks | $0.90 | 7.30 | ×1.33 | 6% | 2.9 |
+| Strongest build, held (×0.6), 3 flasks | $1.10 | 9.69 | ×1.77 | 4% | 4.6 |
+| Strongest build, just locked (×0.8), 3 flasks | $1.10 | 10.39 | ×1.90 | 11% | 4.8 |
+| Strongest build, locked 4 rounds (×1.00), 3 flasks | $1.10 | 11.90 | ×2.17 | 14% | 5.4 |
+| Strongest build, locked 10+ rounds (×1.3), 3 flasks | $1.10 | 13.43 | ×2.45 | 16% | 5.8 |
+| Strongest build locked 10+ rounds and $50.00 staked, 3 flasks | $1.10 | 14.82 | ×2.71 | 16% | 5.8 |
 
 Holding is the weak setting on purpose. Locking wins the strength back over about four rounds and adds a little beyond it, so the reward for commitment is a stronger perk plus a share of the lock pool (table E), not a different game.
 
@@ -32,11 +32,11 @@ One delver making 10 descents against a crowd that spent $200.00 and banked the 
 
 | Strategy | crowd 2.2 | crowd 3.2 | crowd 5.2 | crowd 5.4 | crowd 6.6 |
 | --- | --- | --- | --- | --- | --- |
-| Unperked, 2 flasks | 144% | 102% | 65% | 62% | 51% |
-| Rare Prospector, held (×0.6), 2 flasks | 160% † | 116% | 73% | 71% | 59% |
-| Strongest build, held (×0.6), 3 flasks | 160% † | 150% | 97% | 94% | 78% |
-| Strongest build, locked 10+ rounds (×1.3), 3 flasks | 160% † | 160% † | 118% | 114% | 95% |
-| Strongest build locked 10+ rounds and $50.00 staked, 3 flasks | 160% † | 160% † | 128% | 124% | 104% |
+| Unperked, 2 flasks | 140% | 100% | 63% | 61% | 50% |
+| Rare Prospector, held (×0.6), 2 flasks | 158% | 113% | 72% | 69% | 57% |
+| Strongest build, held (×0.6), 3 flasks | 160% † | 160% † | 107% | 103% | 86% |
+| Strongest build, locked 10+ rounds (×1.3), 3 flasks | 160% † | 160% † | 143% | 139% | 116% |
+| Strongest build locked 10+ rounds and $50.00 staked, 3 flasks | 160% † | 160% † | 156% | 151% | 127% |
 
 A cell scales with `your gold per cent / the crowd's gold per cent`. If the demo's 5.2 is wrong, uncapped returns move by about the same factor, but the cap keeps the best case at +60% a round, and the sum paid out to the whole crowd stays at most 60% of spend.
 
@@ -44,11 +44,11 @@ A cell scales with `your gold per cent / the crowd's gold per cent`. If the demo
 
 | Strategy | crowd $20.00 | crowd $200.00 | crowd $2,000.00 |
 | --- | --- | --- | --- |
-| Unperked, 2 flasks | 63% | 65% | 65% |
-| Rare Prospector, held (×0.6), 2 flasks | 69% | 73% | 74% |
-| Strongest build, held (×0.6), 3 flasks | 81% | 97% | 100% |
-| Strongest build, locked 10+ rounds (×1.3), 3 flasks | 90% | 118% | 123% |
-| Strongest build locked 10+ rounds and $50.00 staked, 3 flasks | 94% | 128% | 136% |
+| Unperked, 2 flasks | 62% | 63% | 63% |
+| Rare Prospector, held (×0.6), 2 flasks | 68% | 72% | 72% |
+| Strongest build, held (×0.6), 3 flasks | 86% | 107% | 111% |
+| Strongest build, locked 10+ rounds (×1.3), 3 flasks | 99% | 143% | 154% |
+| Strongest build locked 10+ rounds and $50.00 staked, 3 flasks | 103% | 156% | 160% † |
 
 In a tiny crowd one delver is a large part of the gold, so its own spend dilutes its share. Returns settle as the crowd grows.
 
@@ -60,10 +60,10 @@ Each row is a whole round with players in the given proportions (share of all de
 | Crowd: unperked / Prospector held / strongest held / strongest locked | Paid out / spent | Carried | Unperked | Prospector held | Strongest held | Strongest locked |
 | --- | --- | --- | --- | --- | --- | --- |
 | 100 / 0 / 0 / 0 | 60.0% | 0.0% | 60% | n/a | n/a | n/a |
-| 70 / 20 / 10 / 0 | 60.0% | 0.0% | 54% | 62% | 88% | n/a |
-| 70 / 20 / 0 / 10 | 60.0% | 0.0% | 51% | 58% | n/a | 115% |
-| 50 / 30 / 0 / 20 | 60.0% | 0.0% | 45% | 51% | n/a | 102% |
-| 20 / 30 / 0 / 50 | 60.0% | 0.0% | 35% | 40% | n/a | 78% |
+| 70 / 20 / 10 / 0 | 60.0% | 0.0% | 53% | 61% | 97% | n/a |
+| 70 / 20 / 0 / 10 | 60.0% | 0.0% | 48% | 54% | n/a | 140% |
+| 50 / 30 / 0 / 20 | 60.0% | 0.0% | 40% | 45% | n/a | 119% |
+| 20 / 30 / 0 / 50 | 60.0% | 0.0% | 28% | 32% | n/a | 84% |
 | 0 / 0 / 0 / 100 | 60.0% | 0.0% | n/a | n/a | n/a | 60% |
 
 The strongest build earns well above average only while few others play it. Its edge is paid by everyone else's gold, and it shrinks as it spreads (compare the rows); if everyone has it, the round pays every delver exactly 60% again.

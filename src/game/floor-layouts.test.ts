@@ -1,21 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { distances, footprint, generateFloor, idx, type Point } from "./dungeon";
-import { PAINTED_FLOORS } from "./painted-floors";
+import { FLOOR_LAYOUTS } from "./floor-layouts";
 import { createRng } from "./rng";
 
 const exits = [[26,10],[28,9],[26,6],[22,7],[22,8],[23,8],[13,3]];
 const near = (a: Point,b: Point) => Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y)) <= 2;
 describe("authored floor collision and placement", () => {
-  it("keeps tiled corridor borders and painted landmarks blocked; deeper painted links stay narrow", () => {
+  it("keeps straight tiled corridor borders and arena edges blocked", () => {
     // Independently reviewed torch/pillar/well-edge cells and corridor cross sections, not random samples of the mask.
     const blocked = [
       [[10,8],[20,12],[25,5],[32,10]],
       [[10,7],[20,8],[15,14],[19,14]],
       [[6,4],[20,5],[28,10],[32,9]],
       [[9,6],[9,10],[11,6],[15,6],[6,11],[4,4],[23,4],[7,4],[19,4]],
-      [[12,6],[14,6],[12,11],[14,11],[21,7],[23,9]],
-      [[12,5],[14,5],[13,8],[12,8],[14,8],[22,7],[24,9]],
-      [[7,6],[19,6],[12,14],[14,14]],
+      [[11,5],[15,5],[11,11],[15,11],[9,6],[18,10]],
+      [[11,5],[15,5],[9,6],[17,5],[11,11],[15,11]],
+      [[6,6],[20,6],[6,14],[20,14],[13,15]],
     ];
     for(let depth=1;depth<=7;depth++) {
       const f=generateFloor(createRng(1),depth,{findPct:0});
@@ -24,12 +24,12 @@ describe("authored floor collision and placement", () => {
     }
     for(const depth of [5,6]) {
       const f=generateFloor(createRng(1),depth,{findPct:0});
-      for(const y of [5,11]) expect([12,13,14].map(x=>f.tiles[idx(f,x,y)])).toEqual([0,1,0]);
+      for(const y of [5,11]) expect([11,12,13,14,15].map(x=>f.tiles[idx(f,x,y)])).toEqual([0,1,1,1,0]);
     }
   });
 
   for(let depth=1;depth<=7;depth++) it(`depth ${depth}: 200 seeds stay on the trace, connected, clear of exits and without overlaps`, () => {
-    const mask=PAINTED_FLOORS[depth];
+    const mask=FLOOR_LAYOUTS[depth];
     expect(mask.rows.join("").match(/S/g)).toHaveLength(1);
     expect(mask.rows.join("").match(/R/g)).toHaveLength(1);
     for(let seed=1;seed<=200;seed++) {

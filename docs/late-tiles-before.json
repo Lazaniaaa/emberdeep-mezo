@@ -1,0 +1,62 @@
+{
+  "enemyHitMultiplier": 4,
+  "fieldGoldPerCent": 5.2,
+  "collectors": [
+    {
+      "flasks": 1,
+      "runs": 80,
+      "goldPerCent": 2.19,
+      "deathRate": 0.025,
+      "avgDepth": 1.25,
+      "bossReachRate": 0,
+      "bossKillRate": 0
+    },
+    {
+      "flasks": 2,
+      "runs": 80,
+      "goldPerCent": 5.62625,
+      "deathRate": 0.05,
+      "avgDepth": 2.9,
+      "bossReachRate": 0,
+      "bossKillRate": 0
+    },
+    {
+      "flasks": 3,
+      "runs": 80,
+      "goldPerCent": 6.753181818181818,
+      "deathRate": 0.0875,
+      "avgDepth": 3.8,
+      "bossReachRate": 0,
+      "bossKillRate": 0
+    },
+    {
+      "flasks": 5,
+      "runs": 80,
+      "goldPerCent": 6.3345,
+      "deathRate": 0.0875,
+      "avgDepth": 4.375,
+      "bossReachRate": 0.0125,
+      "bossKillRate": 0
+    }
+  ],
+  "divers": [
+    {
+      "flasks": 3,
+      "runs": 40,
+      "avgDepth": 5.05,
+      "deathRate": 1,
+      "bossReachRate": 0.25,
+      "bossKillRate": 0.1
+    },
+    {
+      "flasks": 5,
+      "runs": 40,
+      "avgDepth": 5.575,
+      "deathRate": 1,
+      "bossReachRate": 0.55,
+      "bossKillRate": 0.35
+    }
+  ],
+  "baselineCommit": "a0f50bc",
+  "source": "Measured at the identical pre-late-tiles rules, docs/mycelium-after.json"
+}

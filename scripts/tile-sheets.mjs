@@ -18,8 +18,9 @@ function bands(projection, maxGap = 20) {
 
 /** Detect actual artwork bands, not equal sheet partitions (the torch crosses an equal-row boundary). */
 export async function cutTiles(input, theme = 'catacombs') {
-  if (!['catacombs', 'mycelium'].includes(theme)) throw new Error(`Unknown tile theme: ${theme}`);
+  if (!['catacombs', 'mycelium', 'cinderworks', 'hollowglass'].includes(theme)) throw new Error(`Unknown tile theme: ${theme}`);
   const earth = theme === 'mycelium';
+  const late = theme === 'cinderworks' || theme === 'hollowglass';
   const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const { width: w, height: h } = info, rows = new Uint32Array(h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
@@ -50,16 +51,29 @@ export async function cutTiles(input, theme = 'catacombs') {
         const inset = earth ? 0.05 : 0.075;
         const ix = Math.round(box.width * inset), iy = Math.round(box.height * inset);
         crop = { left: box.left + ix, top: box.top + iy, width: box.width - 2 * ix, height: box.height - 2 * iy };
+      } else if (late && row === 1) {
+        // Crop past compression/matte remnants on the outer rock frame, not just its tight box.
+        const ix = Math.max(3, Math.round(box.width * 0.025)), iy = Math.max(3, Math.round(box.height * 0.025));
+        crop = { left: box.left + ix, top: box.top + iy, width: box.width - 2 * ix, height: box.height - 2 * iy };
       }
       const tile = sharp(data, { raw: { width: w, height: h, channels: 4 } }).extract(crop);
-      const opaque = row < 3, size = (row === 0 && !earth) || !opaque ? 30 : 32;
-      const pixels = await tile.resize(size, size, { fit: opaque ? 'fill' : 'inside', kernel: 'nearest' }).raw().toBuffer({ resolveWithObject: true });
+      const structural = row < 3, opaque = structural && !(theme === 'hollowglass' && row === 2);
+      const size = (row === 0 && !earth) || !structural ? 30 : 32;
+      const pixels = await tile.resize(size, size, { fit: structural ? 'fill' : 'inside', kernel: 'nearest' }).raw().toBuffer({ resolveWithObject: true });
       const ox = col * 32, oy = row * 32;
       if (opaque) for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) atlas.set(JOINT, ((oy + y) * width + ox + x) * 4);
       const dx = Math.floor((32 - pixels.info.width) / 2), dy = Math.floor((32 - pixels.info.height) / 2);
       for (let y = 0; y < pixels.info.height; y++) for (let x = 0; x < pixels.info.width; x++) {
         const p = (y * pixels.info.width + x) * 4, dest = ((oy + dy + y) * width + ox + dx + x) * 4;
-        if (pixels.data[p + 3]) pixels.data.copy(atlas, dest, p, p + 4);
+        if (pixels.data[p + 3]) {
+          pixels.data.copy(atlas, dest, p, p + 4);
+          if (theme === 'hollowglass' && row === 4 && col === 1) {
+            // The owner asked for a more legible crystal gate. Brighten only its non-matte artwork.
+            for (let channel = 0; channel < 3; channel++) atlas[dest + channel] = Math.min(255, Math.round(atlas[dest + channel] * 1.45 + 12));
+            // Lift clipped purple highlights toward luminous lavender rather than creating matte-like magenta.
+            if(isTileMatte(atlas[dest],atlas[dest+1],atlas[dest+2]))atlas[dest+1]=Math.ceil(0.56*Math.min(atlas[dest],atlas[dest+2]));
+          }
+        }
       }
     }
   }

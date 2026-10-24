@@ -545,6 +545,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
         mkdirSync(k.out, { recursive: true });
         await writeTiles(k.raw + "mycelium-v1.webp", k.out + "mycelium.png", "mycelium");
       }
+      for (const theme of ["cinderworks", "hollowglass"]) if (!only || only === theme || only === `${theme}-v1`) {
+        mkdirSync(k.out, { recursive: true });
+        await writeTiles(k.raw + `${theme}-v1.webp`, k.out + `${theme}.png`, theme);
+      }
       continue;
     }
     for (const f of readdirSync(k.raw)) {
