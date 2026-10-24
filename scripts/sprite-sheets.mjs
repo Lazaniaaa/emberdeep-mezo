@@ -541,6 +541,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
         mkdirSync(k.out, { recursive: true });
         await writeTiles(k.raw + "catacombs-v5.webp", k.out + "catacombs.png");
       }
+      if (!only || only === "mycelium" || only === "mycelium-v1") {
+        mkdirSync(k.out, { recursive: true });
+        await writeTiles(k.raw + "mycelium-v1.webp", k.out + "mycelium.png", "mycelium");
+      }
       continue;
     }
     for (const f of readdirSync(k.raw)) {

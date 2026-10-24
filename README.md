@@ -50,7 +50,7 @@ The original **Lanterns Below** soundtrack is synthesized locally after your fir
 1. **Get in.** A descent needs an **entry key** ($0.50). New saves start with three, and $20 of simulated USDC.
 2. **Fill your lantern.** Buy oil flasks at camp ($0.20 each, 80 light per flask). Starting light, including the Delver's start-light perk,
    is also the lantern's capacity. Refills cannot exceed it: excess oil is lost. Oil Vials and Healing Draughts used at full light stay in the bag.
-3. **Descend.** The descent fills the whole screen like the camp. Floors 1-7 have hand-traced layouts: 1-2 use 32px catacombs tiles, 3-7 painted art
+3. **Descend.** The descent fills the whole screen like the camp. Floors 1-7 have authored layouts: 1-2 use 32px catacombs tiles, 3-4 mycelium tiles, 5-7 painted art
    (floors 1-3 are 60% larger than the rest), deeper floors are generated, and all of them sit under fog of war. Every step
    burns light. Vision stays at radius 5 until light drops below 25; then it narrows at 20, 10 and 5 light.
 4. **Push or pull out.** Deeper floors multiply loot (+40% per depth) but each step burns
@@ -130,16 +130,16 @@ Money is simulated USDC. The game counts it in cents, so every rule below is exa
   delvers' spend and gold. Every new round opens with a simulated crowd already in it.
 - `src/game/sim.ts` has two bots: one that sees the whole map and one that plays under fog of
   war. These scripted bots dodge known warnings; their results are a model of play, not a forecast.
-  A 2-flask delver with no perks banks about 5.1 gold per cent spent (key included). The
+  A 2-flask delver with no perks banks about 5.6 gold per cent spent (key included). The
   simulated crowd banks 5.2, a little below what a 70/20/10 crowd of unperked, Delver-holding and
   top-build bots banks (a test checks it stays between 70% and 100% of that), so a lone delver in the demo is
   measured against a crowd with good gear. Real players make mistakes the bots do not, so the true figure is probably
   lower, and the cap covers that case.
 - Because everything is shared out, the round pool never pays back more than its share (60%) of
   what was spent. Balance is therefore about who takes it. Against the demo's crowd an unperked
-  delver gets about 59% of their spend back, a held Rare Prospector about 67%, and the strongest build (Legendary
-  Pathfinder, 3 flasks) about 84% while merely held, 109% once locked for 10+ rounds and 119% with a full stake as
-  well, funded by the others. The 160% cap stops anything above that. The edge shrinks as more players use it (74%
+  delver gets about 65% of their spend back, a held Rare Prospector about 73%, and the strongest build (Legendary
+  Pathfinder, 3 flasks) about 97% while merely held, 118% once locked for 10+ rounds and 128% with a full stake as
+  well, funded by the others. The 160% cap stops anything above that. The edge shrinks as more players use it (78%
   when half the crowd runs the locked build). `npm run economy` regenerates the tables, including how the
   results move with the crowd's skill and size and what locks farm:
   [docs/economy-report.md](docs/economy-report.md).
@@ -326,7 +326,7 @@ server (`deploy/attest.ps1`); see [docs/arc/README.md](docs/arc/README.md).
 
 Vite, React 19, TypeScript, Tailwind CSS v4, shadcn/ui (Base UI), zustand, viem and Vitest. The Hall of Descents
 contract is Solidity 0.8.28 on Solady, tested in an in-memory EVM (ethereumjs); its signing server is plain Node.
-The game is rendered on Canvas 2D. The camp and floors 3-7 use painted WebP art; floors 1-2 use a 32px catacombs tileset over the same hand-traced grids. Delvers, creatures and loot use pixel sprite sheets. Portraits and UI icons are drawn in code. The camp has animated fire, light, crystals and water, with a code-drawn fallback if its painting cannot load. See [the catacombs art pipeline](docs/art/catacombs-tiles.md) to rebuild the tile atlas.
+The game is rendered on Canvas 2D. The camp and floors 5-7 use painted WebP art; floors 1-2 use 32px catacombs tiles and floors 3-4 mycelium earth tiles. These tiled floors have three-cell corridors and open-floor exits. Delvers, creatures and loot use pixel sprite sheets. Portraits and UI icons are drawn in code. The camp has animated fire, light, crystals and water, with a code-drawn fallback if its painting cannot load. See the [catacombs](docs/art/catacombs-tiles.md) and [mycelium](docs/art/mycelium-tiles.md) art pipelines to rebuild their atlases.
 
 ## Integration notes for the next on-chain steps
 

@@ -2,7 +2,8 @@ import { footprint, hasFloorDecor, idx, tileHash, visibleSet, type Dimling, type
 import { attackTiles, windupProgress } from "@/game/enemy-ai";
 import { DEFAULT_SPECIES } from "@/game/enemies";
 import { paintMap } from "./painted-map";
-import { decorOccupants, drawCatacombsCell, usesCatacombsTiles } from "./catacombs";
+import { decorOccupants, drawCatacombsCell, usesTiledFloor } from "./catacombs";
+import { drawMyceliumCell, usesMyceliumTiles } from "./mycelium";
 import { currentRadius, propsOf, type RunState } from "@/game/run";
 import { cerberusSheet, cerberusFrame, cerberusFacing, CERBERUS_CELL_W, CERBERUS_CELL_H, CERBERUS_FOOT_X, CERBERUS_FOOT_Y, CERBERUS_TEXTURE_SCALE } from "./cerberus-sprites";
 import { CreatureAnimator, restPose, type Pose } from "./creature-anim";
@@ -134,7 +135,7 @@ const THEME_ORDER: FloorTheme[] = ["catacombs", "mycelium", "cinderworks", "holl
 
 /** Approved map illustrations are cached as one tile-sized canvas per floor. */
 function mapArtwork(depth: number, width: number, height: number) {
-  if (depth < 3 || depth > 7) return null;
+  if (depth < 5 || depth > 7) return null;
   const key = `${depth}:${width}:${height}`;
   const cached = MAP_ART_CANVASES.get(key);
   if (cached) return cached;
@@ -544,7 +545,7 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
   const visible = visibleSet(floor, state.player, radius);
   const nightVision = state.light <= 0 && state.nightVision > 0;
   const artwork = mapArtwork(floor.depth, floor.w, floor.h);
-  const tiled = usesCatacombsTiles(floor.depth);
+  const tiled = usesTiledFloor(floor.depth);
   const decorBlocked = opts.decorBlocked === undefined ? decorOccupants(floor) : opts.decorBlocked;
   // The masks trace the painted ground at cell centres. Feet belong there, not on the next row's wall cap.
   const actorLift = artwork ? 12 : 0;
@@ -569,7 +570,8 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
       const atlas = lit ? litAtlas : dimAtlas;
       const variant = hash(x, y) % ATLAS_VARIANTS;
       if (tiled) {
-        drawCatacombsCell(ctx, floor, x, y, lit, decorBlocked, occupied);
+        if (usesMyceliumTiles(floor.depth)) drawMyceliumCell(ctx,floor,x,y,lit,decorBlocked,occupied,opts.time,opts.reducedMotion);
+        else drawCatacombsCell(ctx, floor, x, y, lit, decorBlocked, occupied);
       } else if (artwork) {
         ctx.drawImage(artwork, px, py, TILE, TILE, px, py, TILE, TILE);
         if (!lit) {

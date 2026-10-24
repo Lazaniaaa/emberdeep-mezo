@@ -6,13 +6,13 @@ import { createRng } from "./rng";
 const exits = [[26,10],[28,9],[26,6],[22,7],[22,8],[23,8],[13,3]];
 const near = (a: Point,b: Point) => Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y)) <= 2;
 describe("authored floor collision and placement", () => {
-  it("keeps catacombs corridor borders and painted landmarks blocked; deeper painted links stay narrow", () => {
+  it("keeps tiled corridor borders and painted landmarks blocked; deeper painted links stay narrow", () => {
     // Independently reviewed torch/pillar/well-edge cells and corridor cross sections, not random samples of the mask.
     const blocked = [
       [[10,8],[20,12],[25,5],[32,10]],
       [[10,7],[20,8],[15,14],[19,14]],
-      [[6,4],[25,5],[28,7],[31,9]],
-      [[9,7],[9,9],[12,6],[14,6],[7,11],[4,5],[23,5],[11,4],[15,4]],
+      [[6,4],[20,5],[28,10],[32,9]],
+      [[9,6],[9,10],[11,6],[15,6],[6,11],[4,4],[23,4],[7,4],[19,4]],
       [[12,6],[14,6],[12,11],[14,11],[21,7],[23,9]],
       [[12,5],[14,5],[13,8],[12,8],[14,8],[22,7],[24,9]],
       [[7,6],[19,6],[12,14],[14,14]],

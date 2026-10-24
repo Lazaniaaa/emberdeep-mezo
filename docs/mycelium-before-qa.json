@@ -1,0 +1,42 @@
+{
+  "results": [
+    {
+      "screen": "desktop",
+      "depth": 3,
+      "gridHash": "b666cef1274f6b1c2c1ba359ed32c74f09497c9a72f1b307361cf82f3730801d",
+      "routeTiles": 28,
+      "actions": 33
+    },
+    {
+      "screen": "desktop",
+      "depth": 4,
+      "gridHash": "10d1861ca471e7bd5135c8501b0f3ba99cb600bef9dc9ed5d3729465b41ba7c4",
+      "routeTiles": 21,
+      "actions": 26
+    },
+    {
+      "screen": "phone",
+      "depth": 3,
+      "gridHash": "b666cef1274f6b1c2c1ba359ed32c74f09497c9a72f1b307361cf82f3730801d",
+      "routeTiles": 28,
+      "actions": 33
+    },
+    {
+      "screen": "phone",
+      "depth": 4,
+      "gridHash": "10d1861ca471e7bd5135c8501b0f3ba99cb600bef9dc9ed5d3729465b41ba7c4",
+      "routeTiles": 21,
+      "actions": 26
+    }
+  ],
+  "renders": {
+    "1": "bfa13856636c123778091ebec4b9cf5a3e2331f0e61b4a3afbc25d29e6b417a4",
+    "2": "4ad6b8cdb90e9110616bed1db8615e81462a0d3ab13d239c1876bac377f931a9",
+    "3": "89874149519b52ff9fb5c0641475e95062404861a0eab53326e3134091e05e62",
+    "4": "1e4cc5a5c5084d9351d83a506486b3e73315054ac3f92928df325445e8accb31",
+    "5": "06af78a2b7744f3ee8c800d2180f42529fe18a906d202ab2138c4322bf2c53ec",
+    "6": "b61e8a157cd0cb81b901cecd6b29f2e4e5fe46ed0c293d01715516f08826ff2a",
+    "7": "290486af6039309494b20c92834c0a03243bb0fb4f3f15b830b36696adac7114"
+  },
+  "errors": []
+}

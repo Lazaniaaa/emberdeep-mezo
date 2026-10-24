@@ -17,7 +17,9 @@ function bands(projection, maxGap = 20) {
 }
 
 /** Detect actual artwork bands, not equal sheet partitions (the torch crosses an equal-row boundary). */
-export async function cutTiles(input) {
+export async function cutTiles(input, theme = 'catacombs') {
+  if (!['catacombs', 'mycelium'].includes(theme)) throw new Error(`Unknown tile theme: ${theme}`);
+  const earth = theme === 'mycelium';
   const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const { width: w, height: h } = info, rows = new Uint32Array(h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
@@ -41,13 +43,16 @@ export async function cutTiles(input) {
       }
       const box = { left: x0, top, width: x1 - x0 + 1, height: bottom - top + 1 };
       boxes.push({ row, col, ...box });
+      // The translucent spore puff is rendered as a soft glow, not a matte-cut opaque sprite.
+      if (earth && row === 3 && col === 1) continue;
       let crop = box;
       if (row === 0) {
-        const ix = Math.round(box.width * 0.075), iy = Math.round(box.height * 0.075);
+        const inset = earth ? 0.05 : 0.075;
+        const ix = Math.round(box.width * inset), iy = Math.round(box.height * inset);
         crop = { left: box.left + ix, top: box.top + iy, width: box.width - 2 * ix, height: box.height - 2 * iy };
       }
       const tile = sharp(data, { raw: { width: w, height: h, channels: 4 } }).extract(crop);
-      const opaque = row < 3, size = row === 0 || !opaque ? 30 : 32;
+      const opaque = row < 3, size = (row === 0 && !earth) || !opaque ? 30 : 32;
       const pixels = await tile.resize(size, size, { fit: opaque ? 'fill' : 'inside', kernel: 'nearest' }).raw().toBuffer({ resolveWithObject: true });
       const ox = col * 32, oy = row * 32;
       if (opaque) for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) atlas.set(JOINT, ((oy + y) * width + ox + x) * 4);
@@ -61,8 +66,8 @@ export async function cutTiles(input) {
   return { data: atlas, width, height, boxes };
 }
 
-export async function writeTiles(input, output) {
-  const sheet = await cutTiles(input);
+export async function writeTiles(input, output, theme = 'catacombs') {
+  const sheet = await cutTiles(input, theme);
   await sharp(sheet.data, { raw: { width: sheet.width, height: sheet.height, channels: 4 } }).png().toFile(output);
   console.log(`${input} -> ${output}: ${sheet.boxes.length} tiles, ${sheet.width}x${sheet.height}`);
 }

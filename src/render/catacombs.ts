@@ -4,6 +4,7 @@ import { loadSheet } from "./sheets";
 
 const SIZE = 32, SAVE_KEY = "emberdeep-catacombs-decor-v1";
 export const usesCatacombsTiles = (depth: number) => depth === 1 || depth === 2;
+export const usesTiledFloor = (depth: number) => depth >= 1 && depth <= 4;
 
 /** A face occupies the wall cell itself, never the floor in front of it. */
 export function catacombsRow(floor: Pick<Floor, "tiles" | "w" | "h">, x: number, y: number) {
@@ -32,7 +33,7 @@ export class CatacombsDecor {
 
   reset(run: RunState, fresh: boolean) {
     this.blocked = null;
-    if (!usesCatacombsTiles(run.depth)) return;
+    if (!usesTiledFloor(run.depth)) return;
     const f = run.floor, key = `${run.runId ?? ""}:${run.seed}:${run.depth}:${f.w}:${f.h}`;
     if (!fresh) try {
       const saved: unknown = JSON.parse(this.storage?.getItem(SAVE_KEY) ?? "null");

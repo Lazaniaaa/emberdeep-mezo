@@ -1,0 +1,61 @@
+{
+  "phase": "before",
+  "enemyHitMultiplier": 4,
+  "collectors": [
+    {
+      "flasks": 1,
+      "runs": 80,
+      "goldPerCent": 2.055,
+      "deathRate": 0.0375,
+      "avgDepth": 1.25,
+      "bossReachRate": 0,
+      "bossKillRate": 0
+    },
+    {
+      "flasks": 2,
+      "runs": 80,
+      "goldPerCent": 5.113611111111111,
+      "deathRate": 0.0625,
+      "avgDepth": 2.725,
+      "bossReachRate": 0,
+      "bossKillRate": 0
+    },
+    {
+      "flasks": 3,
+      "runs": 80,
+      "goldPerCent": 5.733181818181818,
+      "deathRate": 0.0875,
+      "avgDepth": 3.3375,
+      "bossReachRate": 0,
+      "bossKillRate": 0
+    },
+    {
+      "flasks": 5,
+      "runs": 80,
+      "goldPerCent": 5.829833333333333,
+      "deathRate": 0.1,
+      "avgDepth": 4.2375,
+      "bossReachRate": 0.0125,
+      "bossKillRate": 0.0125
+    }
+  ],
+  "divers": [
+    {
+      "flasks": 3,
+      "runs": 40,
+      "avgDepth": 4.975,
+      "bossReachRate": 0.2,
+      "bossKillRate": 0.05
+    },
+    {
+      "flasks": 5,
+      "runs": 40,
+      "avgDepth": 5.3,
+      "bossReachRate": 0.325,
+      "bossKillRate": 0.15
+    }
+  ],
+  "baselineCommit": "5865069",
+  "source": "Measured at the identical pre-mycelium rules, docs/lantern-boss-after.json",
+  "fieldGoldPerCent": 5.2
+}
