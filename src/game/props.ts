@@ -72,14 +72,14 @@ export const propCounts = (depth: number): Record<PropKind, number> => ({
  * How likely each kind of loot is to fall out of a prop. Oil's weight is `tuning.propOilWeight` (from a full lantern to
  * an empty one) times the prop's own oil weight, so a delver running dry finds more oil in what they break.
  */
-export function lootWeights(def: PropDef, light: number, startLight: number): Record<LootKind, number> {
+export function lootWeights(def: PropDef, light: number, maxLight: number): Record<LootKind, number> {
   const [full, empty] = tuning.propOilWeight;
-  const oil = (full + (empty - full) * (1 - lanternFullness(light, startLight))) * def.weights.oil;
+  const oil = (full + (empty - full) * (1 - lanternFullness(light, maxLight))) * def.weights.oil;
   return { gold: def.weights.gold, crystal: def.weights.crystal, oil };
 }
 
-/** How full the lantern is, from 0 to 1, against the light the descent started with (at least one flask). */
-export const lanternFullness = (light: number, startLight: number) => Math.min(1, Math.max(0, light / Math.max(startLight, 80)));
+/** How full the lantern is against its current capacity, including level-up growth. */
+export const lanternFullness = (light: number, maxLight: number) => Math.min(1, Math.max(0, light / Math.max(maxLight, 1)));
 
 /** Gear found in props. Each adds to every blow for the rest of the descent; the pickaxe also breaks any prop in one blow. */
 export type GearId = "sword" | "axe" | "pickaxe";

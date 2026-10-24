@@ -13,7 +13,7 @@ const room = (): RunState => {
 };
 const bossRoom = () => {
   const s = room();
-  s.floor.dimlings = [{ id: 99, x: 5, y: 4, size: 2, boss: true, awake: true, hp: 150, maxHp: 150 }];
+  s.floor.dimlings = [{ id: 99, x: 5, y: 4, size: 2, boss: true, awake: true, hp: 150, maxHp: 150, phase:"windup",windupLeft:1 }];
   return s;
 };
 
@@ -98,10 +98,11 @@ describe("known rift estimate", () => {
 describe("RunPresentation", () => {
   it("animates every boss drain from attacks with unchanged steps, once per action and never per repaint", () => {
     let s = bossRoom(); const p = new RunPresentation(s); const before = structuredClone(s);
-    for (const at of [1000, 1400, 1800]) {
+    for (let i=0;i<9;i++) {
+      const at=1000+i*400;
       const next = applyAction(s, { type: "move", dx: 1, dy: 0 });
       p.observe(next, at);
-      expect(p.creatures.pose(next.floor.dimlings[0], at + 100).striking).toBe(true);
+      expect(p.creatures.pose(next.floor.dimlings[0], at + 100).striking).toBe(i%4===0);
       p.observe(next, at + 400);
       expect(p.creatures.pose(next.floor.dimlings[0], at + 400).striking).toBe(false);
       expect(next.steps).toBe(0); s = next;
@@ -114,7 +115,7 @@ describe("RunPresentation", () => {
     const p = new RunPresentation(s); p.observe(next, 1000);
     expect(p.death).toBe("Last loss: −3 light · boss");
     const texts: string[] = [];
-    p.fx.draw({ save() {}, restore() {}, strokeText() {}, fillRect() {}, measureText(t: string) { return { width: t.length * 5 }; }, fillText(text: string) { texts.push(text); } } as unknown as CanvasRenderingContext2D, 1000, true);
+    p.fx.draw({ save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, stroke() {}, strokeText() {}, fillRect() {}, measureText(t: string) { return { width: t.length * 5 }; }, fillText(text: string) { texts.push(text); } } as unknown as CanvasRenderingContext2D, 1000, true);
     expect(texts).toContain("−3 light · boss");
     expect(next).toEqual(saved);
   });

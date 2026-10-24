@@ -11,6 +11,7 @@ import { breakingFrame, drawCell, lootIndex, lootSheet, propSheet, standingFrame
 import { drawHero, propCanvas, type HeroPose } from "./mob-art";
 import { MOB_CELL_H, MOB_CELL_W, MOB_FOOT_X, MOB_FOOT_Y, MOB_HEIGHT, MOB_TEXTURE_SCALE, mobFrameX, mobSheet } from "./mob-sheets";
 import { ICONS, drawMask, type Mask } from "./sprites";
+import { BOSS_RECOVERY } from "@/game/config";
 
 export const TILE = 32;
 
@@ -213,6 +214,13 @@ function drawCerberusMarks(ctx: CanvasRenderingContext2D, d: Dimling, pose: Pose
   ctx.textAlign = "center";
   ctx.fillStyle = "#000"; ctx.fillText("CERBERUS", ox + 33, oy - 13);
   ctx.fillStyle = "#ffd35a"; ctx.fillText("CERBERUS", ox + 32, oy - 14);
+  const wind=windupProgress(d),rest=d.phase==="recovery";
+  ctx.fillStyle="#090710";ctx.fillRect(ox+1,oy-5,62,4);
+  if(wind!==null||rest){
+    ctx.fillStyle=rest?"#7cf7ff":"#ff5a1a";
+    ctx.fillRect(ox+2,oy-4,Math.round(60*(rest?Math.min(1,(d.cooldown??0)/BOSS_RECOVERY):wind!)),2);
+    ctx.fillText(rest?`RECOVER ${d.cooldown??0}`:"WIND UP",ox+32,oy-25);
+  }
 }
 
 
@@ -640,8 +648,8 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
   const heroTile = { x: Math.round(opts.playerPos.x), y: Math.round(opts.playerPos.y) };
   let heroThreat: number | null = null;
   for (const d of floor.dimlings) {
-    if (d.boss || d.phase !== "windup") continue;
-    const creatureSeen = visible.has(idx(floor, d.x, d.y));
+    if (d.phase !== "windup") continue;
+    const creatureSeen = footprint(d).some(p=>visible.has(idx(floor,p.x,p.y)));
     const tiles = attackTiles(floor, d).filter(t => creatureSeen || visible.has(idx(floor, t.x, t.y)));
     const progress = windupProgress(d) ?? 0;
     drawDanger(ctx, tiles, progress, opts.time, opts.reducedMotion);
@@ -728,7 +736,7 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
       return drawCell(c, sheet, sheet && breakingFrame(sheet, k, hp, maxHp), x, baseY);
     },
   };
-  const reserved = [...(opts.feedbackAvoid ?? []).map(r=>({...r,y:r.y+actorLift})), ...shown.filter(s => s.d.boss).map(s => ({ x: s.pose.x * TILE - 3, y: s.pose.y * TILE - 38, w: 70, h: 24 }))];
+  const reserved = [...(opts.feedbackAvoid ?? []).map(r=>({...r,y:r.y+actorLift})), ...shown.filter(s => s.d.boss).map(s => ({ x: s.pose.x * TILE - 3, y: s.pose.y * TILE - 38, w: 70, h: 42 }))];
   ctx.save(); ctx.translate(0, -actorLift);
   opts.fx.draw(ctx, opts.time, opts.reducedMotion, art, { x: vx, y: vy + actorLift, w: W, h: H }, reserved);
   ctx.restore();

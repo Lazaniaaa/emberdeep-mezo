@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { MAX_MOVES, encodeMove } from "@/game/replay";
-import { applyAction, startRun, type RunAction, type RunSetup, type RunState } from "@/game/run";
+import { applyAction, maxLightOf, startRun, type RunAction, type RunSetup, type RunState } from "@/game/run";
 import { floorHeight, floorWidth } from "@/game/config";
 import { isSpecies } from "@/game/enemies";
 import { MAX_LEVEL } from "@/game/levels";
@@ -105,6 +105,7 @@ export function validSavedRun(value: unknown): value is RunState {
     && ["playing", "dead", "extracted"].includes(run.status as string)
     && [run.light, run.startLight, run.steps, run.kills, run.gold, run.crystals, run.sigils,
       run.tickets, run.ticketChance, run.ward, run.nightVision, run.weaponDamage].every(finite)
+    && (run.maxLight === undefined || (finite(run.maxLight) && (run.maxLight as number) >= 0))
     && ["goldPct", "crystalPct", "startLight", "stepDiscount", "damage", "findPct",
       "radius", "drainReduce", "regenEvery", "freeStepChance", "lightOnKill"]
       .every(key => finite(perks[key]))
@@ -169,6 +170,7 @@ export const useRun = create<RunStore>()(persist((set, get) => ({
       // Fill in what a save from before props and levels leaves out.
       run.floor.props ??= [];
       run.xp ??= 0; run.level ??= 1; run.gear ??= []; run.smashed ??= 0;
+      run.maxLight = maxLightOf(run); run.light = Math.min(run.light,run.maxLight);
     }
     const prev = object(data.prevPlayer);
     const prevPlayer = run && Number.isSafeInteger(prev.x) && Number.isSafeInteger(prev.y)

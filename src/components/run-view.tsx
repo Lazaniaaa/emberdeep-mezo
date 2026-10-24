@@ -13,7 +13,7 @@ import { POTIONS, POTION_IDS, type PotionId } from "@/game/catalog";
 import { roundShare } from "@/game/economy";
 import { MAX_LEVEL, xpToNext } from "@/game/levels";
 import { GEAR } from "@/game/props";
-import { baseDamage, bossAlive, currentRadius, currentStepCost, levelOf, onRift, onStairs, xpOf, type RunAction, type RunState } from "@/game/run";
+import { baseDamage, bossAlive, currentRadius, currentStepCost, levelOf, maxLightOf, onRift, onStairs, xpOf, type RunAction, type RunState } from "@/game/run";
 import { percent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { RunPresentation } from "@/render/run-presentation";
@@ -133,12 +133,13 @@ export function RunView() {
   const zoom = runZoom(screen);
   const view: View = { x: 0, y: 0, w: Math.ceil(screen.w / (TILE * zoom)), h: Math.ceil(screen.h / (TILE * zoom)) };
   const share = roundShare(game.roundGold + run.gold, game.fieldGold);
-  const lightPct = Math.min(100, (run.light / Math.max(1, run.startLight)) * 100);
+  const capacity = maxLightOf(run);
+  const lightPct = Math.min(100, (run.light / Math.max(1, capacity)) * 100);
   const nightVision = run.light <= 0 && run.nightVision > 0;
   const atStairs = onStairs(run), atRift = onRift(run);
   const sealed = bossAlive(run);
   const playing = run.status === "playing";
-  const windingUp = run.floor.dimlings.some(d => !d.boss && d.phase === "windup");
+  const windingUp = run.floor.dimlings.some(d => d.phase === "windup");
   const level = levelOf(run);
   const xpPct = level >= MAX_LEVEL ? 100 : Math.min(100, (xpOf(run) / xpToNext(level)) * 100);
   const back = riftEstimate(run);
@@ -160,9 +161,9 @@ export function RunView() {
         <section className="rounded-xl border border-white/20 bg-[#150c2b]/85 px-3 py-2 backdrop-blur-sm" aria-label="Lantern">
           <div className="flex items-baseline justify-between">
             <span className="text-[10px] tracking-wider text-muted-foreground uppercase">Light</span>
-            <span className={cn("font-pixel text-2xl", run.light < 15 ? "text-destructive" : "text-lime")} aria-live="polite">{Math.ceil(run.light)}</span>
+            <span className={cn("font-pixel text-xl", run.light < 15 ? "text-destructive" : "text-lime")} aria-label="Lantern light" aria-live="polite">{Math.ceil(run.light)} / {Math.ceil(capacity)}</span>
           </div>
-          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={Math.round(lightPct)} aria-valuemin={0} aria-valuemax={100} aria-label="Light remaining">
+          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={Math.round(lightPct)} aria-valuemin={0} aria-valuemax={100} aria-valuetext={`${Math.ceil(run.light)} of ${Math.ceil(capacity)} light`} aria-label="Light remaining">
             <div className="h-full rounded-full bg-lime transition-[width]" style={{ width: `${lightPct}%`, boxShadow: `0 0 10px ${COLORS.lime}` }} />
           </div>
           <div className="mt-1.5 flex flex-wrap gap-1 text-[10px]">
@@ -221,7 +222,7 @@ export function RunView() {
             <Button size="lg" className="font-pixel shadow-lg" variant="secondary" onClick={contextAction}><DoorOpen data-icon="inline-start" /> Extract with {run.gold} gold <Kbd>E</Kbd></Button>
           )}
           {!atStairs && !atRift && playing && sealed && (
-            <p className="rounded-lg border border-white/15 bg-black/60 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur-sm"><span className="text-sigil">Cerberus</span> guards the stairs. A Ward Charm makes its drain harmless for 15 steps.</p>
+            <p className="rounded-lg border border-white/15 bg-black/60 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur-sm"><span className="text-sigil">Cerberus</span> guards the stairs. Dodge the marked strike, then attack during its two-turn recovery.</p>
           )}
         </div>
         {windingUp && playing && (

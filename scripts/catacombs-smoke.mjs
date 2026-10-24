@@ -21,7 +21,7 @@ try {
         const {generateFloor}=await import('/src/game/dungeon.ts'),{createRng}=await import('/src/game/rng.ts');
         const setup={seed:20261023+depth,flasks:5,perks:{...NO_PERKS,radius:100},weaponDamage:1000,bag:emptyBag(),runId:`tiles-qa-${depth}`};
         const s=startRun(setup);s.floor=generateFloor(createRng(setup.seed),depth,{findPct:0});s.depth=s.deepest=depth;
-        const snapshot=JSON.stringify(s.floor);s.floor.seen.fill(1);s.floor.revealed=true;s.player={...s.floor.spawn,facing:'right'};s.light=10000;
+        const snapshot=JSON.stringify(s.floor);s.floor.seen.fill(1);s.floor.revealed=true;s.player={...s.floor.spawn,facing:'right'};s.maxLight=s.light=10000;
         const {useRun,useGame}=window.__emberdeep;
         useGame.setState({animal:'cat-scottish-fold',muted:true,reducedMotion:true,lastReport:null,runSpent:60,runId:setup.runId,carried:emptyBag()});
         useRun.setState({run:s,log:null,lastDescent:null});return snapshot;

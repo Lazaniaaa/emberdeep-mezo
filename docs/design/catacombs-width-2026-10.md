@@ -2,6 +2,8 @@
 
 Baseline: `8249147` (tiles over the old narrow grids). This checkpoint changes gameplay geometry, not just rendering. The site and signing server must be rebuilt and released together; neither was pushed or deployed.
 
+The temporary flask-test skip described below was subsequently resolved by the [creature drain rebalance](creature-drain-2026-10.md). The checkpoint measurements below remain the geometry-only baseline.
+
 ## Layout
 
 All four corridor segments are exactly three floor cells across, centred on their old axes, including room doorways:

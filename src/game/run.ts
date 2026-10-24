@@ -1,5 +1,5 @@
 import {
-  BOSS_DRAIN, BOSS_MOVE_FACTOR, ENEMY_HIT_MULT, ENEMY_RECOVERY, FLASK_LIGHT, KILL_GOLD, HEAL_LIGHT, HOARD_CRYSTALS, HOARD_GOLD, HOARD_SIGIL_CHANCE,
+  BOSS_DRAIN, BOSS_MOVE_FACTOR, BOSS_RECOVERY, BOSS_WINDUP, ENEMY_HIT_MULT, ENEMY_RECOVERY, FLASK_LIGHT, KILL_GOLD, HEAL_LIGHT, HOARD_CRYSTALS, HOARD_GOLD, HOARD_SIGIL_CHANCE,
   NIGHT_VISION_STEPS, RAGE_HITS, RAGE_MULT, REGEN_TURNS, SIGIL_DROP_CHANCE, TICKET_DROP_CHANCE, WARD_STEPS, lightRadius, lootMultiplier,
   stepCost,
 } from "./config";
@@ -7,7 +7,7 @@ import { POTIONS, POTION_DROP_WEIGHTS, type Perks, type PotionId } from "./catal
 import { dimlingDistance, distances, footprint, generateFloor, idx, isFloor, visibleSet, type Dimling, type Floor, type Point, type Prop } from "./dungeon";
 import { attackTiles, reachDirection } from "./enemy-ai";
 import { enemyDef, enemyName } from "./enemies";
-import { BOSS_XP, CHEST_XP, HOARD_XP, LEVEL_DAMAGE, MAX_LEVEL, VAULT_XP, killXp, levelDamage, xpToNext } from "./levels";
+import { BOSS_XP, CHEST_XP, HOARD_XP, LEVEL_DAMAGE, LEVEL_LIGHT, MAX_LEVEL, VAULT_XP, killXp, levelDamage, xpToNext } from "./levels";
 import { GEAR, GEAR_DUPLICATE_XP, GEAR_IDS, gearDamage, lanternFullness, lootWeights, propDef, type GearId, type LootKind } from "./props";
 import { noteLight, tuning } from "./tuning";
 import { chance, createRng, int, weighted, type Rng } from "./rng";
@@ -16,7 +16,7 @@ export type RunEvent =
   | "step" | "bump" | "gold" | "crystal" | "oil" | "chest" | "vault" | "sigil"
   | "hit" | "kill" | "boss" | "hoard" | "drain" | "sealed" | "descend" | "potion" | "nightVision" | "dark" | "extract" | "ticket"
   /** A creature started winding up: its next blow is marked on the floor. */
-  | "warn"
+  | "warn" | "bossDrain" | "lanternFull"
   /** A creature struck and the delver had stepped aside. */
   | "miss"
   /** A prop was hit and cracked; it broke; a piece of gear came out of one; the delver reached a new level. */
@@ -34,6 +34,8 @@ export type RunState = {
   player: Point & { facing: "left" | "right" | "up" | "down" };
   light: number;
   startLight: number;
+  /** Lantern capacity; starts with its fill and grows by ten per level. */
+  maxLight: number;
   steps: number;
   kills: number;
   gold: number;
@@ -103,7 +105,7 @@ export function startRun(setup: RunSetup): RunState {
   const state: RunState = {
     seed: setup.seed, rng, depth: 1, floor,
     player: { ...floor.spawn, facing: "right" },
-    light, startLight: light, steps: 0, kills: 0, gold: 0, crystals: 0, sigils: 0,
+    light, startLight: light, maxLight: light, steps: 0, kills: 0, gold: 0, crystals: 0, sigils: 0,
     tickets: 0, ticketChance: setup.ticketChance ?? TICKET_DROP_CHANCE,
     bag: { ...setup.bag }, used: emptyBag(), found: emptyBag(),
     nightVision: 0, ward: 0, perks: setup.perks, weaponDamage: setup.weaponDamage,
@@ -116,6 +118,8 @@ export function startRun(setup: RunSetup): RunState {
 }
 
 export const levelOf = (s: RunState) => s.level ?? 1;
+/** Old overflow is not granted as permanent capacity when an old saved descent is read. */
+export const maxLightOf = (s: RunState) => s.maxLight ?? s.startLight + (levelOf(s) - 1) * LEVEL_LIGHT;
 export const xpOf = (s: RunState) => s.xp ?? 0;
 export const propsOf = (floor: Floor): Prop[] => floor.props ?? [];
 
@@ -153,6 +157,15 @@ function say(state: RunState, text: string) {
   state.messages = [text, ...state.messages].slice(0, 6);
 }
 
+/** Every source shares this cap; statistics and floating loot count only accepted light. */
+function addLight(state: RunState, amount: number, source?: "jars" | "props" | "kills" | "levels" | "potions") {
+  const accepted = Math.max(0, Math.min(amount, maxLightOf(state) - state.light));
+  state.light += accepted;
+  if (source) noteLight(source, accepted, state.depth);
+  if (accepted < amount && !state.events.includes("lanternFull")) state.events.push("lanternFull");
+  return accepted;
+}
+
 function loot(state: RunState, base: number, kind: "gold" | "crystal") {
   const mult = lootMultiplier(state.depth);
   const pct = kind === "gold" ? state.perks.goldPct : state.perks.crystalPct;
@@ -180,8 +193,8 @@ function pickup(state: RunState) {
     }
     case "oil": {
       const oil = dropped(tuning.oilJarLight);
-      state.light += oil; noteLight("jars", oil, state.depth);
-      state.events.push("oil"); say(state, `+${oil} light from a spilled oil jar`);
+      const gained = addLight(state, oil, "jars");
+      state.events.push("oil"); say(state, `+${gained} light from a spilled oil jar`);
       break;
     }
     case "chest": {
@@ -238,10 +251,10 @@ function gainXp(state: RunState, amount: number) {
   while (level < MAX_LEVEL && xp >= xpToNext(level)) {
     xp -= xpToNext(level);
     level++;
-    state.light += tuning.levelLight;
-    noteLight("levels", tuning.levelLight, state.depth);
+    state.maxLight = maxLightOf(state) + LEVEL_LIGHT;
+    addLight(state, LEVEL_LIGHT, "levels");
     state.events.push("levelup");
-    say(state, `Level ${level}! +${tuning.levelLight} light, +${LEVEL_DAMAGE} damage.`);
+    say(state, `Level ${level}! +${LEVEL_LIGHT} max light, +${LEVEL_LIGHT} light, +${LEVEL_DAMAGE} damage.`);
   }
   state.level = level;
   state.xp = level >= MAX_LEVEL ? 0 : xp;
@@ -273,7 +286,7 @@ function smash(state: RunState, prop: Prop) {
   const drop: Drop = { x: prop.x, y: prop.y, gold: 0, crystals: 0, light: 0, gear: null };
   const parts: string[] = [];
 
-  const weights = lootWeights(def, state.light, state.startLight);
+  const weights = lootWeights(def, state.light, maxLightOf(state));
   const kinds: LootKind[] = [weighted(rng, weights)];
   // A prop with a stash already gives a second kind often enough; only an empty one may roll another.
   if (!prop.stash && chance(rng, def.second)) kinds.push(weighted(rng, { ...weights, [kinds[0]]: 0 }));
@@ -295,7 +308,7 @@ function smash(state: RunState, prop: Prop) {
     parts.push(`+${drop.crystals} crystal${drop.crystals === 1 ? "" : "s"}`);
   }
   if (drop.light) {
-    state.light += drop.light; noteLight("props", drop.light, state.depth); state.events.push("oil");
+    drop.light = addLight(state, drop.light, "props"); state.events.push("oil");
     parts.push(`+${drop.light} light`);
   }
 
@@ -328,7 +341,7 @@ function rollTicket(state: RunState) {
 /** A turn spent walking or waiting burns light; a blow (at a creature or a prop) does not, so only regeneration ticks. */
 function burnLight(state: RunState, walking = true) {
   if (!walking) {
-    if ((state.regen ?? 0) > 0) { state.light += 1; state.regen = (state.regen ?? 0) - 1; }
+    if ((state.regen ?? 0) > 0) { addLight(state, 1); state.regen = (state.regen ?? 0) - 1; }
     return;
   }
   state.steps++;
@@ -338,8 +351,8 @@ function burnLight(state: RunState, walking = true) {
     noteLight("steps", Math.min(state.light, currentStepCost(state)), state.depth);
     state.light = Math.max(0, state.light - currentStepCost(state));
   }
-  if (state.perks.regenEvery && state.steps % state.perks.regenEvery === 0) state.light += 1;
-  if ((state.regen ?? 0) > 0) { state.light += 1; state.regen = (state.regen ?? 0) - 1; }
+  if (state.perks.regenEvery && state.steps % state.perks.regenEvery === 0) addLight(state, 1);
+  if ((state.regen ?? 0) > 0) { addLight(state, 1); state.regen = (state.regen ?? 0) - 1; }
 }
 
 /** Light a creature's blow takes from a delver who is hit, before armor and perks. */
@@ -353,26 +366,27 @@ function drainLight(state: RunState, amount: number) {
 
 /** The blow lands: whoever is on the marked tiles pays in light, and the creature is left open for a turn. */
 function strike(state: RunState, d: Dimling) {
-  const name = enemyName(d.species);
+  const name = d.boss ? "Cerberus" : enemyName(d.species);
   const hit = attackTiles(state.floor, d).some(t => t.x === state.player.x && t.y === state.player.y);
   d.phase = "recovery";
-  d.cooldown = ENEMY_RECOVERY;
+  d.cooldown = d.boss ? BOSS_RECOVERY : ENEMY_RECOVERY;
   d.windupLeft = 0;
   d.aim = null;
   if (!hit) {
     state.events.push("miss");
-    say(state, `${name} strikes and hits nothing. It is open for a turn.`);
+    say(state, `${name} strikes and hits nothing. It is open for ${d.boss ? `${BOSS_RECOVERY} turns` : "a turn"}.`);
     return;
   }
   if (state.ward > 0) {
     state.events.push("miss");
-    say(state, `Your ward turns aside the ${name}'s blow. It is open for a turn.`);
+    say(state, `Your ward turns aside the ${name}'s blow. It is open for ${d.boss ? `${BOSS_RECOVERY} turns` : "a turn"}.`);
     return;
   }
-  const drain = hitBase(state) * (1 - state.perks.drainReduce);
+  const drain = (d.boss ? BOSS_DRAIN : hitBase(state)) * (1 - state.perks.drainReduce);
   drainLight(state, drain);
   state.events.push("drain");
-  say(state, `${name} strikes (-${Math.round(drain * 10) / 10} light). It is open for a turn.`);
+  if (d.boss) state.events.push("bossDrain");
+  say(state, `${name} strikes (-${Math.round(drain * 10) / 10} light). It is open for ${d.boss ? `${BOSS_RECOVERY} turns` : "a turn"}.`);
 }
 
 /** A creature's turn: recover, finish a wind-up, start one when the delver is in reach, or close in. */
@@ -443,13 +457,20 @@ function dimlingsAct(state: RunState) {
     if (!d.awake && dist <= notice) d.awake = true;
     if (!d.awake) continue;
     if (!d.boss) { creatureAct(state, d, visible, nearest, moveChance); continue; }
-    // Cerberus does not wind up: it drinks light every turn the delver touches it, and it moves at half a creature's pace.
-    if (dist === 1) {
-      if (state.ward > 0) continue;
-      const drain = BOSS_DRAIN * (1 - state.perks.drainReduce);
-      drainLight(state, drain);
-      state.events.push("drain");
-      say(state, `Cerberus drinks your light (-${Math.round(drain * 10) / 10})`);
+    // Stay still through warning, strike and recovery, including on the hero's own attack turns.
+    if (d.phase === "recovery") {
+      d.cooldown = Math.max(0, (d.cooldown ?? BOSS_RECOVERY) - 1);
+      if (d.cooldown === 0) d.phase = "idle";
+      continue;
+    }
+    if (d.phase === "windup") {
+      if ((d.windupLeft ?? BOSS_WINDUP) > 1) d.windupLeft = (d.windupLeft ?? BOSS_WINDUP) - 1;
+      else strike(state, d);
+      continue;
+    }
+    if (reachDirection(floor, d, player) && footprint(d).some(p => visible.has(idx(floor,p.x,p.y)))) {
+      d.phase = "windup"; d.windupLeft = BOSS_WINDUP; d.aim = null;
+      state.events.push("warn"); say(state, "Cerberus winds up. Step off the marked tiles before its next strike.");
       continue;
     }
     if (!chance(rng, moveChance * BOSS_MOVE_FACTOR)) continue;
@@ -488,7 +509,7 @@ function slayBoss(state: RunState, boss: Dimling) {
   state.floor.items.push({ id, x: boss.x, y: boss.y, kind: "hoard" });
   state.kills++;
   state.bossSlain = true;
-  if (state.perks.lightOnKill) state.light += state.perks.lightOnKill;
+  if (state.perks.lightOnKill) addLight(state, state.perks.lightOnKill);
   state.events.push("boss");
   say(state, "Cerberus falls. A hoard chest lies where it stood, and the stairs are open.");
   gainXp(state, BOSS_XP);
@@ -505,6 +526,8 @@ function endTurn(state: RunState, walking = true) {
 export function applyAction(prev: RunState, action: RunAction): RunState {
   if (prev.status !== "playing") return prev;
   const state = structuredClone(prev);
+  state.maxLight = maxLightOf(prev);
+  state.light = Math.min(state.light, state.maxLight);
   state.events = [];
   state.drops = [];
 
@@ -528,23 +551,22 @@ export function applyAction(prev: RunState, action: RunAction): RunState {
           state.floor.dimlings = state.floor.dimlings.filter(d => d !== target);
           const g = loot(state, int(state.rng, KILL_GOLD[0], KILL_GOLD[1]), "gold");
           state.gold += g; state.kills++;
-          if (state.perks.lightOnKill) state.light += state.perks.lightOnKill;
+          const emberLight = state.perks.lightOnKill ? addLight(state, state.perks.lightOnKill) : 0;
           state.events.push("kill");
           const xp = killXp(state.depth);
           // A defeated creature may drop oil, likelier the lower the lantern is, like a prop does.
           let oil = 0;
           const [dropFull, dropEmpty] = tuning.killDropChance;
           if (dropFull > 0 || dropEmpty > 0) {
-            const p = dropFull + (dropEmpty - dropFull) * (1 - lanternFullness(state.light, state.startLight));
+            const p = dropFull + (dropEmpty - dropFull) * (1 - lanternFullness(state.light, maxLightOf(state)));
             if (chance(state.rng, p)) {
               oil = dropped(int(state.rng, tuning.killDropLight[0], tuning.killDropLight[1]));
-              state.light += oil;
-              noteLight("kills", oil, state.depth);
+              oil = addLight(state, oil, "kills");
               state.events.push("oil");
             }
           }
           state.drops = [...(state.drops ?? []), { x: target.x, y: target.y, gold: g, crystals: 0, light: oil, gear: null }];
-          const extraLight = (state.perks.lightOnKill ? state.perks.lightOnKill : 0) + oil;
+          const extraLight = emberLight + oil;
           say(state, `${enemyName(target.species)} defeated: +${g} gold, +${xp} xp${extraLight ? `, +${extraLight} light` : ""}`);
           rollTicket(state);
           gainXp(state, xp);
@@ -580,11 +602,14 @@ export function applyAction(prev: RunState, action: RunAction): RunState {
     case "potion": {
       const id = action.id;
       if (state.bag[id] <= 0) return prev;
+      if ((id === "oil" || id === "heal") && state.light >= maxLightOf(state)) {
+        state.events.push("lanternFull"); say(state, "Lantern full. Potion kept."); return state;
+      }
       if (id === "nightVision") {
         if (state.nightVision > 0) return prev;
         state.nightVision = NIGHT_VISION_STEPS;
       } else if (id === "oil") {
-        state.light += 30;
+        addLight(state, 30, "potions");
       } else if (id === "flare") {
         state.floor.seen = state.floor.seen.map(() => 1);
         state.floor.revealed = true;
@@ -597,7 +622,7 @@ export function applyAction(prev: RunState, action: RunAction): RunState {
         if ((state.regen ?? 0) > 0) return prev;
         state.regen = REGEN_TURNS;
       } else if (id === "heal") {
-        state.light += HEAL_LIGHT;
+        addLight(state, HEAL_LIGHT, "potions");
       }
       state.bag[id]--; state.used[id]++;
       state.events.push("potion");
@@ -628,6 +653,7 @@ export function applyAction(prev: RunState, action: RunAction): RunState {
       break;
     }
   }
+  if (state.events.includes("lanternFull")) state.messages[0] = `${state.messages[0] ?? ""} Lantern full. Excess light lost.`.trim();
   return state;
 }
 

@@ -24,7 +24,7 @@ export const HIT_FLASH_MS = 110;
 export const KNOCKBACK_MS = 170;
 /** How long a creature's lunge lasts when its blow lands, and how far it reaches in canvas pixels. */
 export const STRIKE_MS = 220;
-/** A short presentation-only anticipation; the boss's contact damage still lands on the game turn. */
+/** Short presentation contact timing after the boss's actual turn-based windup. */
 export const BOSS_ANTICIPATION_MS = 60;
 const LUNGE_PX = 7;
 
@@ -136,7 +136,7 @@ export class CreatureAnimator {
         t.strikeAt = time;
         t.lunge = t.last.aim ?? toward(d, player);
       }
-      if (d.boss && t.turn !== turn && bossStruck) {
+      if (d.boss && ((t.last.phase === "windup" && d.phase === "recovery") || (t.turn !== turn && bossStruck))) {
         t.strikeAt = time;
         const middle = ((d.size ?? 2) - 1) / 2;
         t.lunge = toward({ x: d.x + middle, y: d.y + middle }, player);

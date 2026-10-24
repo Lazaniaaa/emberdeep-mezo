@@ -35,6 +35,7 @@ describe("replayRun", () => {
         const { moves, final } = recordBot(play);
         const r = replayRun(setupFor(seed, flasks), moves);
         expect(r.state.status).toBe(final.status);
+        expect([r.state.light,r.state.maxLight]).toEqual([final.light,final.maxLight]);
         expect([r.depth, r.gold, r.kills, r.bossSlain]).toEqual([final.deepest, final.gold, final.kills, final.bossSlain === true]);
         expect(r.home).toBe(final.status === "extracted");
         if (r.home) home++; else lost++;

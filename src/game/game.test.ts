@@ -358,6 +358,7 @@ describe("cerberus", () => {
     expect(dimlingDistance(s.floor.dimlings[0], s.player)).toBe(2);
     s.floor.dimlings[0].y = 9;
     expect(dimlingDistance(s.floor.dimlings[0], s.player)).toBe(1);
+    s = applyAction(s,{type:"wait"}); // Visible wind-up before the strike.
     const before = s.light;
     const hit = applyAction(s, { type: "wait" });
     expect(before - hit.light).toBeCloseTo(stepCost(BOSS_DEPTH) + BOSS_DRAIN);
@@ -373,7 +374,7 @@ describe("cerberus", () => {
       const s=bossFight({perks:{...NO_PERKS,drainReduce}});
       s.floor.tiles.fill(1);s.floor.items=[];s.floor.props=[];
       s.player={...player,facing:"up"};
-      s.floor.dimlings=[{id:1,x:5,y:5,size:2,boss:true,awake:true,hp:150,maxHp:150}];
+      s.floor.dimlings=[{id:1,x:5,y:5,size:2,boss:true,awake:true,hp:150,maxHp:150,phase:"windup",windupLeft:1}];
       const after=applyAction(s,{type:"wait"});
       expect(s.light-after.light).toBeCloseTo(stepCost(BOSS_DEPTH)+40*(1-drainReduce));
       expect(after.events.filter(e=>e==="drain")).toHaveLength(1);
@@ -528,6 +529,7 @@ describe("new potions", () => {
 
   it("heals at once, but only ever drops in the deep", () => {
     let s = run({ flasks: 1, bag: { ...emptyBag(), heal: 1 } });
+    s.light = 20;
     const before = s.light;
     s = applyAction(s, { type: "potion", id: "heal" });
     expect(s.light).toBe(before + HEAL_LIGHT);
@@ -635,15 +637,13 @@ describe("balance", () => {
     expect(FIELD_GOLD_PER_CENT).toBeGreaterThanOrEqual(bots * 0.7);
   });
 
-  // Owner-requested temporary skip for the maps checkpoint: 5.60 vs 5.66 gold/cent (+1%) is a real balance issue.
-  // Next task must raise creature drain and restore this unchanged +25% requirement, without changing prices or loot.
-  it.skip("keeps a fixed entry cost and a meaningful two-flask efficiency advantage (pending creature-drain rebalance)", { timeout: 60_000 }, () => {
+  it("keeps a fixed entry cost and a meaningful two-flask efficiency advantage with stronger creature drain", { timeout: 60_000 }, () => {
     const one = simulateFogMany(30, 1).goldPerCent;
     const two = simulateFogMany(30, 2).goldPerCent;
     expect(KEY_PRICE).toBeGreaterThan(0);
     expect(simulateFogRun(1000,1).spent).toBe(KEY_PRICE+FLASK_PRICE);
     expect(simulateFogRun(1000,2).spent).toBe(KEY_PRICE+2*FLASK_PRICE);
-    // Owner-approved rebaseline: full view until 25 light improves one-flask collecting. Observed ratio ~1.34.
+    // The original +25% requirement is unchanged. Drain 4 plus the lantern cap measures ~2.14x on these 30 seeds.
     expect(two).toBeGreaterThan(one * 1.25);
   });
 

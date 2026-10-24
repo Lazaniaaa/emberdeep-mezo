@@ -20,7 +20,7 @@ function stepToward(state: RunState, goal: Point) {
 }
 
 /** `banked` is the gold that counts toward a round: what was carried out alive. */
-export type SimResult = { spent: number; banked: number; depth: number; died: boolean; gold: number; level: number; smashed: number; kills: number };
+export type SimResult = { spent: number; banked: number; depth: number; died: boolean; gold: number; level: number; smashed: number; kills: number; bossSlain: boolean };
 
 /** One descent costs its flasks plus one entry key. */
 const runCost = (flasks: number) => flasks * FLASK_PRICE + KEY_PRICE;
@@ -62,7 +62,7 @@ export function simulateRun(seed: number, flasks = 1, perks: Perks = NO_PERKS, g
     s = d ? applyAction(s, { type: "move", dx: d.x, dy: d.y }) : applyAction(s, { type: "wait" });
   }
   const died = s.status !== "extracted";
-  return { spent: runCost(flasks), banked: died ? 0 : s.gold, depth: s.deepest, died, gold: s.gold, level: s.level ?? 1, smashed: s.smashed ?? 0, kills: s.kills };
+  return { spent: runCost(flasks), banked: died ? 0 : s.gold, depth: s.deepest, died, gold: s.gold, level: s.level ?? 1, smashed: s.smashed ?? 0, kills: s.kills, bossSlain: !!s.bossSlain };
 }
 
 const DIRS4: readonly Point[] = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
@@ -125,7 +125,7 @@ export function simulateFogRun(seed: number, flasks = 1, perks: Perks = NO_PERKS
     for (const i of [...s.floor.items, ...propsOf(s.floor)]) if (seenNow.has(idx(s.floor, i.x, i.y))) sawItems.add(i.id);
 
     // A creature that is winding up marks the tiles it will hit. A careful player steps off them, or strikes first.
-    const marked = new Set(s.floor.dimlings.filter(d => !d.boss && d.phase === "windup").flatMap(d => attackTiles(s.floor, d)).map(t => idx(s.floor, t.x, t.y)));
+    const marked = new Set(s.floor.dimlings.filter(d => d.phase === "windup").flatMap(d => attackTiles(s.floor, d)).map(t => idx(s.floor, t.x, t.y)));
     if (style.dodge !== false && marked.has(idx(s.floor, s.player.x, s.player.y))) {
       const occupied = new Set([
         ...s.floor.dimlings.flatMap(d => footprint(d).map(c => idx(s.floor, c.x, c.y))),
@@ -135,7 +135,7 @@ export function simulateFogRun(seed: number, flasks = 1, perks: Perks = NO_PERKS
         .map(o => ({ o, x: s.player.x + o.x, y: s.player.y + o.y }))
         .filter(({ x, y }) => isFloor(s.floor, x, y) && !marked.has(idx(s.floor, x, y)) && !occupied.has(idx(s.floor, x, y)))
         .sort((a, b) => Math.max(0, home[idx(s.floor, a.x, a.y)]) - Math.max(0, home[idx(s.floor, b.x, b.y)]));
-      const winding = s.floor.dimlings.find(d => !d.boss && d.phase === "windup" && dimlingDistance(d, s.player) === 1);
+      const winding = s.floor.dimlings.find(d => d.phase === "windup" && dimlingDistance(d, s.player) === 1);
       // With a way out, take it; otherwise hit the creature that is next to us and about to strike.
       if (escapes.length && !(winding && s.light > reserve && winding.hp <= baseDamage(s))) { s = move(escapes[0].o); continue; }
     }
@@ -184,7 +184,7 @@ export function simulateFogRun(seed: number, flasks = 1, perks: Perks = NO_PERKS
     if (goHome()) break;
   }
   const died = s.status !== "extracted";
-  return { spent: runCost(flasks), banked: died ? 0 : s.gold, depth: s.deepest, died, gold: s.gold, level: s.level ?? 1, smashed: s.smashed ?? 0, kills: s.kills };
+  return { spent: runCost(flasks), banked: died ? 0 : s.gold, depth: s.deepest, died, gold: s.gold, level: s.level ?? 1, smashed: s.smashed ?? 0, kills: s.kills, bossSlain: !!s.bossSlain };
 }
 
 /**
@@ -201,7 +201,7 @@ export function simulateDiveRun(seed: number, flasks = 1, perks: Perks = NO_PERK
     if (!reach.has(s.depth)) reach.set(s.depth, s.steps);
     const pathFrom = (from: Point) => (style.knowsMap ? distances(s.floor, from) : knownDistances(s, from));
     const known = pathFrom(s.player);
-    const marked = new Set(s.floor.dimlings.filter(d => !d.boss && d.phase === "windup").flatMap(d => attackTiles(s.floor, d)).map(t => idx(s.floor, t.x, t.y)));
+    const marked = new Set(s.floor.dimlings.filter(d => d.phase === "windup").flatMap(d => attackTiles(s.floor, d)).map(t => idx(s.floor, t.x, t.y)));
     if (style.dodge !== false && marked.has(idx(s.floor, s.player.x, s.player.y))) {
       const occupied = new Set([
         ...s.floor.dimlings.flatMap(d => footprint(d).map(c => idx(s.floor, c.x, c.y))),
@@ -253,15 +253,16 @@ export function simulateDiveRun(seed: number, flasks = 1, perks: Perks = NO_PERK
 
 export type DiveResult = { depth: number; died: boolean; level: number; steps: number; kills: number; smashed: number; bossSlain: boolean; arrival: Record<number, number> };
 
-export type SimSummary = { goldPerCent: number; deathRate: number; avgDepth: number };
+export type SimSummary = { goldPerCent: number; deathRate: number; avgDepth: number; bossReachRate: number; bossKillRate: number };
 
 function summarize(runs: number, play: (seed: number) => SimResult): SimSummary {
-  let spent = 0, banked = 0, deaths = 0, depth = 0;
+  let spent = 0, banked = 0, deaths = 0, depth = 0, reached = 0, slain = 0;
   for (let i = 0; i < runs; i++) {
     const r = play(1_000 + i * 7_919);
     spent += r.spent; banked += r.banked; depth += r.depth; if (r.died) deaths++;
+    if (r.depth >= BOSS_DEPTH) reached++; if (r.bossSlain) slain++;
   }
-  return { goldPerCent: banked / spent, deathRate: deaths / runs, avgDepth: depth / runs };
+  return { goldPerCent: banked / spent, deathRate: deaths / runs, avgDepth: depth / runs, bossReachRate: reached / runs, bossKillRate: slain / runs };
 }
 
 export function simulateMany(runs: number, flasks = 1, perks: Perks = NO_PERKS, greed = 1.6) {

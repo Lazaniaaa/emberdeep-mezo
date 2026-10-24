@@ -27,6 +27,15 @@ const wait = (s: RunState) => applyAction(s, { type: "wait" });
 const hit = (depth = 1) => (2 + Math.floor(depth / 2)) * ENEMY_HIT_MULT;
 
 describe("a creature that strikes after a warning", () => {
+  it.each([[1,8],[2,12],[3,12],[4,16],[5,16],[6,20],[7,20]])("takes %s-floor light at the rebalanced ordinary-creature rate (%s)", (depth,drain) => {
+    const s=room();s.depth=s.floor.depth=depth;s.light=200;
+    s.floor.dimlings=[creature({phase:"windup",windupLeft:1})];
+    const struck=wait(s);
+    expect(struck.events).toContain("drain");
+    expect(s.light-struck.light).toBeCloseTo(stepCost(depth)+drain);
+    expect(struck.floor.dimlings[0]).toMatchObject({phase:"recovery",cooldown:ENEMY_RECOVERY});
+  });
+
   it("winds up first, then strikes, then is open for a turn before it can start again", () => {
     let s = room();
     s.floor.dimlings = [creature()];

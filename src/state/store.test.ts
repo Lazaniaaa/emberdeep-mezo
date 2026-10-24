@@ -61,6 +61,7 @@ describe("run settlement", () => {
     useGame.setState({ weapons: ["fists", "emberblade"], weapon: "emberblade" });
     const perks = computeRunPerks(useGame.getState());
     const started = startRun({ seed: 7, flasks: 2, perks, weaponDamage: 5, bag: emptyBag() });
+    started.light -= 20; // Test accepted blade light, not intentional loss at a full lantern.
     started.floor.dimlings = [{ id: 1, x: started.player.x + 1, y: started.player.y, hp: 1, maxHp: 1, awake: true }];
     // A defeated creature may also drop oil; switch that off to count only what the blade gives.
     const after = withTuning({ killDropChance: [0, 0] }, () => applyAction(started, { type: "move", dx: 1, dy: 0 }));

@@ -42,10 +42,11 @@ export const MAX_KEYS = 999;
 export const FIELD_WEEK_SPEND = 20_000;
 /**
  * Simulated crowd: gold banked per cent they spend. The simulated 70/20/10 crowd of unperked, held-Delver and top-build
- * bots banked about 6.59 after tracing the painted floors and adding prop cover (2026-10-23).
- * Owner-approved calibration: 6.4, below that bot baseline. Prices, loot, pool split and return cap are unchanged.
+ * bots banked 5.3636 with the lantern cap and telegraphed Cerberus (2026-10-24).
+ * Recalibrated only after the old 5.5 failed its guard: 5.2, just below that measured bot baseline.
+ * Prices, loot, pool split and return cap are unchanged.
  */
-export const FIELD_GOLD_PER_CENT = 6.4;
+export const FIELD_GOLD_PER_CENT = 5.2;
 /**
  * The most a delver takes back from the round pool, as a multiple of what they put into descents that round
  * (entry keys plus oil): +60% at the very best. Whatever the cap withholds stays in the pool for the next round.
@@ -82,7 +83,7 @@ export function enemyCount(depth: number) {
  * A creature hits after a warning (see enemies.ts) and a hit takes this many times the light a creature used to drink
  * in a turn, since it lands every few turns instead of every turn and can be dodged.
  */
-export const ENEMY_HIT_MULT = 1.25;
+export const ENEMY_HIT_MULT = 4;
 /** Gold a defeated creature drops, before the depth multiplier. */
 export const KILL_GOLD: readonly [number, number] = [3, 6];
 /** Turns a creature is stuck recovering after it attacks. */
@@ -96,13 +97,15 @@ export const HP_SCALE = 8;
 
 /**
  * Cerberus guards the stairs of the last illustrated floor. It is far larger than a dimling (2x2 tiles),
- * has 150 HP, drinks light hard and moves at half the pace. A Ward Charm (15 protected steps) covers a
- * dagger fight, and the stairs stay sealed until it falls.
+ * has 150 HP and moves at half the pace. A marked windup precedes its strike, followed by two recovery turns.
+ * A Ward Charm cancels a strike, and the stairs stay sealed until it falls.
  */
 export const BOSS_DEPTH = 7;
 export const BOSS_HP = 150;
 export const BOSS_SIZE = 2;
 export const BOSS_DRAIN = 40;
+export const BOSS_WINDUP = 1;
+export const BOSS_RECOVERY = 2;
 export const BOSS_MOVE_FACTOR = 0.5;
 /** What the Cerberus Hoard holds, before the depth multiplier and perks. */
 export const HOARD_GOLD: readonly [number, number] = [40, 60];

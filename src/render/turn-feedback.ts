@@ -1,4 +1,4 @@
-import { dimlingDistance, isFloor, idx } from "@/game/dungeon";
+import { isFloor, idx } from "@/game/dungeon";
 import { currentStepCost, type RunState } from "@/game/run";
 
 export type LossCause = "step" | "hit" | "boss";
@@ -8,9 +8,7 @@ export const sameFloor = (a: RunState, b: RunState) => a.seed === b.seed && a.ru
 
 /** Read the already-resolved contact, including attacks that do not increment steps. No game state is changed. */
 export function bossDrained(prev: RunState, next: RunState) {
-  return sameFloor(prev, next) && prev.ward <= 0 && next.events.includes("drain")
-    && prev.floor.dimlings.some(d => d.boss && dimlingDistance(d, next.player) === 1
-      && next.floor.dimlings.some(alive => alive.id === d.id && alive.boss));
+  return sameFloor(prev, next) && next.events.includes("bossDrain");
 }
 
 export function lossCause(prev: RunState, next: RunState): LossCause {

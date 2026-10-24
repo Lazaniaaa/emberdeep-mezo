@@ -151,7 +151,7 @@ it("writes docs/light-tuning.md", { timeout: 1_800_000 }, () => {
     "- **A blow burns no light** (2026-10-11, the owner: only steps should): hitting a creature or a prop costs a turn but no oil; walking and waiting burn it. An urn or a sack breaks at the first blow, a crate or a barrel at the second, whatever the weapon.",
     `- **${tick}dropOil${tick} multiplies all the oil that drops** (jars, props, creatures). It is ${DEFAULT_TUNING.dropOil} for everyone; the owner can try 1.3 in local play with ${tick}VITE_DROP_OIL=1.3${tick} in ${tick}.env.local${tick}.`,
     "",
-    `With the chosen values 3 flasks take a newcomer to floor ${chosen.n3.depth.toFixed(1)} on average, and ${pct(chosen.n5.p7)} of 5-flask newcomers reach Cerberus. With +30% oil the same 3 flasks reach floor ${test.n3.depth.toFixed(1)} and ${pct(test.n5.p7)} of 5-flask newcomers reach the boss; a collector banks ${test.gold.toFixed(2)} gold per cent spent instead of ${chosen.gold.toFixed(2)}, and one flask comes close to paying as well as two, which the economy tests do not allow. So +30% stays a local test until the owner decides.`,
+    `With the chosen values 3 flasks take a newcomer to floor ${chosen.n3.depth.toFixed(1)} on average, and ${pct(chosen.n5.p7)} of 5-flask newcomers reach Cerberus. With +30% oil the same 3 flasks reach floor ${test.n3.depth.toFixed(1)} and ${pct(test.n5.p7)} of 5-flask newcomers reach the boss; a collector banks ${test.gold.toFixed(2)} gold per cent spent instead of ${chosen.gold.toFixed(2)}, the +25% two-flask efficiency guard is checked separately on the default oil setting. The +30% setting stays a local test until the owner decides.`,
     "",
     "## What this does not show",
     "",

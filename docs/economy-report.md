@@ -12,43 +12,43 @@ Strength: a perk you only hold works at ×0.6. A lock starts at ×0.8, gains ×0
 
 | Strategy | Cost per descent | Gold banked per cent spent | vs unperked, 2 flasks | Died | Avg deepest floor |
 | --- | --- | --- | --- | --- | --- |
-| Unperked, 1 flask | $0.70 | 5.18 | ×0.88 | 0% | 2.2 |
-| Unperked, 2 flasks | $0.90 | 5.88 | ×1.00 | 5% | 2.8 |
-| Unperked, 3 flasks | $1.10 | 6.67 | ×1.13 | 3% | 3.5 |
-| Rare Prospector, held (×0.6), 2 flasks | $0.90 | 6.71 | ×1.14 | 5% | 2.8 |
-| Rare Prospector, locked 4 rounds (×1.00), 2 flasks | $0.90 | 7.43 | ×1.26 | 5% | 2.8 |
-| Rare Prospector, locked 10+ rounds (×1.3), 2 flasks | $0.90 | 7.83 | ×1.33 | 5% | 2.8 |
-| Strongest build, held (×0.6), 3 flasks | $1.10 | 9.39 | ×1.60 | 4% | 4.3 |
-| Strongest build, just locked (×0.8), 3 flasks | $1.10 | 10.45 | ×1.78 | 4% | 4.6 |
-| Strongest build, locked 4 rounds (×1.00), 3 flasks | $1.10 | 11.75 | ×2.00 | 13% | 5.2 |
-| Strongest build, locked 10+ rounds (×1.3), 3 flasks | $1.10 | 12.88 | ×2.19 | 13% | 5.4 |
-| Strongest build locked 10+ rounds and $50.00 staked, 3 flasks | $1.10 | 14.21 | ×2.42 | 13% | 5.4 |
+| Unperked, 1 flask | $0.70 | 2.06 | ×0.40 | 4% | 1.3 |
+| Unperked, 2 flasks | $0.90 | 5.11 | ×1.00 | 6% | 2.7 |
+| Unperked, 3 flasks | $1.10 | 5.73 | ×1.12 | 9% | 3.3 |
+| Rare Prospector, held (×0.6), 2 flasks | $0.90 | 5.84 | ×1.14 | 6% | 2.7 |
+| Rare Prospector, locked 4 rounds (×1.00), 2 flasks | $0.90 | 6.47 | ×1.27 | 6% | 2.7 |
+| Rare Prospector, locked 10+ rounds (×1.3), 2 flasks | $0.90 | 6.81 | ×1.33 | 6% | 2.7 |
+| Strongest build, held (×0.6), 3 flasks | $1.10 | 7.47 | ×1.46 | 9% | 4.0 |
+| Strongest build, just locked (×0.8), 3 flasks | $1.10 | 8.04 | ×1.57 | 16% | 4.3 |
+| Strongest build, locked 4 rounds (×1.00), 3 flasks | $1.10 | 8.35 | ×1.63 | 15% | 4.4 |
+| Strongest build, locked 10+ rounds (×1.3), 3 flasks | $1.10 | 9.89 | ×1.93 | 18% | 4.8 |
+| Strongest build locked 10+ rounds and $50.00 staked, 3 flasks | $1.10 | 10.92 | ×2.14 | 18% | 4.8 |
 
 Holding is the weak setting on purpose. Locking wins the strength back over about four rounds and adds a little beyond it, so the reward for commitment is a stronger perk plus a share of the lock pool (table E), not a different game.
 
-## B. Sensitivity to the crowd's skill (the demo assumes 6.4 gold per cent spent)
+## B. Sensitivity to the crowd's skill (the demo assumes 5.2 gold per cent spent)
 
 One delver making 10 descents against a crowd that spent $200.00 and banked the given gold per cent. Cells are money received from the round pool / money put into the descents, after the return cap († = the cap bound).
 
-| Strategy | crowd 2.2 | crowd 3.2 | crowd 5.4 | crowd 6.4 | crowd 6.6 |
+| Strategy | crowd 2.2 | crowd 3.2 | crowd 5.2 | crowd 5.4 | crowd 6.6 |
 | --- | --- | --- | --- | --- | --- |
-| Unperked, 2 flasks | 150% | 106% | 65% | 55% | 54% |
-| Rare Prospector, held (×0.6), 2 flasks | 160% † | 120% | 74% | 63% | 61% |
-| Strongest build, held (×0.6), 3 flasks | 160% † | 160% | 100% | 86% | 84% |
-| Strongest build, locked 10+ rounds (×1.3), 3 flasks | 160% † | 160% † | 133% | 115% | 112% |
-| Strongest build locked 10+ rounds and $50.00 staked, 3 flasks | 160% † | 160% † | 145% | 125% | 122% |
+| Unperked, 2 flasks | 132% | 93% | 59% | 57% | 47% |
+| Rare Prospector, held (×0.6), 2 flasks | 149% | 106% | 67% | 65% | 53% |
+| Strongest build, held (×0.6), 3 flasks | 160% † | 131% | 84% | 81% | 67% |
+| Strongest build, locked 10+ rounds (×1.3), 3 flasks | 160% † | 160% † | 109% | 105% | 88% |
+| Strongest build locked 10+ rounds and $50.00 staked, 3 flasks | 160% † | 160% † | 119% | 115% | 96% |
 
-A cell scales with `your gold per cent / the crowd's gold per cent`. If the demo's 6.4 is wrong, uncapped returns move by about the same factor, but the cap keeps the best case at +60% a round, and the sum paid out to the whole crowd stays at most 60% of spend.
+A cell scales with `your gold per cent / the crowd's gold per cent`. If the demo's 5.2 is wrong, uncapped returns move by about the same factor, but the cap keeps the best case at +60% a round, and the sum paid out to the whole crowd stays at most 60% of spend.
 
-## C. Sensitivity to crowd size (crowd of unperked 2-flask delvers at 6.4 gold per cent)
+## C. Sensitivity to crowd size (crowd of unperked 2-flask delvers at 5.2 gold per cent)
 
 | Strategy | crowd $20.00 | crowd $200.00 | crowd $2,000.00 |
 | --- | --- | --- | --- |
-| Unperked, 2 flasks | 57% | 55% | 55% |
-| Rare Prospector, held (×0.6), 2 flasks | 62% | 63% | 63% |
-| Strongest build, held (×0.6), 3 flasks | 76% | 86% | 88% |
-| Strongest build, locked 10+ rounds (×1.3), 3 flasks | 89% | 115% | 120% |
-| Strongest build locked 10+ rounds and $50.00 staked, 3 flasks | 93% | 125% | 132% |
+| Unperked, 2 flasks | 59% | 59% | 59% |
+| Rare Prospector, held (×0.6), 2 flasks | 65% | 67% | 67% |
+| Strongest build, held (×0.6), 3 flasks | 75% | 84% | 86% |
+| Strongest build, locked 10+ rounds (×1.3), 3 flasks | 86% | 109% | 114% |
+| Strongest build locked 10+ rounds and $50.00 staked, 3 flasks | 91% | 119% | 125% |
 
 In a tiny crowd one delver is a large part of the gold, so its own spend dilutes its share. Returns settle as the crowd grows.
 
@@ -60,10 +60,10 @@ Each row is a whole round with players in the given proportions (share of all de
 | Crowd: unperked / Prospector held / strongest held / strongest locked | Paid out / spent | Carried | Unperked | Prospector held | Strongest held | Strongest locked |
 | --- | --- | --- | --- | --- | --- | --- |
 | 100 / 0 / 0 / 0 | 60.0% | 0.0% | 60% | n/a | n/a | n/a |
-| 70 / 20 / 10 / 0 | 60.0% | 0.0% | 55% | 62% | 88% | n/a |
-| 70 / 20 / 0 / 10 | 60.0% | 0.0% | 51% | 58% | n/a | 113% |
-| 50 / 30 / 0 / 20 | 60.0% | 0.0% | 45% | 52% | n/a | 100% |
-| 20 / 30 / 0 / 50 | 60.0% | 0.0% | 35% | 40% | n/a | 78% |
+| 70 / 20 / 10 / 0 | 60.0% | 0.0% | 55% | 63% | 86% | n/a |
+| 70 / 20 / 0 / 10 | 60.0% | 0.0% | 53% | 61% | n/a | 100% |
+| 50 / 30 / 0 / 20 | 60.0% | 0.0% | 48% | 55% | n/a | 91% |
+| 20 / 30 / 0 / 50 | 60.0% | 0.0% | 39% | 45% | n/a | 74% |
 | 0 / 0 / 0 / 100 | 60.0% | 0.0% | n/a | n/a | n/a | 60% |
 
 The strongest build earns well above average only while few others play it. Its edge is paid by everyone else's gold, and it shrinks as it spreads (compare the rows); if everyone has it, the round pays every delver exactly 60% again.
@@ -109,10 +109,10 @@ Worth: a key $0.50, a ticket $0.20 (an assumption: what a ticket is worth depend
 
 | Pack | Total cost | Studio | Round pool | Returns with a haul | Average haul | Average worth | Worth ÷ cost | ×2 or more | ×5 or more | ×10 or more |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| No pack | $1.00 | $0.45 | $0.55 | 45% | 0.52 keys, 0.52 tickets, 63 gold | $0.43 | 43% | 3.9% | 0.36% | 0.05% |
-| Scout Pack | $1.30 | $0.59 | $0.72 | 58% | 0.67 keys, 0.67 tickets, 81 gold | $0.55 | 42% | 5.0% | 0.46% | 0.06% |
-| Ranger Pack | $1.60 | $0.72 | $0.88 | 70% | 0.81 keys, 0.81 tickets, 98 gold | $0.66 | 41% | 6.0% | 0.56% | 0.07% |
-| Vanguard Pack | $1.90 | $0.86 | $1.05 | 82% | 0.95 keys, 0.95 tickets, 114 gold | $0.77 | 41% | 7.1% | 0.66% | 0.08% |
+| No pack | $1.00 | $0.45 | $0.55 | 45% | 0.52 keys, 0.52 tickets, 63 gold | $0.44 | 44% | 3.9% | 0.36% | 0.05% |
+| Scout Pack | $1.30 | $0.59 | $0.72 | 58% | 0.67 keys, 0.67 tickets, 81 gold | $0.57 | 44% | 5.0% | 0.46% | 0.06% |
+| Ranger Pack | $1.60 | $0.72 | $0.88 | 70% | 0.81 keys, 0.81 tickets, 98 gold | $0.68 | 43% | 6.0% | 0.56% | 0.07% |
+| Vanguard Pack | $1.90 | $0.86 | $1.05 | 82% | 0.95 keys, 0.95 tickets, 114 gold | $0.80 | 42% | 7.1% | 0.66% | 0.08% |
 
 Even with the best pack an average trip is worth less than it cost, so an expedition is a sink with a lottery ticket attached, not a faucet. Packs are priced so that the average worth stays at about half the cost at every tier: a pack buys a steadier trip (a higher chance of coming back with a haul), not a better deal.
 The keys and tickets are game items, not money, but a key is worth what a player would otherwise pay to descend ($0.50), so the table counts them. Gold joins the round like gold from a descent and is subject to the return cap.

@@ -1,0 +1,92 @@
+[
+  {
+    "multiplier": 1.25,
+    "runs": 30,
+    "one": {
+      "goldPerCent": 5.6,
+      "deathRate": 0,
+      "avgDepth": 2.3333333333333335
+    },
+    "two": {
+      "goldPerCent": 5.66074074074074,
+      "deathRate": 0.03333333333333333,
+      "avgDepth": 2.7333333333333334
+    },
+    "efficiencyRatio": 1.0108465608465609
+  },
+  {
+    "multiplier": 2,
+    "runs": 30,
+    "one": {
+      "goldPerCent": 5.059047619047619,
+      "deathRate": 0.03333333333333333,
+      "avgDepth": 2.2333333333333334
+    },
+    "two": {
+      "goldPerCent": 5.231481481481482,
+      "deathRate": 0.06666666666666667,
+      "avgDepth": 2.6666666666666665
+    },
+    "efficiencyRatio": 1.0340842536813923
+  },
+  {
+    "multiplier": 2.5,
+    "runs": 30,
+    "one": {
+      "goldPerCent": 4.765238095238095,
+      "deathRate": 0,
+      "avgDepth": 2.066666666666667
+    },
+    "two": {
+      "goldPerCent": 5.137407407407407,
+      "deathRate": 0.06666666666666667,
+      "avgDepth": 2.6666666666666665
+    },
+    "efficiencyRatio": 1.0781008849361002
+  },
+  {
+    "multiplier": 3,
+    "runs": 30,
+    "one": {
+      "goldPerCent": 4.54047619047619,
+      "deathRate": 0.03333333333333333,
+      "avgDepth": 2.1
+    },
+    "two": {
+      "goldPerCent": 5.087037037037037,
+      "deathRate": 0.06666666666666667,
+      "avgDepth": 2.6
+    },
+    "efficiencyRatio": 1.1203752257763795
+  },
+  {
+    "multiplier": 4,
+    "runs": 30,
+    "one": {
+      "goldPerCent": 3.689047619047619,
+      "deathRate": 0.06666666666666667,
+      "avgDepth": 1.8666666666666667
+    },
+    "two": {
+      "goldPerCent": 5.019629629629629,
+      "deathRate": 0.06666666666666667,
+      "avgDepth": 2.566666666666667
+    },
+    "efficiencyRatio": 1.3606844226438908
+  },
+  {
+    "multiplier": 5,
+    "runs": 30,
+    "one": {
+      "goldPerCent": 3.0814285714285714,
+      "deathRate": 0.1,
+      "avgDepth": 1.6333333333333333
+    },
+    "two": {
+      "goldPerCent": 4.646296296296296,
+      "deathRate": 0.06666666666666667,
+      "avgDepth": 2.5
+    },
+    "efficiencyRatio": 1.5078383900822474
+  }
+]

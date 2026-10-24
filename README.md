@@ -48,7 +48,8 @@ The original **Lanterns Below** soundtrack is synthesized locally after your fir
 ## The loop
 
 1. **Get in.** A descent needs an **entry key** ($0.50). New saves start with three, and $20 of simulated USDC.
-2. **Fill your lantern.** Buy oil flasks at camp ($0.20 each, 80 light per flask).
+2. **Fill your lantern.** Buy oil flasks at camp ($0.20 each, 80 light per flask). Starting light, including the Delver's start-light perk,
+   is also the lantern's capacity. Refills cannot exceed it: excess oil is lost. Oil Vials and Healing Draughts used at full light stay in the bag.
 3. **Descend.** The descent fills the whole screen like the camp. Floors 1-7 have hand-traced layouts: 1-2 use 32px catacombs tiles, 3-7 painted art
    (floors 1-3 are 60% larger than the rest), deeper floors are generated, and all of them sit under fog of war. Every step
    burns light. Vision stays at radius 5 until light drops below 25; then it narrows at 20, 10 and 5 light.
@@ -86,13 +87,15 @@ gives two, an Iron-bound Barrel always gives two, and an Old Sack holds mostly g
 turns into experience.
 
 **Levels.** Every descent starts at level 1 and there are 15. Experience comes from breaking props (1-7 each), defeating
-creatures (2-5) and opening chests and vaults. Each new level pours **10 light** into your lantern and adds **2 damage**
+creatures (2-5) and opening chests and vaults. Each new level raises capacity by **10**, pours **10 light** into your lantern and adds **2 damage**
 to every blow (a dagger hits for 16, so level 5 is 24). The level bar is under the lantern, and the level is lost
-with the descent. Choosing a buff on each level-up is planned; for now a level is only the oil and the damage.
+with the descent. The light HUD shows current / maximum. Choosing a buff on each level-up is planned; for now a level adds capacity, oil and damage.
 
 Depth 7 ends in an arena guarded by **Cerberus**, a three-headed hound four times the size of a creature
-(2x2 tiles, 150 HP, where ordinary creatures have 12-70). It seals the stairs, drinks 40 light a turn when you
-touch it, never winds up, and moves at half a creature's pace. When it falls it leaves a **Cerberus Hoard** chest where it stood: gold and
+(2x2 tiles, 150 HP, where ordinary creatures have 12-70). It seals the stairs and moves at half a creature's pace.
+It marks the eight cells along its body edges, winds up for one turn, strikes for **40 light** before protection,
+then recovers for **two turns** without moving or draining. Step off the marked cells, then attack during recovery.
+When it falls it leaves a **Cerberus Hoard** chest where it stood: gold and
 crystals, a Healing Draught, a Rage Potion and a 40% chance of a Soul Sigil. Walk over the chest to open it.
 The stairs then open onto the endless floors below; you can also skip the fight and leave through the rift.
 A Ward Charm makes Cerberus harmless for 15 steps, enough for a Rusty Dagger to take about ten swings.
@@ -126,17 +129,17 @@ Money is simulated USDC. The game counts it in cents, so every rule below is exa
 - Vault: **Close round and claim** settles the round, **Add a simulated crowd** adds other
   delvers' spend and gold. Every new round opens with a simulated crowd already in it.
 - `src/game/sim.ts` has two bots: one that sees the whole map and one that plays under fog of
-  war. Both almost never die, so they are an **upper bound** on skilled play, not a forecast.
-  A 2-flask delver with no perks banks about 6.0 gold per cent spent (key included). The
-  simulated crowd banks 6.4, a little below what a 70/20/10 crowd of unperked, Delver-holding and
+  war. These scripted bots dodge known warnings; their results are a model of play, not a forecast.
+  A 2-flask delver with no perks banks about 5.1 gold per cent spent (key included). The
+  simulated crowd banks 5.2, a little below what a 70/20/10 crowd of unperked, Delver-holding and
   top-build bots banks (a test checks it stays between 70% and 100% of that), so a lone delver in the demo is
   measured against a crowd with good gear. Real players make mistakes the bots do not, so the true figure is probably
   lower, and the cap covers that case.
 - Because everything is shared out, the round pool never pays back more than its share (60%) of
   what was spent. Balance is therefore about who takes it. Against the demo's crowd an unperked
-  delver gets about 56% of their spend back, a held Rare Prospector about 64%, and the strongest build (Legendary
-  Pathfinder, 3 flasks) about 95% while merely held, 142% once locked for 10+ rounds and 155% with a full stake as
-  well, funded by the others. The 160% cap stops anything above that. The edge shrinks as more players use it (82%
+  delver gets about 59% of their spend back, a held Rare Prospector about 67%, and the strongest build (Legendary
+  Pathfinder, 3 flasks) about 84% while merely held, 109% once locked for 10+ rounds and 119% with a full stake as
+  well, funded by the others. The 160% cap stops anything above that. The edge shrinks as more players use it (74%
   when half the crowd runs the locked build). `npm run economy` regenerates the tables, including how the
   results move with the crowd's skill and size and what locks farm:
   [docs/economy-report.md](docs/economy-report.md).

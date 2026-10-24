@@ -40,7 +40,7 @@ describe("the oil the deep gives back", () => {
       const trials = 500;
       for (let seed = 1; seed <= trials; seed++) {
         let s = fight(seed);
-        s.startLight = 160; s.light = light;
+        s.startLight = s.maxLight = 160; s.light = light;
         const before = s.light;
         s = strike(s);
         expect(s.events).toContain("kill");
@@ -49,9 +49,10 @@ describe("the oil the deep gives back", () => {
           const gained = s.light - before;
           // The step costs a little; the oil is what the creature held.
           const scaled = (n: number) => Math.round(n * DEFAULT_TUNING.dropOil);
-          expect(gained).toBeGreaterThanOrEqual(scaled(DEFAULT_TUNING.killDropLight[0]) - 1.5);
+          expect(gained).toBeGreaterThanOrEqual(Math.min(scaled(DEFAULT_TUNING.killDropLight[0]),s.maxLight-before) - 1.5);
           expect(gained).toBeLessThanOrEqual(scaled(DEFAULT_TUNING.killDropLight[1]) + DEFAULT_TUNING.levelLight);
-          expect(s.messages.some(m => m.includes("defeated") && m.includes("light"))).toBe(true);
+          if(gained>0)expect(s.messages.some(m => m.includes("defeated") && m.includes("light"))).toBe(true);
+          else expect(s.messages.some(m=>m.includes("Lantern full"))).toBe(true);
         }
       }
       return drops / trials;
@@ -81,6 +82,7 @@ describe("the oil the deep gives back", () => {
   it("pours the tuned amount into the lantern from an oil jar", () => {
     const s = fight(3);
     s.floor.dimlings = [];
+    s.light -= 30; // Measure an accepted jar, not intentional overflow from a full lantern.
     s.floor.items = [{ id: 5, x: 7, y: 6, kind: "oil" }];
     const light = s.light;
     const next = withTuning({ oilJarLight: 13, dropOil: 1 }, () => strike(s));

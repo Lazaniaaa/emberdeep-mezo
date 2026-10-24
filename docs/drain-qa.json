@@ -1,0 +1,37 @@
+{
+  "results": [
+    {
+      "screen": "desktop",
+      "depth": 1,
+      "hitDrain": 8,
+      "stepCost": 1,
+      "remainingLight": 71,
+      "phase": "recovery"
+    },
+    {
+      "screen": "desktop",
+      "depth": 2,
+      "hitDrain": 12,
+      "stepCost": 1,
+      "remainingLight": 67,
+      "phase": "recovery"
+    },
+    {
+      "screen": "phone",
+      "depth": 1,
+      "hitDrain": 8,
+      "stepCost": 1,
+      "remainingLight": 71,
+      "phase": "recovery"
+    },
+    {
+      "screen": "phone",
+      "depth": 2,
+      "hitDrain": 12,
+      "stepCost": 1,
+      "remainingLight": 67,
+      "phase": "recovery"
+    }
+  ],
+  "errors": []
+}

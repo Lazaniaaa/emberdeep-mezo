@@ -19,6 +19,15 @@ beforeAll(async () => {
 });
 
 describe("active run recovery", () => {
+  it("restores an old lantern's capacity from start light and level, clamps overflow and rejects invalid capacity",()=>{
+    const legacy=startRun({seed:7,flasks:2,perks:NO_PERKS,weaponDamage:8,bag:emptyBag()});
+    legacy.level=3;legacy.light=999;
+    delete (legacy as Partial<typeof legacy>).maxLight;
+    const restored=useRun.persist.getOptions().merge!({run:legacy},useRun.getState()) as ReturnType<typeof useRun.getState>;
+    expect(restored.run?.maxLight).toBe(180);expect(restored.run?.light).toBe(180);
+    expect(validSavedRun({...legacy,maxLight:-1})).toBe(false);
+    expect(validSavedRun({...legacy,maxLight:Infinity})).toBe(false);
+  });
   it("restores and continues a run after rehydration", async () => {
     useRun.getState().start({ seed: 7, flasks: 2, perks: NO_PERKS, weaponDamage: 1, bag: emptyBag() });
     useRun.getState().act({ type: "wait" });

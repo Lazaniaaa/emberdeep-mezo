@@ -1,0 +1,32 @@
+[
+  {
+    "multiplier": 1.25,
+    "runs": 80,
+    "one": {
+      "goldPerCent": 5.181785714285715,
+      "deathRate": 0,
+      "avgDepth": 2.2
+    },
+    "two": {
+      "goldPerCent": 5.879166666666666,
+      "deathRate": 0.05,
+      "avgDepth": 2.7875
+    },
+    "efficiencyRatio": 1.134583132308682
+  },
+  {
+    "multiplier": 4,
+    "runs": 80,
+    "one": {
+      "goldPerCent": 3.7526785714285715,
+      "deathRate": 0.05,
+      "avgDepth": 1.85
+    },
+    "two": {
+      "goldPerCent": 5.329444444444444,
+      "deathRate": 0.0625,
+      "avgDepth": 2.7
+    },
+    "efficiencyRatio": 1.42017077748698
+  }
+]

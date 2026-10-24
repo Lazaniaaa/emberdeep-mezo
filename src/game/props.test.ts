@@ -232,6 +232,7 @@ describe("smashing", () => {
       let two = 0;
       for (let seed = 1; seed <= 200; seed++) {
         let s = room({ seed });
+        s.light = 100; // Room for the rolled oil; full-lantern loss has separate cap tests.
         s.floor.props = [prop(kind, { hp: 1 })];
         const before = { gold: s.gold, crystals: s.crystals };
         s = right(s);
@@ -290,7 +291,7 @@ describe("smashing", () => {
       const trials = 400;
       for (let seed = 1; seed <= trials; seed++) {
         let s = room({ seed });
-        s.startLight = 160; s.light = light;
+        s.startLight = s.maxLight = 160; s.light = light;
         s.floor.props = [prop("crate", { hp: 1 })];
         s = right(s);
         if (s.events.includes("oil")) drops++;
