@@ -579,3 +579,60 @@ Keep the creature's ground-contact anchor in exactly the same place in all cells
 ## Runtime ordinary-mob sizing (2026-10-15)
 
 No new artwork was generated. The approved sources in `art/mobs/raw/` were recut with `node scripts/sprite-sheets.mjs mobs`: small creatures now occupy roughly one 32px tile along their longer side, preserving proportions; the already-large crab/golem remain the same scale. Logical heights: Waxling 30, Spider 22, Lantern Moth 28, Archer 29, Wisp 26, Golem 36, Skull Crab 22, Shroom 32, Imp 28. All nine textures now use 2x density (768x112, four logical 96x56 cells) to retain eyes and outlines. Cerberus sources and atlas were not changed.
+
+## M4. One mob per image: six poses, three directions (2026-10-25)
+
+The accepted cleanup stays in the game. This is a future **single-mob prompt template**, filled first for **Skeleton Archer (priority 1)**. Copy the whole block for one monster only; for subsequent monsters replace its identity, standing height and attack with the table below. Never combine several monsters in one image.
+
+Attach exactly three references for each request:
+1. That mob's current four-frame strip: first `public/mobs/chaincoil.png`.
+2. Shared swatches: `docs/screenshots/mobs-palette.png`.
+3. One unchanged hero for scale: for example `public/heroes/cat-scottish-fold.png` (the hero is a reference only, not an output character).
+
+**Future 6x3 format, not yet supported by the four-frame importer.** Do not overwrite current `art/mobs/raw/*.webp` with the result. The owner generates and approves one mob before moving to the next; extraction/additional visual states are a separate task. Reject a result that damages eyes or silhouettes.
+
+```text
+Create ONE sprite sheet of ONE monster: Skeleton Archer (Emberdeep id: chaincoil), using the attached current strip as its identity reference. This is an original cute-creepy cave dungeon crawler. The attached cat hero is only a scale reference; do not draw it in the output.
+
+OUTPUT: lossless PNG, 1152 x 336 pixels. Exactly 6 equal columns and 3 equal rows; every cell is 192 x 112 pixels. Solid flat #FF00FF background. No text, labels, grid lines, UI, ground, cast shadows or neighbouring-cell fragments. Every pose stays completely inside its own cell.
+
+CHARACTER: a short chibi bone-white Skeleton Archer with two clearly separated warm orange eyes inside dark eye sockets, a small wooden bow and one anatomically consistent hand grip. Keep bone shading intentional and crisp. The thin bowstring is dark neutral/brown, never pink. Preserve the skull, eye spacing, body proportions and bow construction of the reference across all poses.
+
+SCALE: idle standing height 58 IMAGE pixels (29 logical game pixels), with the same scale in all 18 cells. Feet/body-contact anchor is pixel (64,104) inside every cell. Death debris and projectiles stay inside the cell. Do not vertically centre, resize or recenter individual poses. Hovering monsters retain a stable body anchor; the game adds hover.
+
+PIXEL STYLE: deliberate hard-edged clusters on one consistent image-pixel grid; no mixels, interpolation, blur, anti-aliasing, airbrush, noisy micro-shading or dithering. One-pixel outer ink in #0a0b16 for solid bodies, simple 2-3-tone material shading from upper left. Preserve luminous coloured edges on fire and sparks rather than blackening them. Orthographic chibi game art seen slightly from above, not isometric or realistic.
+
+Use ONLY these 32 foreground colours. #FF00FF is background only and must not contaminate bodies, bowstring or web:
+#0a0b16 #fef4e2 #fdec8e #fd930c #f5430a #fa2e2c #68eaeb #4a99ff
+#c3f7ff #e1a961 #614834 #73a041 #82538b #8c8c83 #bdbaab #555857
+#2d3b44 #ecfeff #145bd4 #b3241b #c67baf #6e1715 #95654d #3acefd
+#4b7032 #f3cc90 #231f35 #88bb2a #0c0409 #bb9e81 #1e0f13 #6a50f2
+
+ROWS, top to bottom: 1 RIGHT; 2 DOWN toward the viewer; 3 UP away from the viewer. Left is mirrored in the game. Up/down must be genuine body views, not a rotated side image; do not draw eyes through the back of the skull.
+
+COLUMNS, left to right in EVERY row:
+1 IDLE: relaxed ready stance.
+2 STEP: one clearly different walking step with the same head and scale.
+3 WINDUP: draws the bow toward the row's facing direction.
+4 CONTACT: releases one arrow in that direction, bow/hand anatomy consistent, arrow inside the cell.
+5 HURT: a readable recoil from a hit, same eyes/face, no painted white/red flash or damage numbers.
+6 DEATH: non-gory collapsed bones and bow, no loot, debris inside the cell.
+
+Keep eyes readable and consistent in every view where they should be visible. Do not add/remove limbs or swap markings. Make step, windup, contact and hurt visibly distinct. Deliver only this one-monster sheet.
+```
+
+### Next single-mob requests, in report priority order
+
+For each row attach `public/mobs/<id>.png` plus the same palette and hero; reuse the above 6x3 template, replacing CHARACTER, SCALE, WINDUP/CONTACT and the species-appropriate non-gory DEATH. Keep the grid, feet anchor, palette and other style rules unchanged.
+
+| Order | Mob / id | Standing height (image / logical px) | Character accents | Windup → contact |
+| --- | --- | --- | --- | --- |
+| 1 | Skeleton Archer / `chaincoil` | 58 / 29 | Bone-white, orange eyes, neutral bowstring | Draw bow → release arrow |
+| 2 | Lantern Moth / `cinder-hound` | 56 / 28 | Warm grey-brown, feathered antennae, orange-gold wing eye-spots; deliberate shade clusters | Raise wings → dive |
+| 3 | Stone Golem / `sootplate` | 72 / 36 | Neutral grey stone planes, green moss, turquoise eye pair; no grain | Raise fists → ground slam |
+| 4 | Waxling / `wickgnaw` | 60 / 30 | Cream candle, wax feet, warm eyes, yellow-orange flame | Squash/flame flares → spring forward with wax |
+| 5 | Cave Spider / `snaretoad` | 44 / 22 | Violet body, distinct legs, red eyes, pale web | Rear up → send web |
+| 6 | Wisp / `needle-wraith` | 52 / 26 | Cold-white/cyan-blue fire, two blue eyes, sparks | Gather/shrink → throw blue spark |
+| 7 | Skull Crab / `hollow-burrower` | 44 / 22 | Red crab, bone-white skull shell, eye stalks, claws | Hide in skull → snap claws |
+| 8 | Spore Shroom / `fourfold-bell` | 64 / 32 | Cream body, warm eyes, red cap/pale spots and spores | Swell cap → release spores |
+| 9 | Imp / `rift-leaper` | 56 / 28 | Red, pale horns, yellow eyes, wings, tail and claws | Crouch → leap with claws |

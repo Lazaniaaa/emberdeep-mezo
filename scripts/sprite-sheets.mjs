@@ -6,7 +6,7 @@
 // Usage: node scripts/sprite-sheets.mjs              (everything)
 //        node scripts/sprite-sheets.mjs heroes       (one kind)
 //        node scripts/sprite-sheets.mjs mobs sootplate
-import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import sharp from "sharp";
@@ -237,7 +237,7 @@ const FIXES = {
  * Logical heights: small bodies fill roughly a 32px tile along their longer side, keeping their source proportions.
  * The already-large golem is unchanged. All sheets retain source details at 2x texture density.
  */
-const MOB_HEIGHT = {
+export const MOB_HEIGHT = {
   wickgnaw: 30, snaretoad: 22, "cinder-hound": 28, chaincoil: 29, "needle-wraith": 26,
   sootplate: 36, "hollow-burrower": 22, "fourfold-bell": 32, "rift-leaper": 28,
 };
@@ -318,6 +318,172 @@ const KINDS = {
   },
 };
 
+/** Perceptual palette distances, with linear sRGB input as specified by OKLab. No dithering or random choices. */
+export function rgbToOklab([r, g, b]) {
+  const linear = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  r = linear(r); g = linear(g); b = linear(b);
+  const l = Math.cbrt(0.4122214708*r + 0.5363325363*g + 0.0514459929*b);
+  const m = Math.cbrt(0.2119034982*r + 0.6806995451*g + 0.1073969566*b);
+  const s = Math.cbrt(0.0883024619*r + 0.2817188376*g + 0.6299787005*b);
+  return [0.2104542553*l + 0.793617785*m - 0.0040720468*s,
+    1.9779984951*l - 2.428592205*m + 0.4505937099*s,
+    0.0259040371*l + 0.7827717662*m - 0.808675766*s];
+}
+const labDistance = (a, b) => a.reduce((sum, n, i) => sum + (n - b[i]) ** 2, 0);
+const fromHex = h => h.replace('#', '').match(/../g).map(v => parseInt(v, 16));
+const toHex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+
+export function nearestMobColor(rgb, colors) {
+  const lab = rgbToOklab(rgb);
+  return colors.reduce((best, color) => labDistance(lab, rgbToOklab(color)) < labDistance(lab, rgbToOklab(best)) ? color : best);
+}
+
+/** Derive a frozen palette from existing artwork, retaining small semantic accents before weighted clustering. */
+export async function deriveMobPalette(mobDir = 'public/mobs') {
+  const histogram = new Map();
+  for (const path of [
+    ...Object.keys(MOB_HEIGHT).map(id => `${mobDir}/${id}.png`),
+    ...['catacombs', 'mycelium', 'cinderworks', 'hollowglass'].map(id => `public/tiles/${id}.png`),
+  ]) {
+    const { data } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const weight = path.includes('/tiles/') ? 0.15 : 1;
+    for (let p = 0; p < data.length; p += 8) {
+      if (!data[p + 3]) continue;
+      const c = [data[p], data[p + 1], data[p + 2]];
+      if (isBg(...c)) continue;
+      const key = c.map(v => v >> 3).join(',');
+      const point = histogram.get(key) ?? { rgb: c, weight: 0, lab: rgbToOklab(c) };
+      point.weight += weight; histogram.set(key, point);
+    }
+  }
+  const points = [...histogram.values()];
+  const accents = [[14,12,20], [249,243,222], [255,238,139], [255,148,18], [244,69,28], [255,30,27],
+    [91,235,235], [58,155,255], [190,244,255], [226,168,87], [106,73,47], [127,157,46], [133,80,144],
+    [137,142,132], [187,187,172], [83,89,82], [48,57,68], [235,255,255]];
+  const chosen = accents.map(c => points.reduce((a,b) => labDistance(rgbToOklab(c),a.lab) < labDistance(rgbToOklab(c),b.lab) ? a : b));
+  const centers = chosen.map(p => [...p.lab]);
+  while (centers.length < 32) {
+    const p = points.reduce((a,b) => {
+      const score = p => Math.min(...centers.map(c => labDistance(p.lab,c))) * Math.sqrt(p.weight);
+      return score(a) > score(b) ? a : b;
+    }); centers.push([...p.lab]);
+  }
+  for (let iteration = 0; iteration < 12; iteration++) {
+    const sums = centers.map(() => [0,0,0,0]);
+    for (const p of points) {
+      let best = 0; centers.forEach((c,i) => { if (labDistance(p.lab,c) < labDistance(p.lab,centers[best])) best = i; });
+      p.lab.forEach((v,i) => sums[best][i] += v*p.weight); sums[best][3] += p.weight;
+    }
+    for (let i = accents.length; i < centers.length; i++) if (sums[i][3]) centers[i] = sums[i].slice(0,3).map(v => v/sums[i][3]);
+  }
+  const colors = centers.map(c => toHex(points.reduce((a,b) => labDistance(c,a.lab) < labDistance(c,b.lab) ? a : b).rgb));
+  return { version: 1, space: 'OKLab', colors, outline: colors[0], texturePixel: 1,
+    derivation: 'Existing nine baseline mob PNGs (weight 1) and four tile atlases (weight 0.15). Eighteen locked nearest-source accents/neutral shades, fourteen weighted OKLab clusters; frozen for reproducibility.',
+    accents: ['outline', 'bone/wax', 'flame highlight', 'orange eyes/fire', 'red fire', 'spider eyes', 'golem cyan', 'wisp blue', 'wisp highlight', 'moth wings', 'moth/bow brown', 'moss', 'spider violet', 'stone mid', 'stone light', 'stone shade', 'cool stone shade', 'cold white'],
+    keepOriginal: {} };
+}
+
+/** Edge periodicity estimates the source's block SIZE independently of the requested in-game body height. */
+export function detectMobGrid(data, w, h, boxes, fallback = 8) {
+  const profiles = boxes.map(box => {
+    const xs = new Float64Array(w), ys = new Float64Array(h);
+    for (let y = Math.max(1,box.y0); y <= Math.min(h-1,box.y1); y++) for (let x = Math.max(1,box.x0); x <= Math.min(w-1,box.x1); x++) {
+      const p = (y*w+x)*3, here = [data[p],data[p+1],data[p+2]];
+      if (isBg(...here)) continue;
+      for (const [prev,profile,k] of [[p-3,xs,x],[p-w*3,ys,y]]) {
+        if (isBg(data[prev],data[prev+1],data[prev+2])) continue;
+        const edge = Math.sqrt(here.reduce((n,v,i) => n+(v-data[prev+i])**2,0));
+        if (edge > 34) profile[k] += Math.min(90, edge-34);
+      }
+    }
+    return [xs,ys];
+  });
+  const wave = (profile, size) => {
+    let re=0,im=0,total=0;
+    for (let i=0;i<profile.length;i++) if (profile[i]) { const a=2*Math.PI*i/size; re+=profile[i]*Math.cos(a);im+=profile[i]*Math.sin(a);total+=profile[i]; }
+    return { score: total ? Math.hypot(re,im)/total : 0, offset: ((Math.atan2(im,re)*size/(2*Math.PI))%size+size)%size };
+  };
+  let size=fallback, confidence=-1;
+  for (let candidate= Math.max(3, fallback*0.5); candidate <= Math.min(32,fallback*2); candidate+=0.25) {
+    const score=profiles.reduce((n,axes) => n+axes.reduce((sum,p)=>sum+wave(p,candidate).score,0),0)/(2*profiles.length);
+    // Harmonics can have equal strength: prefer the full block period over its half/quarter subdivisions.
+    if(score>confidence+1e-6 || (Math.abs(score-confidence)<1e-6&&candidate>size)){confidence=score;size=candidate;}
+  }
+  if (confidence < 0.045) size=fallback;
+  return { size, confidence, phases: profiles.map(axes=>axes.map(p=>wave(p,size).offset)) };
+}
+
+/** Mob-only matte cleanup: a saturated pink edge borrows a real neighbouring colour, never the backdrop. */
+export function cleanMobFringe(rgb, neighbours) {
+  const [r,g,b] = rgb;
+  if (Math.min(r,b)-g < 18 || b < r*0.6 || r < b*0.65) return rgb;
+  const safe=neighbours.filter(c=>!isBg(...c) && Math.min(c[0],c[2])-c[1] < 16);
+  if(!safe.length)return null;
+  // Keep genuine violet interiors; only the caller's boundary pixels enter this function.
+  return safe.reduce((a,c)=>labDistance(rgbToOklab(rgb),rgbToOklab(a)) < labDistance(rgbToOklab(rgb),rgbToOklab(c))?a:c);
+}
+
+function styledMob(name, data, w, h, cells, body, feetX, bottom, mine) {
+  const palette = JSON.parse(readFileSync('art/palette/mobs.json','utf8'));
+  if (palette.keepOriginal[name]) {
+    throw new Error(`Preserved original ${name}: use its checked-in approval asset, not an automatic replacement.`);
+  }
+  const colors=palette.colors.map(fromHex), labs=colors.map(rgbToOklab), ink=fromHex(palette.outline);
+  const quantized=new Map();
+  const quantize=c=>{const key=c.map(Math.round).join(',');let got=quantized.get(key);if(got)return got;
+    const lab=rgbToOklab(c);let best=0;labs.forEach((l,i)=>{if(labDistance(l,lab)<labDistance(labs[best],lab))best=i;});got=colors[best];quantized.set(key,got);return got;};
+  const density=2,scale=(body[0].y1-body[0].y0+1)/(MOB_HEIGHT[name]*density);
+  const grid=detectMobGrid(data,w,h,body,scale*density);
+  const cellW=96*density,cellH=56*density,width=cellW*4,logical=Buffer.alloc(width*cellH*4);
+  for(let cell=0;cell<4;cell++){
+    const [fx,fy]=grid.phases[cell];
+    // Subdivide the measured art blocks at texture density. Never collapse a face to the coarse native block grid.
+    const sub=grid.size/Math.max(1,Math.round(grid.size/scale));
+    const sampleWidth=Math.min(scale*0.8,sub*0.85);
+    const snap=(v,offset)=>{const at=offset+(Math.floor((v-offset)/sub)+0.5)*sub;return v+Math.max(-scale*0.18,Math.min(scale*0.18,at-v));};
+    const colorAt=(sx,sy)=>{
+      const left=snap(sx,fx)-sampleWidth/2,top=snap(sy,fy)-sampleWidth/2,counts=new Map();
+      let total=0,figure=0;
+      for(let y=Math.floor(top);y<Math.floor(top+sampleWidth);y++)for(let x=Math.floor(left);x<Math.floor(left+sampleWidth);x++){
+        if(x<0||y<0||x>=w||y>=h)continue;total++;
+        const p=y*w+x;if(!mine(p,cell))continue;figure++;
+        const c=[data[p*3],data[p*3+1],data[p*3+2]],q=c.map(v=>v>>3).join(',');
+        const a=counts.get(q)??{rgb:[0,0,0],n:0};c.forEach((v,i)=>a.rgb[i]+=v);a.n++;counts.set(q,a);
+      }
+      let result=null;
+      if(figure>=total*0.38&&counts.size){const best=[...counts.values()].sort((a,b)=>b.n-a.n)[0];result=best.rgb.map(v=>Math.round(v/best.n));}
+      return result;
+    };
+    for(let y=0;y<cellH;y++)for(let x=0;x<cellW;x++){
+      const sx=feetX[cell]+(x-32*density+0.5)*scale,sy=bottom(cell)+1+(y-52*density-0.5)*scale;
+      if(sx<cells[cell].x0-grid.size||sx>cells[cell].x1+grid.size||sy>bottom(cell)+scale*0.25)continue;
+      const c=colorAt(sx,sy);if(!c)continue;
+      const p=(y*width+cell*cellW+x)*4;c.forEach((v,i)=>logical[p+i]=v);logical[p+3]=255;
+    }
+    // Process the whole outline from an immutable copy, so neighbouring edits cannot propagate through a face.
+    const source=Buffer.from(logical),point=(x,y)=> (y*width+cell*cellW+x)*4;
+    const alpha=(x,y)=>x>=0&&y>=0&&x<cellW&&y<cellH&&source[point(x,y)+3]>0;
+    for(let y=0;y<cellH;y++)for(let x=0;x<cellW;x++){
+      const p=point(x,y);if(!source[p+3])continue;
+      const edge=[[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy])=>!alpha(x+dx,y+dy));
+      const neighbours=[];for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)if(alpha(x+dx,y+dy)){
+        const q=point(x+dx,y+dy);neighbours.push([source[q],source[q+1],source[q+2]]);
+      }
+      let c=[source[p],source[p+1],source[p+2]];
+      if(edge)c=cleanMobFringe(c,neighbours);
+      if(!c){logical[p+3]=0;continue;}
+      // Bright flame tips, sparks and luminous wisps keep an emissive edge; solid bodies share one inward pixel of ink.
+      const emissive=(name==='needle-wraith') || (c[0]>185&&c[1]>115&&c[2]<140&&y<(52-MOB_HEIGHT[name]+8)*density);
+      let immediate=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(alpha(x+dx,y+dy))immediate++;
+      if(edge&&!emissive&&immediate>=5)c=ink;
+      else c=quantize(c);
+      c.forEach((v,i)=>logical[p+i]=v);
+    }
+  }
+  console.log(`  grid ${name}: ${grid.size.toFixed(2)} source px, confidence ${grid.confidence.toFixed(3)}, 0.5 logical px / 1 texture px`);
+  return {data:logical,width,height:cellH,scale,grid};
+}
+
 async function rasterize(name, logical, density = 1) {
   const { data, info } = await sharp(logical.raw + name + ".webp").removeAlpha().raw().toBuffer({ resolveWithObject: true });
   const w = info.width, h = info.height;
@@ -395,6 +561,7 @@ async function rasterize(name, logical, density = 1) {
     }
     return count ? sum / count : (c.x0 + c.x1) / 2;
   });
+  if (logical.out === 'public/mobs/') return styledMob(name,data,w,h,cells,body,feetX,bottom,mine);
   // One scale for the whole sheet, from the first frame (standing, facing the viewer or to the right).
   const s0 = (body[0].y1 - body[0].y0 + 1) / k.height(name);
   /** Source pixels per game pixel: one scale for the whole sheet, or each cell's own in a variant. */
@@ -528,6 +695,12 @@ async function convert(name, k) {
   const png = density > 1 ? { palette: true, colours: 256, dither: 0, effort: 7 } : {};
   await sharp(sheet.data, { raw: { width: sheet.width, height: sheet.height, channels: 4 } }).png(png).toFile(k.out + name + ".png");
   console.log(name, "texture", density + "x", "scale 1/" + sheet.scale.toFixed(2));
+}
+
+/** Read-only regeneration for tests; the CLI remains the sole writer of runtime mob strips. */
+export async function buildMobSheet(name) {
+  if (!(name in MOB_HEIGHT)) throw new Error(`Unknown mob: ${name}`);
+  return rasterize(name,KINDS.mobs,2);
 }
 
 // Importing the exported dimensions in tests must not regenerate unrelated artwork.

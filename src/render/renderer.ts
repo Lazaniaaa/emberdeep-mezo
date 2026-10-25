@@ -13,6 +13,7 @@ import { drawHero, propCanvas, type HeroPose } from "./mob-art";
 import { MOB_CELL_H, MOB_CELL_W, MOB_FOOT_X, MOB_FOOT_Y, MOB_HEIGHT, MOB_TEXTURE_SCALE, mobFrameX, mobSheet } from "./mob-sheets";
 import { ICONS, drawMask, type Mask } from "./sprites";
 import { BOSS_RECOVERY } from "@/game/config";
+import { drawLanternLight } from "./lantern-light";
 
 export const TILE = 32;
 
@@ -222,7 +223,7 @@ const animator = new CreatureAnimator();
  * A creature's picture on its tile in the frame of its pose (walk, wind-up, blow), with its shadow and the flash of a
  * hit. It stands with its feet just above the tile's bottom edge; facing left it is mirrored around its feet.
  */
-function drawCreature(ctx: CanvasRenderingContext2D, d: Dimling, pose: Pose) {
+export function drawCreature(ctx: CanvasRenderingContext2D, d: Dimling, pose: Pose) {
   const species = d.species ?? DEFAULT_SPECIES;
   const phase = d.phase ?? "idle";
   const tileX = pose.x * TILE, tileY = pose.y * TILE;
@@ -658,31 +659,9 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
   ctx.restore();
 
   const cx = pp.x * TILE + TILE / 2, cy = pp.y * TILE + TILE / 2;
-  const flicker = opts.reducedMotion ? 0 : Math.sin(opts.time / 90) * 3 + Math.sin(opts.time / 37) * 2;
-  const outer = (radius + 0.6) * TILE + flicker;
-  const g = ctx.createRadialGradient(cx, cy, TILE * 0.8, cx, cy, Math.max(TILE, outer));
-  if (nightVision) {
-    g.addColorStop(0, "rgba(0,40,10,0)");
-    g.addColorStop(1, "rgba(0,12,4,0.88)");
-  } else {
-    g.addColorStop(0, "rgba(0,0,0,0)");
-    g.addColorStop(0.7, "rgba(0,0,0,0.35)");
-    g.addColorStop(1, "rgba(0,0,0,0.8)");
-  }
   const vx = view.x * TILE, vy = view.y * TILE;
-  ctx.fillStyle = g;
-  ctx.fillRect(vx, vy, W, H);
-
-  if (!nightVision) {
-    const warm = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(TILE, outer));
-    warm.addColorStop(0, "rgba(204,255,0,0.07)");
-    warm.addColorStop(1, "rgba(204,255,0,0)");
-    ctx.fillStyle = warm;
-    ctx.fillRect(vx, vy, W, H);
-  } else {
-    ctx.fillStyle = "rgba(60,255,120,0.10)";
-    ctx.fillRect(vx, vy, W, H);
-  }
+  drawLanternLight(ctx, { x: cx, y: cy }, radius,
+    { x: vx, y: vy, w: W, h: H }, opts.time, opts.reducedMotion, nightVision);
 
   if (state.ward > 0) {
     ctx.strokeStyle = "rgba(124,247,255,0.6)";

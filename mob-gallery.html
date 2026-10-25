@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emberdeep mob art gallery (development only)</title>
+  <link rel="icon" href="data:," />
+  <style>
+    :root { color-scheme:dark; font:14px/1.45 system-ui,sans-serif; background:#0b101b; color:#e7e2d8; }
+    body { margin:0; } header { position:sticky; top:0; z-index:1; background:#111927f5; padding:12px 24px; border-bottom:1px solid #35465c; }
+    h1 { font-size:19px; margin:0 0 8px; } select,button { font:inherit; background:#223247; color:#e7e2d8; border:1px solid #52647b; padding:6px 10px; border-radius:4px; }
+    label { margin-right:14px; } button { cursor:pointer; } main { width:max-content; min-width:100%; } article { margin:16px auto 24px; width:1408px; }
+    h2 { font-size:16px; margin:0 0 6px; } small { color:#aab5c8; } canvas { display:block; image-rendering:pixelated; }
+    .labels { display:grid; grid-template-columns:repeat(4,256px) 384px; text-align:center; color:#aab5c8; }
+    #status { margin-left:16px; color:#a8e1ba; } #tour { display:none; }
+    .tour-page { height:calc(100vh - 111px); padding:10px 24px 0; box-sizing:border-box; scroll-margin-top:111px; }
+    .tour-page h2 { margin:0 auto 8px; width:1440px; } .tour-grid { display:grid; grid-template-columns:repeat(3,480px); gap:8px 0; width:1440px; margin:auto; }
+    .tour-grid figure { margin:0; border:1px solid #35465c; box-sizing:border-box; } figcaption { padding:4px 10px; height:20px; }
+    body.touring #gallery { display:none; } body.touring #tour { display:block; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Emberdeep · mob art review · zoom 2 · development only</h1>
+    <label>Floor <select id="theme"><option>catacombs</option><option>mycelium</option><option>cinderworks</option><option>hollowglass</option></select></label>
+    <label>Lighting <select id="lighting"><option value="plain">Plain floor</option><option value="lantern">Game lantern</option></select></label>
+    <button id="pause">Pause</button> <button id="tour-button">18-second video tour</button><span id="status">Loading sheets…</span>
+    <div><small>Four source frames a/b/w/s, both facings. Live: production CreatureAnimator + drawCreature. Cat hero is unchanged. No game state is saved.</small></div>
+  </header>
+  <main><div id="gallery"></div><div id="tour"></div></main>
+  <script type="module" src="/src/tools/mob-gallery.ts"></script>
+</body>
+</html>

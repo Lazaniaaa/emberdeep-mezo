@@ -24,6 +24,16 @@ dist-ssr
 *.sw?
 
 artifacts
+# Reproducible local mob-review captures; keep only compact comparisons and the palette in Git.
+/artifacts/mobs/
+/docs/screenshots/mobs-before-*.png
+/docs/screenshots/mobs-after-*.png
+/docs/screenshots/mobs-catacombs.png
+/docs/screenshots/mobs-mycelium.png
+/docs/screenshots/mobs-cinderworks.png
+/docs/screenshots/mobs-hollowglass.png
+/docs/mobs-look-metrics.json
+/docs/mobs-video-qa.json
 .claude
 *.tsbuildinfo
 
