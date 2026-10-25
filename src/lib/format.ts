@@ -14,6 +14,15 @@ export function usd(cents: number) {
   return `$${v.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
 }
 
+/** An 18-decimal token amount (MUSD, BTC, MEZO): whole units with at most `digits` decimals, trailing zeros dropped. */
+export function tokens(value: bigint, digits = 2): string {
+  const negative = value < 0n;
+  const v = negative ? -value : value;
+  const whole = v / 10n ** 18n;
+  const frac = (v % 10n ** 18n).toString().padStart(18, "0").slice(0, digits).replace(/0+$/, "");
+  return `${negative ? "-" : ""}${whole.toLocaleString("en-US")}${frac ? `.${frac}` : ""}`;
+}
+
 export function shortAddress(a: string) {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }

@@ -4,13 +4,15 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { recoverTypedDataAddress, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { DESCENT_TYPES, fromWire, hallDomain, type Attestation } from "@/chain/hall-typed";
+import { RUN_RECORD_TYPES, potDomain, runFromWire, type PotAttestation } from "@/chain/pot-typed";
+import { relayMessage } from "@/chain/relay-auth";
 import { NO_PERKS, WEAPONS } from "@/game/catalog";
 import { encodeMove,decodeMove } from "@/game/replay";
 import { applyAction,startRun,emptyBag, type RunAction, type RunState } from "@/game/run";
 import {PERK_IDS} from '@/game/level-perks';
 import { simulateDiveRun, simulateFogRun } from "@/game/sim";
 import { EVM_CHAIN_ID, EVM_NOW, deployHall } from "../contracts/hall-evm";
-import { createAttestServer, type AttestConfig } from "./attest";
+import { createAttestServer, type AttestConfig, type RelayCall } from "./attest";
 
 const tape = vi.hoisted(() => ({ moves: [] as RunAction[], last: null as RunState | null, on: false }));
 vi.mock("@/game/run", async importOriginal => {
@@ -135,8 +137,94 @@ describe("attestation server", () => {
 
   it("reports what it signs for", async () => {
     const health = await (await fetch(`${base}/api/health`)).json() as Record<string, unknown>;
-    expect(health).toEqual({ ok: true, signer: signer.address, hall: hall.address, chainId: EVM_CHAIN_ID });
+    expect(health).toEqual({ ok: true, signer: signer.address, hall: hall.address, chainId: EVM_CHAIN_ID, mezoHall: null, pot: null });
   });
+
+  it("signs for the Hall on Mezo with its own domain, and only when it is set up", async () => {
+    expect((await post(base, { player: PLAYER, setup: setupFor(1, 1), moves: ["X"], target: "mezo" })).status).toBe(404);
+    expect((await post(base, { player: PLAYER, setup: setupFor(1, 1), moves: ["X"], target: "moon" })).status).toBe(400);
+    const mezo = await start({ hall: OWNER as Address, mezoHall: { address: hall.address! as Address, chainId: EVM_CHAIN_ID } });
+    const { moves } = play(() => simulateFogRun(8919, 2));
+    const { descent, signature } = await (await post(mezo, { player: OWNER, setup: setupFor(8919, 2), moves, target: "mezo" })).json() as Attestation;
+    const r = await hall.call(PLAYER, "record", [fromWire(descent), signature]);
+    expect(r.ok).toBe(true);
+  });
+
+  it("signs the Ember Pot only for a prize descent that came home, inside the current round", async () => {
+    const POT = "0x00000000000000000000000000000000000000e7" as Address;
+    const launch = Number(EVM_NOW) - 3 * 604_800 - 1000; // round 3, ends in 604,800 - 1,000 seconds
+    const potUrl = await start({ pot: { address: POT, chainId: 31611, launchTime: launch, roundSeconds: 604_800, maxGold: 5000 } });
+    let found: { seed: number; moves: string[]; gold: number } | null = null;
+    for (let seed = 1; seed < 60 && !found; seed++) {
+      const { moves, final } = play(() => simulateFogRun(seed, 3));
+      if (final.status === "extracted" && final.gold > 0) found = { seed, moves, gold: final.gold };
+    }
+    expect(found).not.toBeNull();
+    const { seed, moves, gold } = found!;
+
+    const res = await post(potUrl, { player: PLAYER, setup: setupFor(seed, 3), moves, target: "pot" });
+    expect(res.status).toBe(200);
+    const { run, signature } = await res.json() as PotAttestation;
+    expect(run).toMatchObject({ player: PLAYER, gold: String(gold), roundId: "3", deadline: String(EVM_NOW + 3600n) });
+    const by = await recoverTypedDataAddress({ domain: potDomain(31611, POT), types: RUN_RECORD_TYPES, primaryType: "RunRecord", message: runFromWire(run), signature });
+    expect(by).toBe(signer.address);
+
+    // Any other loadout is refused: the pot pays real MUSD, and the simulated loadout cannot be proven.
+    const richer = await post(potUrl, { player: PLAYER, setup: setupFor(seed, 4), moves, target: "pot" });
+    expect(richer.status).toBe(422);
+    const lost = play(() => simulateDiveRun(77, 3));
+    expect(lost.final.status).toBe("dead");
+    expect((await post(potUrl, { player: PLAYER, setup: setupFor(77, 3), moves: lost.moves, target: "pot" })).status).toBe(422);
+
+    // Near the end of a round the signature would land in the next one, so it is refused.
+    const closing = await start({ pot: { address: POT, chainId: 31611, launchTime: Number(EVM_NOW) - 604_800 + 60, roundSeconds: 604_800, maxGold: 5000 } });
+    expect((await post(closing, { player: PLAYER, setup: setupFor(seed, 3), moves, target: "pot" })).status).toBe(409);
+    // A deadline never passes the round's end.
+    const late = await start({ pot: { address: POT, chainId: 31611, launchTime: Number(EVM_NOW) - 604_800 + 1000, roundSeconds: 604_800, maxGold: 5000 } });
+    const capped = await (await post(late, { player: PLAYER, setup: setupFor(seed, 3), moves, target: "pot" })).json() as PotAttestation;
+    expect(Number(capped.run.deadline)).toBe(Number(EVM_NOW) + 1000 - 120);
+  }, 120_000);
+
+  it("relays Mezo records for a player who signed in, and for nobody else", async () => {
+    const player = privateKeyToAccount("0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba");
+    const POT = "0x00000000000000000000000000000000000000e7" as Address;
+    const sent: RelayCall[] = [];
+    let fail: string | null = null;
+    const relay = { address: OWNER as Address, send: async (call: RelayCall) => { if (fail) throw new Error(fail); sent.push(call); return "0xabc" as Hex; } };
+    const launch = Number(EVM_NOW) - 1000;
+    const url = await start({ relay, mezoHall: { address: hall.address! as Address, chainId: 31611 }, pot: { address: POT, chainId: 31611, launchTime: launch, roundSeconds: 604_800, maxGold: 5000 } });
+    const until = Number(EVM_NOW) + 3600;
+    const login = await player.signMessage({ message: relayMessage(player.address, until) });
+    let found: { seed: number; moves: string[] } | null = null;
+    for (let seed = 1; seed < 60 && !found; seed++) {
+      const { moves, final } = play(() => simulateFogRun(seed, 3));
+      if (final.status === "extracted" && final.gold > 0) found = { seed, moves };
+    }
+    const body = { player: player.address, setup: setupFor(found!.seed, 3), moves: found!.moves, target: "pot", until, login };
+    const relayPost = (b: unknown) => fetch(`${url}/api/relay`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) });
+
+    expect((await relayPost({ ...body, login: undefined })).status).toBe(401);
+    const stranger = await privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a").signMessage({ message: relayMessage(player.address, until) });
+    expect((await relayPost({ ...body, login: stranger })).status).toBe(401);
+    expect((await relayPost({ ...body, until: Number(EVM_NOW) - 1 })).status).toBe(401);
+    expect((await relayPost({ ...body, target: "arc" })).status).toBe(400);
+    expect(sent).toHaveLength(0);
+
+    const ok = await relayPost(body);
+    expect(ok.status).toBe(200);
+    expect((await ok.json() as { hash: string }).hash).toBe("0xabc");
+    expect(sent[0]).toMatchObject({ address: POT, functionName: "recordRun" });
+    expect((sent[0].args[0] as string).toLowerCase()).toBe(player.address.toLowerCase());
+
+    expect((await relayPost({ ...body, target: "mezo" })).status).toBe(200);
+    expect(sent[1]).toMatchObject({ address: hall.address, functionName: "record" });
+
+    fail = "execution reverted: No key";
+    const refused = await relayPost(body);
+    expect(refused.status).toBe(409);
+    expect((await refused.json() as { error: string }).error).toMatch(/no Ember Pot key/);
+    expect((await fetch(`${base}/api/relay`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })).status).toBe(404);
+  }, 120_000);
 
   it("limits how often one address can ask", async () => {
     const limited = await start({ rateLimit: { max: 2, windowMs: 60_000 } });

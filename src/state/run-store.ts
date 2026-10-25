@@ -20,7 +20,9 @@ type RunStore = {
   log: DescentLog | null;
   /** The last descent that ended, kept after the run screen closes so the run report can have it signed. */
   lastDescent: DescentLog | null;
-  start: (setup: RunSetup) => void;
+  /** The descent in play is a prize descent for the Ember Pot (game/prize.ts); it is settled outside the economy. */
+  prize: boolean;
+  start: (setup: RunSetup, prize?: boolean) => void;
   act: (action: RunAction) => RunState | null;
   clear: () => void;
 };
@@ -121,6 +123,12 @@ export function validSavedRun(value: unknown): value is RunState {
 /** Books a finished descent. Safe to call again: a result settles only once, and a stale one is ignored. */
 export function settle(run: RunState) {
   try {
+    if (useRun.getState().prize) {
+      // A prize descent settles once; afterwards it falls through to finishRun, which ignores it (nothing was paid).
+      useRun.setState({ prize: false });
+      useGame.getState().finishPrizeRun(run);
+      return;
+    }
     useGame.getState().finishRun(run);
   } catch {
     // Nothing to settle: it was booked already, or it belongs to another payment.
@@ -140,7 +148,8 @@ export const useRun = create<RunStore>()(persist((set, get) => ({
   prevPlayer: null,
   log: null,
   lastDescent: null,
-  start: setup => set({ run: startRun(setup), prevPlayer: null, log: { setup, moves: [] }, lastDescent: null }),
+  prize: false,
+  start: (setup, prize = false) => set({ run: startRun(setup), prevPlayer: null, log: { setup, moves: [] }, lastDescent: null, prize }),
   act: action => {
     const { run, log } = get();
     if (!run) return null;
@@ -184,6 +193,6 @@ export const useRun = create<RunStore>()(persist((set, get) => ({
     // Old in-progress runs stay playable, but an old-rules tape cannot attest under the new perk-choice rules.
     const log = run && !legacyPerks && validLog(data.log, run.seed) ? data.log : null;
     const lastDescent = validLog(data.lastDescent) ? data.lastDescent : null;
-    return { ...current, run, prevPlayer, log, lastDescent };
+    return { ...current, run, prevPlayer, log, lastDescent, prize: !!run && run.status === "playing" && data.prize === true };
   },
 }));

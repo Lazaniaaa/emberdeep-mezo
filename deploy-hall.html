@@ -33,6 +33,12 @@
         <select id="net">
           <option value="testnet">Arc Testnet (5042002): free USDC from faucet.circle.com, for a rehearsal</option>
           <option value="mainnet">Arc Mainnet (5042): the real one, gas paid in USDC</option>
+          <option value="mezo">Mezo Testnet (31611): gas paid in testnet BTC</option>
+        </select>
+        <label for="contract">Contract</label>
+        <select id="contract">
+          <option value="EmberdeepHall">Hall of Descents (needs the signer below)</option>
+          <option value="EmberKeyRouter">Ember Pot key router: BTC or MEZO to keys (Mezo only, no settings)</option>
         </select>
         <button id="connect">Connect wallet and switch network</button>
         <p id="wallet" class="mono"></p>
@@ -47,7 +53,7 @@
 
       <section>
         <h2>3. Deploy</h2>
-        <p>Your wallet will show one contract deployment. On Arc it costs a few cents of USDC.</p>
+        <p>Your wallet will show one contract deployment. On Arc it costs a few cents of USDC; on Mezo Testnet, a little testnet BTC.</p>
         <button id="deploy" disabled>Deploy</button>
         <p id="out"></p>
       </section>

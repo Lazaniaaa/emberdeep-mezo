@@ -1,10 +1,11 @@
-import { Flame, Volume2, VolumeX, Wallet, Sparkles, Loader2, Trophy } from "lucide-react";
+import { Coins, Flame, Volume2, VolumeX, Wallet, Sparkles, Loader2, Trophy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { hallConfig } from "@/chain/arc-config";
 import { shortAddress, usd } from "@/lib/format";
 import { useHall } from "@/state/hall";
+import { useMezo } from "@/state/mezo";
 import { useGame } from "@/state/store";
 import { useWallet } from "@/state/wallet";
 import { DEFAULT_TUNING, tuning } from "@/game/tuning";
@@ -45,6 +46,14 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
           <Stat label="Balance" value={usd(balance)} hint={overlay ? undefined : "USDC"} />
           <Stat label={`Round ${round} pool`} value={usd(pool)} accent className={overlay ? "hidden sm:flex" : "hidden sm:flex"} />
 
+          <Tooltip>
+            <TooltipTrigger render={
+              <Button variant="ghost" size="icon" aria-label="Open the Ember Pot on Mezo" onClick={() => useMezo.getState().setOpen(true)}>
+                <Coins className="text-gold" />
+              </Button>
+            } />
+            <TooltipContent>Ember Pot on Mezo: the real weekly MUSD prize pool</TooltipContent>
+          </Tooltip>
           {hallConfig() && (
             <Tooltip>
               <TooltipTrigger render={

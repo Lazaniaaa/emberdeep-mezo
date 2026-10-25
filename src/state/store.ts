@@ -51,7 +51,25 @@ export type RunReport = {
   kills: number;
   /** A boss (Cerberus) fell this descent, whether or not the delver made it home. */
   bossSlain?: boolean;
+  /** A prize descent for the Ember Pot on Mezo: the equal loadout, outside the simulated economy. */
+  prize?: boolean;
+  /** Everything picked up on the way, for the summary after the descent. Reports from before it omit it. */
+  loot?: RunLoot;
 };
+
+/** What a descent picked up, counted when it ends. */
+export type RunLoot = { crystals: number; potions: number; gear: number; smashed: number; level: number; perks: number };
+
+export function lootOf(run: RunState): RunLoot {
+  return {
+    crystals: run.crystals,
+    potions: POTION_IDS.reduce((n, id) => n + (run.found[id] ?? 0), 0),
+    gear: run.gear?.length ?? 0,
+    smashed: run.smashed ?? 0,
+    level: run.level ?? 1,
+    perks: (run.levelPerks ?? []).reduce((n, p) => n + p.rank, 0),
+  };
+}
 
 type Stats = {
   runs: number; extracts: number; deaths: number; deepest: number; bestPayout: number; mints: number; bosses: number; expeditions: number;
@@ -120,6 +138,11 @@ type Actions = {
   buyKey: (count: number) => void;
   payForRun: () => boolean;
   finishRun: (run: RunState) => RunReport;
+  /**
+   * Books a prize descent (game/prize.ts). It cost nothing simulated and pays nothing simulated: its gold counts only
+   * in the Ember Pot on Mezo, once the player records it there. Only the report and the stats change.
+   */
+  finishPrizeRun: (run: RunState) => RunReport;
   /** Closes the round: the gold-share pool and the lock pool are both shared out, and every lock ages by one round. */
   claimRound: () => (RoundSettlement & { round: number; farmed: number; lockTickets: number }) | null;
   lockHero: (id: string) => void;
@@ -349,7 +372,9 @@ function isRunReport(value: unknown): value is RunReport {
   return (r.outcome === "dead" || r.outcome === "extracted")
     && Array.isArray(r.minted) && r.minted.every(isHero)
     && [r.depth, r.gold, r.crystals, r.sigils, r.payout, r.spent, r.revenue,
-      r.tickets, r.ticketsFound, r.steps, r.kills].every(n => typeof n === "number" && Number.isFinite(n));
+      r.tickets, r.ticketsFound, r.steps, r.kills].every(n => typeof n === "number" && Number.isFinite(n))
+    && (r.prize === undefined || typeof r.prize === "boolean")
+    && (r.loot === undefined || Object.values(record(r.loot)).every(n => typeof n === "number" && Number.isFinite(n)));
 }
 
 function isDrawResult(value: unknown): value is DrawResult {
@@ -530,7 +555,7 @@ export const useGame = create<State & Actions>()(
           outcome: extracted ? "extracted" : "dead",
           depth: run.deepest, gold: run.gold, crystals: run.crystals, sigils: run.sigils,
           payout: 0, spent: s.runSpent, revenue, minted, tickets, ticketsFound: run.tickets, steps: run.steps, kills: run.kills,
-          bossSlain: !!run.bossSlain,
+          bossSlain: !!run.bossSlain, loot: lootOf(run),
         };
         set({
           tickets: s.tickets + tickets,
@@ -554,6 +579,30 @@ export const useGame = create<State & Actions>()(
             mints,
             bosses: s.stats.bosses + (run.bossSlain ? 1 : 0),
             expeditions: s.stats.expeditions,
+          },
+        });
+        return report;
+      },
+
+      finishPrizeRun: run => {
+        const s = get();
+        if (run.status === "playing") throw new Error("A run cannot finish while it is still playing");
+        const extracted = run.status === "extracted";
+        const report: RunReport = {
+          outcome: extracted ? "extracted" : "dead",
+          depth: run.deepest, gold: run.gold, crystals: 0, sigils: 0, payout: 0, spent: 0, revenue: 0, minted: [],
+          tickets: 0, ticketsFound: run.tickets, steps: run.steps, kills: run.kills, bossSlain: !!run.bossSlain, prize: true,
+          loot: lootOf(run),
+        };
+        set({
+          lastReport: report,
+          stats: {
+            ...s.stats,
+            runs: s.stats.runs + 1,
+            extracts: s.stats.extracts + (extracted ? 1 : 0),
+            deaths: s.stats.deaths + (extracted ? 0 : 1),
+            deepest: Math.max(s.stats.deepest, run.deepest),
+            bosses: s.stats.bosses + (run.bossSlain ? 1 : 0),
           },
         });
         return report;

@@ -176,3 +176,23 @@ describe("booking a descent", () => {
   });
 });
 
+
+describe("prize descents", () => {
+  it("settle once, outside the economy: no money moves, the report is marked, and a second settle changes nothing", async () => {
+    const { prizeSetup } = await import("@/game/prize");
+    const before = useGame.getState();
+    useRun.getState().start(prizeSetup(9), true);
+    expect(useRun.getState().prize).toBe(true);
+    const ended = { ...useRun.getState().run!, status: "extracted" as const, gold: 321 };
+    settle(ended);
+    const after = useGame.getState();
+    expect(after.lastReport).toMatchObject({ outcome: "extracted", gold: 321, prize: true, spent: 0, loot: { level: 1, perks: 0, smashed: 0 } });
+    expect(after.balance).toBe(before.balance);
+    expect(after.roundGold).toBe(before.roundGold);
+    expect(after.keys).toBe(before.keys);
+    expect(after.stats.runs).toBe(before.stats.runs + 1);
+    expect(useRun.getState().prize).toBe(false);
+    settle(ended);
+    expect(useGame.getState().stats.runs).toBe(before.stats.runs + 1);
+  });
+});

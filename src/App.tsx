@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CampScene } from "@/components/camp-scene";
+import { EmberPotDialog } from "@/components/ember-pot-dialog";
 import { HallDialog } from "@/components/hall-dialog";
 import { ReportDialog } from "@/components/report-dialog";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ export default function App() {
       )}
       {!inRun && <ReportDialog />}
       <HallDialog />
+      <EmberPotDialog />
       <Toaster theme="dark" position="bottom-center" />
     </TooltipProvider>
   );

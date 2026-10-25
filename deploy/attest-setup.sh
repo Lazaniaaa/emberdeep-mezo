@@ -2,9 +2,10 @@
 # Runs ON THE SERVER, as root, uploaded and started by deploy/attest.sh (or attest.ps1). Safe to run again.
 # Installs Node, the attestation server as a locked-down systemd service under its own user, its signing key (made
 # here, never copied anywhere), and the /api route in Caddy.
-#   bash attest-setup.sh [HALL_ADDRESS]
+#   bash attest-setup.sh [HALL_ADDRESS] [MEZO_HALL_ADDRESS]
 set -euo pipefail
 HALL_ADDRESS="${1:-}"
+MEZO_HALL_ADDRESS="${2:-}"
 export DEBIAN_FRONTEND=noninteractive
 
 # A fresh server is still running server-setup.sh (cloud-init) for a few minutes: wait for it, so apt is free and
@@ -37,6 +38,15 @@ if [ ! -f /etc/emberdeep/signer.key ]; then
 fi
 SIGNER="$(runuser -u emberdeep-attest -- node /opt/emberdeep-attest/attest.mjs address /etc/emberdeep/signer.key)"
 
+# The relayer key pays the gas for records on Mezo Testnet. It is separate from the signing key and only ever needs a
+# little testnet BTC; fund its address from the Mezo faucet.
+if [ ! -f /etc/emberdeep/relayer.key ]; then
+	node /opt/emberdeep-attest/attest.mjs keygen /etc/emberdeep/relayer.key >/dev/null
+	chown emberdeep-attest:emberdeep-attest /etc/emberdeep/relayer.key
+	chmod 400 /etc/emberdeep/relayer.key
+fi
+RELAYER="$(runuser -u emberdeep-attest -- node /opt/emberdeep-attest/attest.mjs address /etc/emberdeep/relayer.key)"
+
 # Settings. The Hall address is kept from an earlier run unless a new one is given.
 if [ -n "$HALL_ADDRESS" ]; then
 	if ! [[ "$HALL_ADDRESS" =~ ^0x[0-9a-fA-F]{40}$ ]]; then echo "Not an address: $HALL_ADDRESS" >&2; exit 1; fi
@@ -49,6 +59,21 @@ HOST=127.0.0.1
 ENV
 	chmod 640 /etc/emberdeep/attest.env
 	chgrp emberdeep-attest /etc/emberdeep/attest.env
+fi
+
+# Mezo Testnet: the Ember Pot is always signed for; the Hall on Mezo once its address is given (second argument).
+if [ -f /etc/emberdeep/attest.env ]; then
+	if ! grep -q '^MEZO_POT_ADDRESS=' /etc/emberdeep/attest.env; then
+		echo "MEZO_POT_ADDRESS=0xaf6d0eb582900417d635ff43348052b8cf68e3ea" >> /etc/emberdeep/attest.env
+	fi
+	if ! grep -q '^RELAYER_KEY_FILE=' /etc/emberdeep/attest.env; then
+		echo "RELAYER_KEY_FILE=/etc/emberdeep/relayer.key" >> /etc/emberdeep/attest.env
+	fi
+	if [ -n "$MEZO_HALL_ADDRESS" ]; then
+		if ! [[ "$MEZO_HALL_ADDRESS" =~ ^0x[0-9a-fA-F]{40}$ ]]; then echo "Not an address: $MEZO_HALL_ADDRESS" >&2; exit 1; fi
+		sed -i '/^MEZO_HALL_ADDRESS=/d' /etc/emberdeep/attest.env
+		echo "MEZO_HALL_ADDRESS=${MEZO_HALL_ADDRESS}" >> /etc/emberdeep/attest.env
+	fi
 fi
 
 cat > /etc/systemd/system/emberdeep-attest.service <<'UNIT'
@@ -108,6 +133,7 @@ fi
 
 echo
 echo "Signer address: ${SIGNER}"
+echo "Relayer address (send it a little Mezo testnet BTC for gas): ${RELAYER}"
 if [ -f /etc/emberdeep/attest.env ]; then
 	systemctl enable emberdeep-attest >/dev/null 2>&1
 	systemctl restart emberdeep-attest
