@@ -8,6 +8,7 @@ import { useHall } from "@/state/hall";
 import { useGame } from "@/state/store";
 import { useWallet } from "@/state/wallet";
 import { DEFAULT_TUNING, tuning } from "@/game/tuning";
+import { AudioControls } from './audio-controls';
 
 /** The top bar. In the lobby it floats over the picture as a HUD; in a descent it is a normal sticky header. */
 export function Header({ overlay = false }: { overlay?: boolean }) {
@@ -57,6 +58,7 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
           <Button variant="ghost" size="icon" aria-label={muted ? "Unmute sound" : "Mute sound"} title={muted ? "Enable music and effects" : "Mute music and effects"} onClick={() => setMuted(!muted)}>
             {muted ? <VolumeX /> : <Volume2 />}
           </Button>
+          <AudioControls />
           <Button
             variant={reducedMotion ? "secondary" : "ghost"} size="icon"
             aria-label={reducedMotion ? "Enable motion effects" : "Reduce motion"}

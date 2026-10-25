@@ -1,96 +1,108 @@
-import { audioContext } from "./context";
+import { audioContext } from './context';
+import { engineFor,R,type SynthEngine } from './engine';
+import { musicTracks,type TrackId } from './tracks';
+import { ambienceSounds,type AmbienceId } from './ambience';
+import { audioSettings } from './settings';
+import { maxLightOf,type RunState } from '@/game/run';
 
-/** Original score written for Emberdeep. No recordings, samples, downloads or third-party melodies. */
-export const MUSIC_TITLE = "Lanterns Below";
-export const MUSIC_BEAT = 60/66;
-const MELODY: readonly (number | null)[] = [
-  62,null,65,69, 67,65,62,null, 65,69,72,69, 67,null,64,60,
-  62,65,69,null, 70,69,65,62, 67,65,62,60, 61,null,64,69,
-  74,null,69,65, 67,70,69,null, 72,69,65,64, 67,64,60,null,
-  65,69,74,72, 70,null,69,65, 67,62,65,64, 61,64,69,null,
-];
-const BASS = [38,34,41,36,38,34,43,33];
-export type MusicVoice = { osc: OscillatorNode; gain: GainNode };
-const frequency = (midi: number) => 440*2**((midi-69)/12);
-
-/** Shared by the real-time player and the offline audio QA. At most a bell and two soft bass tones per beat. */
-export function scheduleMusicBeat(ctx: BaseAudioContext, output: AudioNode, beat: number, at: number): MusicVoice[] {
-  const voices: MusicVoice[] = [];
-  const note = (midi: number, duration: number, peak: number, type: OscillatorType) => {
-    const osc=ctx.createOscillator(),gain=ctx.createGain();
-    osc.type=type;osc.frequency.setValueAtTime(frequency(midi),at);
-    gain.gain.setValueAtTime(0.0001,at);
-    gain.gain.linearRampToValueAtTime(peak,at+0.045);
-    gain.gain.exponentialRampToValueAtTime(0.0001,at+duration);
-    osc.connect(gain).connect(output);
-    osc.onended=()=>{osc.disconnect();gain.disconnect();};
-    osc.start(at);osc.stop(at+duration+0.03);voices.push({osc,gain});
-  };
-  const melody=MELODY[beat%MELODY.length];
-  if(melody!==null)note(melody,MUSIC_BEAT*1.2,0.065,"triangle");
-  if(beat%4===0) {
-    const root=BASS[Math.floor(beat/4)%BASS.length];
-    note(root,MUSIC_BEAT*3.7,0.045,"sine");
-    note(root+7,MUSIC_BEAT*3.2,0.018,"sine");
-  }
-  return voices;
+export type AudioScene={track:TrackId|null;ambience:AmbienceId|null;light:number};
+export function sceneFor(run:RunState|null):AudioScene {
+  if(!run)return{track:'camp',ambience:null,light:1};
+  if(run.status!=='playing')return{track:null,ambience:null,light:1};
+  return{track:run.depth===7&&run.floor.dimlings.some(d=>d.boss&&d.awake)?'boss':'descent',
+    ambience:run.floor.theme,light:Math.max(0,Math.min(1,run.light/Math.max(1,maxLightOf(run))))};
 }
 
-/** One small look-ahead timer, independent of the render loop. Stops and releases every voice when muted/hidden. */
+/** One clock, no catch-up, and a sequential fade-out/fade-in so two scores never play together. */
 export class MusicPlayer {
-  private getContext: () => AudioContext;
-  private ctx: AudioContext | null = null;
-  private output: GainNode | null = null;
-  private timer: ReturnType<typeof setInterval> | null = null;
-  private voices = new Set<MusicVoice>();
-  private generation = 0;
-  private starting = false;
-  private nextAt = 0;
-  private beat = 0;
-  constructor(getContext: () => AudioContext = audioContext) { this.getContext=getContext; }
-  get playing() { return this.timer!==null; }
-  get activeVoices() { return this.voices.size; }
-
-  async start() {
-    if(this.timer!==null||this.starting)return;
+  private getContext:()=>AudioContext;
+  private ctx:AudioContext|null=null;
+  private engine:SynthEngine|null=null;
+  private timer:ReturnType<typeof setInterval>|null=null;
+  private generation=0;
+  private starting=false;
+  private scene:AudioScene=sceneFor(null);
+  private track:TrackId|null=null;
+  private switchingAt:number|null=null;
+  private beat=0;
+  private nextAt=0;
+  private ambient:AmbienceId|null=null;
+  private ambientBus:GainNode|null=null;
+  private ambientNodes:AudioScheduledSourceNode[]=[];
+  private ambientNext=0;
+  private ambientDefs:ReturnType<typeof ambienceSounds>|null=null;
+  private nextHB=0;
+  private crackleAt=0;
+  constructor(getContext:()=>AudioContext=audioContext){this.getContext=getContext;}
+  get playing(){return this.timer!==null;}
+  get activeVoices(){return this.engine?.activeVoices??0;}
+  get activeEffectVoices(){return this.engine?.activeEffectVoices??0;}
+  get currentTrack(){return this.track;}
+  get currentScene(){return this.scene;}
+  setScene(scene:AudioScene){this.scene=scene;if(this.playing)this.sync();}
+  setLevels(muted=false){const s=audioSettings.getSnapshot();this.engine?.setLevels(s.music,s.effects,muted);}
+  async start(){
+    if(this.playing||this.starting)return;
     const generation=++this.generation;this.starting=true;
-    try {
-      const ctx=this.getContext();this.ctx=ctx;
-      await ctx.resume();
-      if(generation!==this.generation||ctx.state!=="running")return;
-      if(!this.output){this.output=ctx.createGain();this.output.connect(ctx.destination);}
-      this.output.gain.cancelScheduledValues(ctx.currentTime);
-      this.output.gain.setValueAtTime(0.16,ctx.currentTime);
-      this.nextAt=ctx.currentTime+0.04;
-      this.tick();this.timer=setInterval(()=>this.tick(),100);
-    } catch {
-      // Audio is optional. A later gesture can retry a blocked or unavailable context.
-    } finally { if(generation===this.generation)this.starting=false; }
+    try{
+      const ctx=this.getContext();this.ctx=ctx;await ctx.resume();
+      if(generation!==this.generation||ctx.state!=='running')return;
+      this.engine=engineFor(ctx);this.setLevels();this.nextHB=ctx.currentTime+.05;this.crackleAt=ctx.currentTime;
+      this.beginTrack(this.scene.track);this.setAmbience(this.scene.ambience);this.engine.setLight(this.scene.light);
+      this.tick();this.timer=setInterval(()=>this.tick(),50);
+    }catch{/* A later gesture can retry audio unlock. */}
+    finally{if(generation===this.generation)this.starting=false;}
   }
-
-  private tick() {
-    const ctx=this.ctx,output=this.output;if(!ctx||!output||ctx.state!=="running")return;
-    // Never catch up a throttled/background timer by scheduling a burst of old notes.
-    if(this.nextAt<ctx.currentTime)this.nextAt=ctx.currentTime+0.04;
-    while(this.nextAt<ctx.currentTime+0.2) {
-      for(const voice of scheduleMusicBeat(ctx,output,this.beat,this.nextAt)) {
-        this.voices.add(voice);
-        voice.osc.addEventListener("ended",()=>this.voices.delete(voice),{once:true});
-      }
-      this.beat=(this.beat+1)%MELODY.length;this.nextAt+=MUSIC_BEAT;
+  private beginTrack(track:TrackId|null){
+    const e=this.engine;if(!e)return;
+    e.stop('music',e.A.currentTime);this.track=track;this.beat=0;this.nextAt=e.A.currentTime+.05;this.switchingAt=null;
+  }
+  private stopAmbience(immediate=false){
+    const e=this.engine,g=this.ambientBus;if(!e||!g)return;
+    const at=e.A.currentTime;g.gain.setTargetAtTime(0,at,immediate?.01:.3);
+    const nodes=this.ambientNodes;
+    for(const n of nodes)try{n.stop(at+(immediate?0:1.5));}catch{/* Ended. */}
+    // Stop the discrete droplets/chimes as well as the continuous sources.
+    e.stop('ambience',at);e.unregisterOutput(g);
+    if(nodes.length)nodes[0].addEventListener('ended',()=>g.disconnect(),{once:true});else g.disconnect();
+    this.ambientNodes=[];this.ambientBus=null;this.ambient=null;this.ambientDefs=null;
+  }
+  private setAmbience(id:AmbienceId|null){
+    if(this.ambient===id)return;this.stopAmbience();const e=this.engine;if(!e||!id)return;
+    const g=e.A.createGain();g.connect(e.AMBB);e.registerOutput(g,'ambience');
+    this.ambientBus=g;this.ambientDefs=ambienceSounds(e,g);this.ambientNodes=this.ambientDefs.AMB[id].start(g);
+    this.ambient=id;this.ambientNext=e.A.currentTime+.3;
+  }
+  private sync(){
+    const e=this.engine;if(!e)return;e.setLight(this.scene.light);this.setAmbience(this.scene.ambience);
+    if(this.track!==this.scene.track&&this.switchingAt===null){
+      const now=e.A.currentTime;this.switchingAt=now+.5;
+      e.MF.gain.cancelScheduledValues(now);e.MF.gain.setValueAtTime(e.MF.gain.value,now);e.MF.gain.linearRampToValueAtTime(0,now+.5);
     }
   }
-
-  stop() {
-    ++this.generation;this.starting=false;
-    if(this.timer!==null)clearInterval(this.timer);this.timer=null;
-    const now=this.ctx?.currentTime??0;
-    if(this.output) {
-      this.output.gain.cancelScheduledValues(now);
-      this.output.gain.setTargetAtTime(0,now,0.01);
+  private tick(){
+    const e=this.engine,ctx=this.ctx;if(!e||!ctx||ctx.state!=='running')return;const now=ctx.currentTime;
+    if(this.switchingAt!==null&&now>=this.switchingAt){
+      this.beginTrack(this.scene.track);e.MF.gain.cancelScheduledValues(now);e.MF.gain.setValueAtTime(0,now);e.MF.gain.linearRampToValueAtTime(1,now+.5);
     }
-    for(const voice of this.voices)try{voice.osc.stop(now+0.04);}catch{voice.osc.disconnect();voice.gain.disconnect();}
-    this.voices.clear();
+    if(this.track&&this.switchingAt===null){
+      const T=musicTracks(e)[this.track];if(this.nextAt<now)this.nextAt=now+.05;
+      while(this.nextAt<now+.2){T.play(this.beat,this.nextAt);this.beat=(this.beat+1)%T.len;this.nextAt+=T.sd;}
+    }
+    if(this.ambient&&this.ambientDefs){
+      const E=this.ambientDefs.AMB[this.ambient];if(this.ambientNext<now)this.ambientNext=now+.1;
+      while(this.ambientNext<now+.2){E.ev(this.ambientNext);this.ambientNext+=E.gap();}
+    }
+    if(this.scene.light<=.25&&(this.track||this.ambient)){
+      const {heart}=ambienceSounds(e,e.AMBB);if(this.nextHB<now)this.nextHB=now+.05;
+      while(this.nextHB<now+.2){heart(this.nextHB);this.nextHB+=.95-(25-this.scene.light*100)*.014;}
+      if(now>=this.crackleAt){if(Math.random()<.25)e.noise(now+.1,{ft:'highpass',f:R(4000,.3),d:.01,g:R(.05,.6)});this.crackleAt=now+.05;}
+    }
+  }
+  stop(){
+    ++this.generation;this.starting=false;if(this.timer!==null)clearInterval(this.timer);this.timer=null;
+    this.stopAmbience(true);this.track=null;this.switchingAt=null;
+    if(this.engine){this.engine.M.gain.setTargetAtTime(0,this.engine.A.currentTime,.01);this.engine.stop();this.engine.MF.gain.cancelScheduledValues(this.engine.A.currentTime);this.engine.MF.gain.setValueAtTime(1,this.engine.A.currentTime);}
   }
 }
-export const soundtrack = new MusicPlayer();
+export const soundtrack=new MusicPlayer();

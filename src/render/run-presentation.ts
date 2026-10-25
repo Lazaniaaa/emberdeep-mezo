@@ -40,6 +40,6 @@ export class RunPresentation {
     if (loss) this.fx.light.add(loss, next.player, now);
     this.death = deathExplanation(prev, next) ?? this.death;
     this.creatures.updateRun(next, now);
-    this.sounds.add(next.events, now, now + HERO_WINDUP_MS);
+    this.sounds.addTurn(prev, next, now, now + HERO_WINDUP_MS);
   }
 }

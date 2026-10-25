@@ -1,18 +1,23 @@
-# Lanterns Below
+# Synthesized audio
 
-An original instrumental score written for Emberdeep on 2026-10-15, implemented in `src/audio/music.ts`.
-No downloaded music, recordings, samples, audio services or third-party compositions are used.
+The current score and effects follow the owner's approved [Sound Lab](audio/sound-lab.html), dated 2026-10-25.
+All audio is generated locally with Web Audio: no recordings, samples, audio files or network requests in the game.
+The three scores are camp (76 BPM), descent (66 BPM) and Cerberus (132 BPM), with four cave soundscapes.
+Music is filtered by lantern fullness; heartbeat and crackle begin at 25% or below.
 
-The 64-beat theme lasts about 58 seconds at 66 BPM. A soft triangle-wave melody moves over sine-wave bass and fifths,
-using a D-minor palette and an A-major turnaround. The two halves vary the phrase before it loops. Notes and harmonies
-are specified directly as MIDI pitches in the source, under the repository's license.
+Playback starts after a click or keypress. Mute covers music, effects and ambience; hidden tabs stop scheduling and
+release voices. The Audio settings button offers separate music/effects sliders (ambience follows effects), saved
+in `emberdeep-audio-v1`, independently of the game save. One AudioContext and one 50ms scheduler are shared.
+Track changes fade out for 0.5s, stop the outgoing score, then fade in for 0.5s; missed notes are never replayed.
 
-Playback starts after a pointer or keyboard gesture. The existing sound button mutes music and effects together and
-persists that setting. Music stops when the document is hidden or the root effect unmounts; returning resumes playback.
-One AudioContext is shared with SFX. One 100ms look-ahead timer schedules notes, and oscillators disconnect when finished.
-Throttled timers skip missed time rather than creating a catch-up burst. No audio resources are fetched from the network.
+See [implementation, event mapping and listening guide](design/audio-2026-10.md) and [signal QA](audio-qa.json).
+With `npm run dev` running:
 
-QA: `$env:SMOKE_CHANNEL='msedge'; node scripts/atmosphere-smoke.mjs http://127.0.0.1:5741/` with the dev server running.
-It checks the real app's gesture unlock, mute/reload, hidden-tab pause, screen transitions and shared context at desktop
-and phone viewport sizes. An OfflineAudioContext renders the same notes for a measurable, non-silent, low-level preview.
-The generated excerpt is `docs/audio/lanterns-below-preview.wav`; it is a QA artifact, not a production download.
+```powershell
+$env:SMOKE_CHANNEL='msedge'
+node scripts/audio-render.mjs
+node scripts/audio-smoke.mjs
+```
+
+Generated WAVs and the real-game audio recording live under ignored `artifacts/audio/`. The older
+`docs/audio/lanterns-below-preview.wav` is a historical QA capture, never loaded by the game.

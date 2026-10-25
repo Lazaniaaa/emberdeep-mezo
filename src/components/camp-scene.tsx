@@ -119,7 +119,8 @@ export function CampScene() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (document.querySelector("[role=dialog]")) return;
-      const onControl = e.target instanceof HTMLElement && !!e.target.closest("button, a, input, textarea, select, [role=button]");
+      if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select")) return;
+      const onControl = e.target instanceof HTMLElement && !!e.target.closest("button, a, summary, [role=button]");
       const dir = moveOf(e);
       // A focused button keeps Enter and Space, so keyboard users can press PLAY and the building buttons.
       const act = (isActKey(e) || ((e.key === "Enter" || e.key === " ") && !onControl));

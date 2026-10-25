@@ -43,7 +43,7 @@ by itself; tap a building and it walks up and opens it.
 Other delvers wander the camp with name tags and chatter, and Old Ember by the gate hands out tips.
 **They are simulated ambience, not other players.** They hold nothing and never touch the economy.
 
-The original **Lanterns Below** soundtrack is synthesized locally after your first click or keypress. The sound button mutes music and effects; music pauses in a hidden tab. No external music or samples are downloaded. See [audio notes](docs/audio.md).
+The original camp, descent and Cerberus scores, creature cues and four cave soundscapes are synthesized locally after your first click or keypress. The sound button mutes everything; separate music/effects sliders include ambience with effects. Audio pauses in a hidden tab, and the lantern filters music with a heartbeat at low light. No external music or samples are downloaded. See [audio notes](docs/audio.md).
 
 ## The loop
 

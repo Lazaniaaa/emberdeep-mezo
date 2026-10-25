@@ -21,7 +21,7 @@ try {
       window.__qaMusic=await import(url);
     });
     await bindMusic();
-    const music=()=>page.evaluate(()=>{const {soundtrack}=window.__qaMusic;return {playing:soundtrack.playing,voices:soundtrack.activeVoices,contexts:window.__audioContexts};});
+    const music=()=>page.evaluate(()=>{const {soundtrack}=window.__qaMusic;return {playing:soundtrack.playing,voices:soundtrack.activeVoices,effects:soundtrack.activeEffectVoices,contexts:window.__audioContexts};});
     assert.equal((await music()).playing,false,"music starts only after a gesture");
     await page.mouse.click(240,25);
     await page.waitForFunction(()=>window.__qaMusic.soundtrack.playing);
@@ -71,30 +71,16 @@ try {
     await page.evaluate(async()=>{(await import("/src/audio/sfx.ts")).playSfx("gold",false);});
     const sound=await music();
     assert.equal(sound.playing,true,"music stopped when entering the descent");
-    assert.equal(sound.contexts,1);assert(sound.voices<=8,"unbounded music voices");
+    assert.equal(sound.contexts,1);assert(sound.effects<=24,"unbounded effect voices");
     results[name]={radii,music:sound,mutePersists:true,hiddenStops:true,fixture:"Flat procedural floor with all nine approved creatures; real RunView/HUD"};
     await context.close();
   }
   const page=await browser.newPage();await page.goto(base);
   const audio=await page.evaluate(async()=>{
-    const {scheduleMusicBeat,MUSIC_BEAT,MUSIC_TITLE}=await import("/src/audio/music.ts");
-    const rate=22050,seconds=16,ctx=new OfflineAudioContext(1,rate*seconds,rate),gain=ctx.createGain();
-    gain.gain.value=0.16;gain.connect(ctx.destination);
-    for(let i=0;i*MUSIC_BEAT<seconds;i++)scheduleMusicBeat(ctx,gain,i,i*MUSIC_BEAT);
-    const buffer=await ctx.startRendering(),data=buffer.getChannelData(0);let peak=0,sum=0;
-    for(const value of data){peak=Math.max(peak,Math.abs(value));sum+=value*value;}
-    const wav=new ArrayBuffer(44+data.length*2),v=new DataView(wav);
-    const tag=(at,text)=>{for(let i=0;i<text.length;i++)v.setUint8(at+i,text.charCodeAt(i));};
-    tag(0,"RIFF");v.setUint32(4,36+data.length*2,true);tag(8,"WAVE");tag(12,"fmt ");v.setUint32(16,16,true);
-    v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);
-    tag(36,"data");v.setUint32(40,data.length*2,true);
-    for(let i=0;i<data.length;i++)v.setInt16(44+i*2,Math.round(Math.max(-1,Math.min(1,data[i]))*32767),true);
-    const bytes=new Uint8Array(wav);let binary="";
-    for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
-    return {title:MUSIC_TITLE,seconds,peak,rms:Math.sqrt(sum/data.length),wav:btoa(binary)};
+    const {renderAudio}=await import('/src/audio/offline.ts');return renderAudio({kind:'music',id:'descent',seconds:16,light:1});
   });
-  assert(audio.rms>0.001&&audio.peak<0.1,"silent or excessive soundtrack level");
-  writeFileSync(`${out}/lanterns-below-preview.wav`,Buffer.from(audio.wav,"base64"));delete audio.wav;results.audio=audio;
+  assert(audio.rms>0.001&&audio.peak<1&&audio.nonFinite===0,"silent or clipped soundtrack");
+  writeFileSync(`${out}/descent-preview.wav`,Buffer.from(audio.base64,"base64"));delete audio.base64;results.audio=audio;
   assert.deepEqual(errors,[]);writeFileSync(`${out}/report.json`,JSON.stringify(results,null,2)+"\n");
   console.log(JSON.stringify(results,null,2));
 }finally{await browser.close();}

@@ -108,8 +108,9 @@ export function RunView() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (document.querySelector("[role=dialog]")) return;
+      if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select")) return;
       // Enter and Space belong to a focused button; do not steal them for the game.
-      if ((e.key === "Enter" || e.key === " ") && e.target instanceof HTMLElement && e.target.closest("button, a, input, textarea, select, [role=button]")) return;
+      if ((e.key === "Enter" || e.key === " ") && e.target instanceof HTMLElement && e.target.closest("button, a, summary, [role=button]")) return;
       const r = useRun.getState().run;
       if (!r || r.status !== "playing") return;
       const now = performance.now();
