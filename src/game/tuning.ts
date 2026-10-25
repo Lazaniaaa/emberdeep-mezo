@@ -51,8 +51,8 @@ export function withTuning<T>(patch: Partial<Tuning>, fn: () => T): T {
 }
 
 /** Light gained and lost, by source. Only filled in while a tuning run is counting. */
-export type LightSource = "jars" | "props" | "kills" | "levels" | "potions" | "steps" | "hits";
-export const lightTally: Record<LightSource, number> = { jars: 0, props: 0, kills: 0, levels: 0, potions: 0, steps: 0, hits: 0 };
+export type LightSource = "jars" | "props" | "kills" | "levels" | "potions" | "perks" | "steps" | "hits";
+export const lightTally: Record<LightSource, number> = { jars: 0, props: 0, kills: 0, levels: 0, potions: 0, perks:0, steps: 0, hits: 0 };
 /** The same, split by floor: `lightByFloor[depth][source]`. */
 export const lightByFloor: Record<number, Record<LightSource, number>> = {};
 export let counting = false;
@@ -74,6 +74,6 @@ export function resetLightTally() {
 export function noteLight(source: LightSource, amount: number, depth = 0) {
   if (!counting) return;
   lightTally[source] += amount;
-  const floor = (lightByFloor[depth] ??= { jars: 0, props: 0, kills: 0, levels: 0, potions: 0, steps: 0, hits: 0 });
+  const floor = (lightByFloor[depth] ??= { jars: 0, props: 0, kills: 0, levels: 0, potions: 0, perks:0, steps: 0, hits: 0 });
   floor[source] += amount;
 }

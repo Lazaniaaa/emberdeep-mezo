@@ -3,7 +3,8 @@ import {
   NIGHT_VISION_STEPS, RAGE_HITS, RAGE_MULT, REGEN_TURNS, SIGIL_DROP_CHANCE, TICKET_DROP_CHANCE, WARD_STEPS, lightRadius, lootMultiplier,
   stepCost,
 } from "./config";
-import { POTIONS, POTION_DROP_WEIGHTS, type Perks, type PotionId } from "./catalog";
+import { POTIONS, POTION_DROP_WEIGHTS, mergePerks, type Perks, type PotionId } from "./catalog";
+import {LEVEL_PERKS,canChoosePerk,flickerLimit,hungryCost,interruptLimit,openPerkChoice,rankLabel,rankOf,stoneWardLimit,type LevelPerkId,type PerkRank,type PerkState} from './level-perks';
 import { dimlingDistance, distances, footprint, generateFloor, idx, isFloor, visibleSet, type Dimling, type Floor, type Point, type Prop } from "./dungeon";
 import { attackTiles, reachDirection } from "./enemy-ai";
 import { enemyDef, enemyName } from "./enemies";
@@ -26,7 +27,7 @@ export type PotionBag = Record<PotionId, number>;
 
 export const emptyBag = (): PotionBag => ({ nightVision: 0, oil: 0, flare: 0, ward: 0, rage: 0, regen: 0, heal: 0 });
 
-export type RunState = {
+export type RunState = PerkState & {
   seed: number;
   rng: Rng;
   depth: number;
@@ -81,6 +82,7 @@ export type Drop = { x: number; y: number; gold: number; crystals: number; light
 const dropped = (light: number) => Math.max(1, Math.round(light * tuning.dropOil));
 
 export type RunAction =
+  | { type: "perk"; id: LevelPerkId }
   | { type: "move"; dx: number; dy: number }
   | { type: "wait" }
   | { type: "potion"; id: PotionId }
@@ -112,6 +114,8 @@ export function startRun(setup: RunSetup): RunState {
     status: "playing", messages: ["Your lantern flickers to life. The deep is waiting."],
     events: [], deepest: 1, bossSlain: false, rage: 0, regen: 0, runId: setup.runId,
     xp: 0, level: 1, gear: [], smashed: 0,
+    levelPerks:[],perkChoice:null,perkQueue:[],flickersUsed:0,interruptsUsed:0,stoneWardUsed:0,
+    riposteReady:false,momentumSteps:0,breathWaits:0,
   };
   reveal(state);
   return state;
@@ -119,7 +123,7 @@ export function startRun(setup: RunSetup): RunState {
 
 export const levelOf = (s: RunState) => s.level ?? 1;
 /** Old overflow is not granted as permanent capacity when an old saved descent is read. */
-export const maxLightOf = (s: RunState) => s.maxLight ?? s.startLight + (levelOf(s) - 1) * LEVEL_LIGHT;
+export const maxLightOf = (s: RunState) => s.maxLight ?? s.startLight + (levelOf(s) - 1) * LEVEL_LIGHT + rankOf(s,'ember-heart')*15;
 export const xpOf = (s: RunState) => s.xp ?? 0;
 export const propsOf = (floor: Floor): Prop[] => floor.props ?? [];
 
@@ -140,7 +144,7 @@ export function creatureNoticeDistance(state: RunState) {
 }
 
 export function currentStepCost(state: RunState) {
-  return stepCost(state.depth) * (1 - state.perks.stepDiscount);
+  return stepCost(state.depth) * (1 - state.perks.stepDiscount) * hungryCost(rankOf(state,'hungry-flame'));
 }
 
 /** The boss keeps the stairs sealed until it is dead. */
@@ -158,7 +162,7 @@ function say(state: RunState, text: string) {
 }
 
 /** Every source shares this cap; statistics and floating loot count only accepted light. */
-function addLight(state: RunState, amount: number, source?: "jars" | "props" | "kills" | "levels" | "potions") {
+function addLight(state: RunState, amount: number, source?: "jars" | "props" | "kills" | "levels" | "potions" | "perks") {
   const accepted = Math.max(0, Math.min(amount, maxLightOf(state) - state.light));
   state.light += accepted;
   if (source) noteLight(source, accepted, state.depth);
@@ -254,10 +258,37 @@ function gainXp(state: RunState, amount: number) {
     state.maxLight = maxLightOf(state) + LEVEL_LIGHT;
     addLight(state, LEVEL_LIGHT, "levels");
     state.events.push("levelup");
+    state.perkQueue=[...(state.perkQueue??[]),level];
     say(state, `Level ${level}! +${LEVEL_LIGHT} max light, +${LEVEL_LIGHT} light, +${LEVEL_DAMAGE} damage.`);
   }
   state.level = level;
   state.xp = level >= MAX_LEVEL ? 0 : xp;
+  openPerkChoice(state);
+}
+
+/** Known landmarks only: no routes or new random rolls are created by Rift Sense. */
+function revealLandmarks(state:RunState){
+  const rank=rankOf(state,'rift-sense');if(!rank)return;
+  const points=[state.floor.spawn,...(rank>=2?[state.floor.stairs]:[]),
+    ...(rank>=3?state.floor.items.filter(i=>i.kind==='chest'||i.kind==='vault'||i.kind==='hoard'):[])];
+  for(const p of points)state.floor.seen[idx(state.floor,p.x,p.y)]=1;
+}
+function choosePerk(state:RunState,id:LevelPerkId){
+  const old=rankOf(state,id),rank=(old+1) as PerkRank;
+  const previous=state.levelPerks??[];
+  state.levelPerks=old?previous.map(p=>p.id===id?{id,rank}:p):[...previous,{id,rank}];
+  const bonus:Partial<Perks>={};
+  if(id==='oil-thief')bonus.lightOnKill=1;
+  // 8/16/24%, measured adjustment: 10/20/30% broke the unchanged fog/omniscient guard (54.17%).
+  if(id==='steady-wick')bonus.stepDiscount=.08;
+  if(id==='wide-glass')bonus.radius=1;
+  if(id==='heavy-blow')bonus.damage=3;
+  if(id==='hungry-flame')bonus.damage=6;
+  if(id==='thick-coat')bonus.drainReduce=.1;
+  state.perks=mergePerks(state.perks,bonus);
+  if(id==='ember-heart'){state.maxLight=maxLightOf(state)+15;addLight(state,15,'perks');}
+  state.perkChoice=null;openPerkChoice(state);reveal(state);
+  say(state,`Perk chosen: ${LEVEL_PERKS[id].name} ${rankLabel(rank)}.`);
 }
 
 /**
@@ -339,7 +370,7 @@ function rollTicket(state: RunState) {
 }
 
 /** A turn spent walking or waiting burns light; a blow (at a creature or a prop) does not, so only regeneration ticks. */
-function burnLight(state: RunState, walking = true) {
+function burnLight(state: RunState, walking = true, free = false) {
   if (!walking) {
     if ((state.regen ?? 0) > 0) { addLight(state, 1); state.regen = (state.regen ?? 0) - 1; }
     return;
@@ -347,7 +378,7 @@ function burnLight(state: RunState, walking = true) {
   state.steps++;
   if (state.nightVision > 0 && state.light <= 0) {
     state.nightVision--;
-  } else if (!chance(state.rng, state.perks.freeStepChance)) {
+  } else if (!chance(state.rng, state.perks.freeStepChance) && !free) {
     noteLight("steps", Math.min(state.light, currentStepCost(state)), state.depth);
     state.light = Math.max(0, state.light - currentStepCost(state));
   }
@@ -373,6 +404,7 @@ function strike(state: RunState, d: Dimling) {
   d.windupLeft = 0;
   d.aim = null;
   if (!hit) {
+    if(rankOf(state,'riposte'))state.riposteReady=true;
     state.events.push("miss");
     say(state, `${name} strikes and hits nothing. It is open for ${d.boss ? `${BOSS_RECOVERY} turns` : "a turn"}.`);
     return;
@@ -381,6 +413,11 @@ function strike(state: RunState, d: Dimling) {
     state.events.push("miss");
     say(state, `Your ward turns aside the ${name}'s blow. It is open for ${d.boss ? `${BOSS_RECOVERY} turns` : "a turn"}.`);
     return;
+  }
+  const stone=rankOf(state,'stone-ward');
+  if((!d.boss||stone===3)&&(state.stoneWardUsed??0)<stoneWardLimit(stone)){
+    state.stoneWardUsed=(state.stoneWardUsed??0)+1;state.events.push('miss');
+    say(state,`Stone Ward blocks ${name}.`);return;
   }
   const drain = (d.boss ? BOSS_DRAIN : hitBase(state)) * (1 - state.perks.drainReduce);
   drainLight(state, drain);
@@ -489,7 +526,13 @@ function dimlingsAct(state: RunState) {
 }
 
 function checkDarkness(state: RunState) {
-  if (state.light > 0 || state.nightVision > 0) return;
+  if(state.light>0)return;
+  const flicker=rankOf(state,'last-flicker');
+  if((state.flickersUsed??0)<flickerLimit(flicker)){
+    state.flickersUsed=(state.flickersUsed??0)+1;addLight(state,flicker===1?10:20,'perks');
+    say(state,'Last Flicker relights your lantern.');return;
+  }
+  if(state.nightVision>0)return;
   if (state.bag.nightVision > 0) {
     state.bag.nightVision--; state.used.nightVision++;
     state.nightVision = NIGHT_VISION_STEPS;
@@ -498,6 +541,7 @@ function checkDarkness(state: RunState) {
     return;
   }
   state.status = "dead";
+  state.perkChoice=null;state.perkQueue=[];
   state.events.push("dark");
   say(state, "Darkness swallows you. You wake up at camp, empty-handed.");
 }
@@ -508,15 +552,16 @@ function slayBoss(state: RunState, boss: Dimling) {
   const id = Math.max(0, ...state.floor.items.map(i => i.id), ...state.floor.dimlings.map(d => d.id), boss.id) + 1;
   state.floor.items.push({ id, x: boss.x, y: boss.y, kind: "hoard" });
   state.kills++;
+  state.momentumSteps=rankOf(state,'momentum');
   state.bossSlain = true;
-  if (state.perks.lightOnKill) addLight(state, state.perks.lightOnKill);
+  if (state.perks.lightOnKill) addLight(state, state.perks.lightOnKill,'perks');
   state.events.push("boss");
   say(state, "Cerberus falls. A hoard chest lies where it stood, and the stairs are open.");
   gainXp(state, BOSS_XP);
 }
 
-function endTurn(state: RunState, walking = true) {
-  burnLight(state, walking);
+function endTurn(state: RunState, walking = true, free = false) {
+  burnLight(state, walking, free);
   dimlingsAct(state);
   if (state.ward > 0) state.ward--;
   checkDarkness(state);
@@ -525,6 +570,8 @@ function endTurn(state: RunState, walking = true) {
 
 export function applyAction(prev: RunState, action: RunAction): RunState {
   if (prev.status !== "playing") return prev;
+  if(action.type==='perk'&&!canChoosePerk(prev,action.id))return prev;
+  if(prev.perkChoice&&action.type!=='perk')return prev;
   const state = structuredClone(prev);
   state.maxLight = maxLightOf(prev);
   state.light = Math.min(state.light, state.maxLight);
@@ -532,6 +579,7 @@ export function applyAction(prev: RunState, action: RunAction): RunState {
   state.drops = [];
 
   switch (action.type) {
+    case 'perk':choosePerk(state,action.id);break;
     case "move": {
       const { dx, dy } = action;
       if (dx < 0) state.player.facing = "left";
@@ -542,16 +590,23 @@ export function applyAction(prev: RunState, action: RunAction): RunState {
       const target = state.floor.dimlings.find(d => footprint(d).some(c => c.x === tx && c.y === ty));
       if (target) {
         const raging = (state.rage ?? 0) > 0;
-        const dmg = Math.round(baseDamage(state) * (raging ? RAGE_MULT : 1));
+        const riposte=state.riposteReady?1+rankOf(state,'riposte')*.5:1;
+        const dmg = Math.round(baseDamage(state) * (raging ? RAGE_MULT : 1)*riposte);
+        state.riposteReady=false;
         if (raging) state.rage = (state.rage ?? 0) - 1;
         target.hp -= dmg;
+        if(target.hp>0&&!target.boss&&target.phase==='windup'&&(state.interruptsUsed??0)<interruptLimit(rankOf(state,'interrupt'))){
+          state.interruptsUsed=(state.interruptsUsed??0)+1;target.phase='recovery';target.cooldown=ENEMY_RECOVERY+1;target.windupLeft=0;target.aim=null;
+          say(state,'Interrupt cancels the windup.');
+        }
         if (target.hp <= 0 && target.boss) {
           slayBoss(state, target);
         } else if (target.hp <= 0) {
           state.floor.dimlings = state.floor.dimlings.filter(d => d !== target);
           const g = loot(state, int(state.rng, KILL_GOLD[0], KILL_GOLD[1]), "gold");
           state.gold += g; state.kills++;
-          const emberLight = state.perks.lightOnKill ? addLight(state, state.perks.lightOnKill) : 0;
+          state.momentumSteps=rankOf(state,'momentum');
+          const emberLight = state.perks.lightOnKill ? addLight(state, state.perks.lightOnKill,'perks') : 0;
           state.events.push("kill");
           const xp = killXp(state.depth);
           // A defeated creature may drop oil, likelier the lower the lantern is, like a prop does.
@@ -588,16 +643,19 @@ export function applyAction(prev: RunState, action: RunAction): RunState {
         return { ...prev, player: { ...prev.player, facing: state.player.facing }, events: ["bump"] };
       }
       state.player.x = tx; state.player.y = ty;
+      const free=(state.momentumSteps??0)>0;
+      if(free)state.momentumSteps=(state.momentumSteps??0)-1;
+      state.breathWaits=rankOf(state,'deep-breath');
       state.events.push("step");
       pickup(state);
-      endTurn(state);
+      endTurn(state,true,free);
       if (state.status === "playing" && onStairs(state)) say(state, "Stairs down. Press E to descend deeper.");
       else if (state.status === "playing" && onRift(state)) say(state, "A rift home. Press E to extract with your loot.");
       break;
     }
     case "wait":
       say(state, "You hold still and listen.");
-      endTurn(state);
+      {const free=(state.breathWaits??0)>0;if(free)state.breathWaits=(state.breathWaits??0)-1;endTurn(state,true,free);}
       break;
     case "potion": {
       const id = action.id;
@@ -640,6 +698,9 @@ export function applyAction(prev: RunState, action: RunAction): RunState {
       state.deepest = Math.max(state.deepest, state.depth);
       state.floor = generateFloor(state.rng, state.depth, { findPct: state.perks.findPct });
       state.player = { ...state.floor.spawn, facing: state.player.facing };
+      state.stoneWardUsed=0;state.breathWaits=0;
+      addLight(state,rankOf(state,'second-wind')*10,'perks');
+      revealLandmarks(state);
       state.events.push("descend");
       say(state, `Depth ${state.depth}. Loot x${lootMultiplier(state.depth).toFixed(1)}, each step burns ${currentStepCost(state).toFixed(2)} light.`);
       reveal(state);

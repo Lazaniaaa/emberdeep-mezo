@@ -1,7 +1,7 @@
 /**
  * The delver's level inside one descent. It starts at 1 every time, grows with experience from smashing things and
  * defeating creatures, and is lost with the descent. Each new level pours oil into the lantern and adds to every blow.
- * Choosing a buff on level-up is not built yet; the levels only give these two rewards.
+ * These baseline rewards remain alongside the deterministic perk choice at each new level.
  */
 
 export const MAX_LEVEL = 15;

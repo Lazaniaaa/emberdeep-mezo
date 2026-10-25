@@ -4,6 +4,7 @@ import { propsOf, type RunEvent, type RunState } from "@/game/run";
 import { GEAR } from "@/game/props";
 import type { DropIcon, Fx } from "./fx";
 import type { HeroDir, HeroFrame } from "./animal-sprites";
+import {wardBlockedIds} from './turn-feedback';
 
 /**
  * How the delver moves between turns, and the effects a turn leaves behind. The game resolves a turn at once; these put
@@ -103,7 +104,7 @@ export function turnEffects(prev: RunState, next: RunState, at: number): TurnEff
   const raging = (prev.rage ?? 0) > 0;
   const damage = raging ? "#ff7a5a" : "#ffffff";
 
-  const after = new Map(next.floor.dimlings.map(d => [d.id, d]));
+  const after = new Map(next.floor.dimlings.map(d => [d.id, d])),blocked=wardBlockedIds(prev,next);
   for (const d of prev.floor.dimlings) {
     const now = after.get(d.id);
     // A boss stands on four tiles; its effects go in the middle of them.
@@ -114,13 +115,15 @@ export function turnEffects(prev: RunState, next: RunState, at: number): TurnEff
       continue;
     }
     if (now.hp < d.hp) out.fx.push({ kind: "text", x: now.x + mid, y: now.y, text: `-${d.hp - now.hp}`, color: damage, at: land });
-    if (d.phase === "windup" && now.phase === "recovery") {
+    const interrupted=!d.boss&&now.hp<d.hp&&(next.interruptsUsed??0)>(prev.interruptsUsed??0);
+    if(interrupted)out.fx.push({kind:'text',x:now.x,y:now.y-.5,text:'INTERRUPT',color:'#ccff00',at:land});
+    if (d.phase === "windup" && now.phase === "recovery" && !interrupted) {
       // The blow lands now: a burst on each tile it covered (the aim was cleared when it struck, so it is read from before).
       const tiles = attackTiles(prev.floor, d);
       for (const t of tiles) out.fx.push({ kind: "impact", x: t.x, y: t.y, at });
       // Words over the delver go half a tile higher, above the head.
       const on = (p: Point) => tiles.some(t => t.x === p.x && t.y === p.y);
-      if (on(next.player) && (prev.ward > 0 || next.ward > 0)) {
+      if (on(next.player) && blocked.has(d.id)) {
         out.fx.push({ kind: "text", x: next.player.x, y: next.player.y - 0.5, text: "WARD", color: "#7cf7ff", at });
       } else if (!on(next.player) && on(prev.player)) {
         out.fx.push({ kind: "text", x: next.player.x, y: next.player.y - 0.5, text: "DODGE", color: "#ccff00", at });

@@ -14,6 +14,7 @@ import { MOB_CELL_H, MOB_CELL_W, MOB_FOOT_X, MOB_FOOT_Y, MOB_HEIGHT, MOB_TEXTURE
 import { ICONS, drawMask, type Mask } from "./sprites";
 import { BOSS_RECOVERY } from "@/game/config";
 import { drawLanternLight } from "./lantern-light";
+import {rankOf} from '@/game/level-perks';
 
 export const TILE = 32;
 
@@ -584,7 +585,8 @@ export function drawRun(ctx: CanvasRenderingContext2D, state: RunState, opts: Dr
 
   ctx.save(); ctx.translate(0, -actorLift);
   for (const item of floor.items) {
-    if (!showAt(item)) continue;
+    const sensed=rankOf(state,'rift-sense')>=3&&['chest','vault','hoard'].includes(item.kind)&&floor.seen[idx(floor,item.x,item.y)];
+    if (!showAt(item)&&!sensed) continue;
     const bob = opts.reducedMotion ? 0 : Math.round(Math.sin(opts.time / 250 + item.id) * 1.5);
     if (drawCell(ctx, lootSheet(), lootIndex(item.kind), item.x * TILE + TILE / 2, item.y * TILE + TILE - 3 + bob)) continue;
     ctx.drawImage(itemSprite(item.kind, floor.theme), item.x * TILE, item.y * TILE + bob, TILE, TILE);

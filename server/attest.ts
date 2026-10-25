@@ -84,6 +84,7 @@ export async function attest(config: AttestConfig, body: unknown): Promise<Attes
 
   let result;
   try {
+    // Includes deterministic level-perk offers/ranks/slot limits; illegal K<id> choices become HTTP 422.
     result = replayRun(b.setup, b.moves);
   } catch (e) {
     if (e instanceof ReplayError) throw new HttpError(422, `The descent does not replay: ${e.message}`);

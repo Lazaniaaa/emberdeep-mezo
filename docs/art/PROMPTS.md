@@ -636,3 +636,43 @@ For each row attach `public/mobs/<id>.png` plus the same palette and hero; reuse
 | 7 | Skull Crab / `hollow-burrower` | 44 / 22 | Red crab, bone-white skull shell, eye stalks, claws | Hide in skull → snap claws |
 | 8 | Spore Shroom / `fourfold-bell` | 64 / 32 | Cream body, warm eyes, red cap/pale spots and spores | Swell cap → release spores |
 | 9 | Imp / `rift-leaper` | 56 / 28 | Red, pale horns, yellow eyes, wings, tail and claws | Crouch → leap with claws |
+
+## P-perks — fifteen descent perk icons
+
+Owner-generated art; do not generate it in the coding assistant. Attach `docs/screenshots/mobs-palette.png`, one
+approved animal delver and a screenshot of the tiled cave for world/style reference.
+
+**Prompt (one image):**
+
+Create ONE pixel-art icon sheet for Emberdeep, an original cave roguelike with cat/dog delvers carrying lanterns.
+Exactly **5 columns × 3 rows**, fifteen equally sized SQUARE cells, read left to right then top to bottom in the
+order below. Canvas aspect ratio 5:3 (suggested 1600×960, each cell 320×320). All background and gutters must be
+perfect flat **#FF00FF**; keep every icon isolated and centred inside its own cell, with at least 10% empty margin.
+No words, letters, numbers, borders, frames, gradients, antialiasing, soft shadows, watermarks or scenery. Each icon
+must remain immediately recognizable at **32×32**: large deliberate pixel clusters, crisp single-width dark
+outline #0a0b16, front/top-down game icon view, maximum three shades per material and one clear silhouette.
+Use this shared world palette from `art/palette/mobs.json`, including its warm fire colours:
+#0a0b16 #fef4e2 #fdec8e #fd930c #f5430a #fa2e2c #68eaeb #4a99ff #c3f7ff #e1a961 #614834 #73a041
+#82538b #8c8c83 #bdbaab #555857 #2d3b44 #ecfeff #145bd4 #b3241b #c67baf #6e1715 #95654d #3acefd
+#4b7032 #f3cc90 #231f35 #88bb2a #0c0409 #bb9e81 #1e0f13 #6a50f2. Never use background magenta in an icon.
+
+1. **Oil Thief:** a warm oil droplet held by a small delver claw.
+2. **Steady Wick:** a straight lantern wick with a calm, small golden flame.
+3. **Wide Glass:** a round lantern lens spreading three broad cyan light rays.
+4. **Ember Heart:** a glowing orange ember shaped like a heart inside a lantern.
+5. **Last Flicker:** a nearly extinguished candle relighting with one bright golden spark.
+6. **Riposte:** a short delver sword turning back along a curved counterattack arrow.
+7. **Heavy Blow:** a chunky stone hammer striking a small burst of orange sparks.
+8. **Momentum:** three forward delver pawprints trailing a streak of lantern light.
+9. **Thick Coat:** a thick fur-lined little delver coat with a reinforced collar.
+10. **Stone Ward:** a compact stone shield with a single luminous turquoise crack.
+11. **Interrupt:** a raised delver paw stopping a jagged red attack stroke.
+12. **Deep Breath:** a small pale wind spiral surrounding a softly glowing wick.
+13. **Rift Sense:** a cave compass needle pointing toward a turquoise rift diamond.
+14. **Second Wind:** descending stone steps with an upward curl of warm lantern light.
+15. **Hungry Flame:** a predatory orange flame with two clear fangs, visibly dangerous but still in the game's style.
+
+Save as `art/perks/raw/perks.webp`, then run `node scripts/sprite-sheets.mjs perks`. The importer produces a
+transparent 160×96 PNG atlas (15 cells of 32×32) at `public/perks/perks.png`, cleans magenta fringe and maps into
+the shared palette. Restart the dev server / rebuild after adding the source. Until then, distinct temporary code
+icons keep the game usable; they are placeholders, not substitute approved artwork.

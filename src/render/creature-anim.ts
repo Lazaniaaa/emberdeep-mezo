@@ -100,7 +100,8 @@ export class CreatureAnimator {
     const changed = prev !== run;
     if (changed) this.action++;
     this.update(`${run.seed}:${run.depth}:${run.runId ?? ""}`, run.floor.dimlings, run.player, time, this.action,
-      !!prev && changed && bossDrained(prev, run));
+      !!prev && changed && bossDrained(prev, run),
+      new Set(prev&&(run.interruptsUsed??0)>(prev.interruptsUsed??0)?prev.floor.dimlings.filter(d=>!d.boss&&run.floor.dimlings.some(n=>n.id===d.id&&n.hp<d.hp)).map(d=>d.id):[]));
     this.lastRun = run;
   }
 
@@ -111,7 +112,7 @@ export class CreatureAnimator {
   }
 
   /** Reads this frame's creatures. `key` names the floor being shown: a new floor starts every picture afresh. */
-  update(key: string, creatures: readonly Dimling[], player: Point, time: number, turn = 0, bossStruck = false) {
+  update(key: string, creatures: readonly Dimling[], player: Point, time: number, turn = 0, bossStruck = false, interrupted = new Set<number>()) {
     if (key !== this.key) { this.tracks.clear(); this.key = key; }
     const present = new Set<number>();
     for (const d of creatures) {
@@ -132,7 +133,7 @@ export class CreatureAnimator {
         t.knock = toward(player, d);
       }
       // Its blow landed: it lunges along its aim (read from before, as striking clears it) or at the delver.
-      if (t.last.phase === "windup" && d.phase === "recovery") {
+      if (t.last.phase === "windup" && d.phase === "recovery" && !interrupted.has(d.id)) {
         t.strikeAt = time;
         t.lunge = t.last.aim ?? toward(d, player);
       }

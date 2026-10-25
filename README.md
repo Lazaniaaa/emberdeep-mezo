@@ -88,8 +88,11 @@ turns into experience.
 
 **Levels.** Every descent starts at level 1 and there are 15. Experience comes from breaking props (1-7 each), defeating
 creatures (2-5) and opening chests and vaults. Each new level raises capacity by **10**, pours **10 light** into your lantern and adds **2 damage**
-to every blow (a dagger hits for 16, so level 5 is 24). The level bar is under the lantern, and the level is lost
-with the descent. The light HUD shows current / maximum. Choosing a buff on each level-up is planned; for now a level adds capacity, oil and damage.
+to every blow (a dagger hits for 16, so level 5 is 24 before chosen damage perks). The level bar is under the lantern, and the level is lost
+with the descent. The light HUD shows current / maximum. Each new level also offers up to three seeded perks:
+choose one with 1/2/3 or a tap, for free while the descent waits. A run holds at most four different perks, each
+with three ranks; once full, offers only upgrade those four. Four icon slots at the bottom show ranks and charges.
+See [level perks, balance and art import](docs/design/level-perks-2026-10.md).
 
 Depth 7 ends in an arena guarded by **Cerberus**, a three-headed hound four times the size of a creature
 (2x2 tiles, 150 HP, where ordinary creatures have 12-70). It seals the stairs and moves at half a creature's pace.
@@ -130,8 +133,8 @@ Money is simulated USDC. The game counts it in cents, so every rule below is exa
   delvers' spend and gold. Every new round opens with a simulated crowd already in it.
 - `src/game/sim.ts` has two bots: one that sees the whole map and one that plays under fog of
   war. These scripted bots dodge known warnings; their results are a model of play, not a forecast.
-  A 2-flask delver with no perks banks about 5.5 gold per cent spent (key included). The
-  simulated crowd banks 5.2, a little below what a 70/20/10 crowd of unperked, Delver-holding and
+  A 2-flask delver with no starting loadout perks banks about 10.2 gold per cent spent (key included), choosing level perks.
+  The simulated crowd banks 9.9, below what a 70/20/10 crowd of unperked, Delver-holding and
   top-build bots banks (a test checks it stays between 70% and 100% of that), so a lone delver in the demo is
   measured against a crowd with good gear. Real players make mistakes the bots do not, so the true figure is probably
   lower, and the cap covers that case.

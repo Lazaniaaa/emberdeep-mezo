@@ -7,6 +7,7 @@ import { isSpecies } from "@/game/enemies";
 import { MAX_LEVEL } from "@/game/levels";
 import { isGearId, isPropKind } from "@/game/props";
 import { POTION_IDS } from "@/game/catalog";
+import {validPerkState} from '@/game/level-perks';
 import { useGame } from "@/state/store";
 
 /** How a descent started and every move made in it, as short codes. Enough to replay it exactly (game/replay.ts). */
@@ -99,6 +100,7 @@ export function validSavedRun(value: unknown): value is RunState {
     && (run.xp === undefined || (finite(run.xp) && (run.xp as number) >= 0))
     && (run.smashed === undefined || (Number.isSafeInteger(run.smashed) && (run.smashed as number) >= 0))
     && (run.gear === undefined || (Array.isArray(run.gear) && run.gear.every(isGearId)))
+    && validPerkState(run)
     && isPointIn(player, W, H)
     && floor.tiles[at(player)] === 1
     && ["left", "right", "up", "down"].includes(player.facing as string)
@@ -166,16 +168,21 @@ export const useRun = create<RunStore>()(persist((set, get) => ({
   merge: (saved, current) => {
     const data = object(saved);
     const run = validSavedRun(data.run) ? data.run : null;
+    const legacyPerks=!!run&&run.levelPerks===undefined;
     if (run) {
       // Fill in what a save from before props and levels leaves out.
       run.floor.props ??= [];
       run.xp ??= 0; run.level ??= 1; run.gear ??= []; run.smashed ??= 0;
       run.maxLight = maxLightOf(run); run.light = Math.min(run.light,run.maxLight);
+      run.levelPerks??=[];run.perkChoice??=null;run.perkQueue??=[];
+      run.flickersUsed??=0;run.interruptsUsed??=0;run.stoneWardUsed??=0;
+      run.riposteReady??=false;run.momentumSteps??=0;run.breathWaits??=0;
     }
     const prev = object(data.prevPlayer);
     const prevPlayer = run && Number.isSafeInteger(prev.x) && Number.isSafeInteger(prev.y)
       ? { x: prev.x as number, y: prev.y as number } : null;
-    const log = run && validLog(data.log, run.seed) ? data.log : null;
+    // Old in-progress runs stay playable, but an old-rules tape cannot attest under the new perk-choice rules.
+    const log = run && !legacyPerks && validLog(data.log, run.seed) ? data.log : null;
     const lastDescent = validLog(data.lastDescent) ? data.lastDescent : null;
     return { ...current, run, prevPlayer, log, lastDescent };
   },

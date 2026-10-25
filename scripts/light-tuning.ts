@@ -54,7 +54,7 @@ it("writes docs/light-tuning.md", { timeout: 1_800_000 }, () => {
     "",
     `A flask holds ${FLASK_LIGHT} light and a descent may start with up to five. Exploring one of the big first floors takes about 130 steps, and a creature's blow drinks a few light more, so a floor costs roughly 130-170 light and the floors get dearer with depth. If the deep gave nothing back, two flasks would end on floor 2 or 3 and the boss on floor ${BOSS_DEPTH} could not be reached at all. If it gave too much, flasks would stop mattering and a descent would never end.`,
     "",
-    "Light comes back from four places: oil jars lying on the floor, broken props, defeated creatures (new) and level-ups (+10 each). Props and creatures give oil more often the lower the lantern is, so a delver running dry is helped and one with a full lantern is not.",
+    "Light comes back from oil jars, broken props, defeated creatures, level-ups (+10 each), potions and chosen level perks. The separate Perk refills column includes guaranteed kill-light bonuses. Props and creatures give random oil more often the lower the lantern is. Every bot resolves free perk choices with the fixed four-slot priority in sim.ts.",
     "",
     "## How it was measured",
     "",
@@ -100,12 +100,12 @@ it("writes docs/light-tuning.md", { timeout: 1_800_000 }, () => {
     "",
     "### Where the light came from and went, per descent (newcomer diver, 3 flasks)",
     "",
-    "| Scenario | Start | Oil jars | Props | Creatures | Levels | Steps | Blows taken | Collector gold per cent (2 flasks) |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Scenario | Start | Oil jars | Props | Creatures | Levels | Perk refills | Steps | Blows taken | Collector gold per cent (2 flasks) |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
   );
   for (const r of results) {
     const t = r.tally;
-    out.push(`| **${r.sc.name}** | ${3 * FLASK_LIGHT} | ${Math.round(t.jars)} | ${Math.round(t.props)} | ${Math.round(t.kills)} | ${Math.round(t.levels)} | -${Math.round(t.steps)} | -${Math.round(t.hits)} | ${r.gold.toFixed(2)} |`);
+    out.push(`| **${r.sc.name}** | ${3 * FLASK_LIGHT} | ${Math.round(t.jars)} | ${Math.round(t.props)} | ${Math.round(t.kills)} | ${Math.round(t.levels)} | ${Math.round(t.perks)} | -${Math.round(t.steps)} | -${Math.round(t.hits)} | ${r.gold.toFixed(2)} |`);
   }
   out.push("", "### What each scenario means", "");
   for (const r of results) out.push(`- **${r.sc.name}.** ${r.sc.note}`);
@@ -113,14 +113,14 @@ it("writes docs/light-tuning.md", { timeout: 1_800_000 }, () => {
   const perFloor = (r: (typeof results)[number]) => {
     const n = (x?: number) => Math.round(x ?? 0);
     out.push(
-      "| Floor | Descents there | Oil jars | Props | Creatures | **Drops** | Levels | Steps | Blows taken | **Net** |",
-      "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+      "| Floor | Descents there | Oil jars | Props | Creatures | **Drops** | Levels | Perk refills | Steps | Blows taken | **Net** |",
+      "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     );
     for (const f of r.floors) {
       if (!f.visits) continue;
       const drops = (f.jars ?? 0) + (f.props ?? 0) + (f.kills ?? 0);
-      const net = drops + (f.levels ?? 0) - (f.steps ?? 0) - (f.hits ?? 0);
-      out.push(`| ${f.depth} | ${f.visits} of ${RUNS} | ${n(f.jars)} | ${n(f.props)} | ${n(f.kills)} | **${n(drops)}** | ${n(f.levels)} | -${n(f.steps)} | -${n(f.hits)} | **${n(net)}** |`);
+      const net = drops + (f.levels ?? 0) + (f.perks??0) - (f.steps ?? 0) - (f.hits ?? 0);
+      out.push(`| ${f.depth} | ${f.visits} of ${RUNS} | ${n(f.jars)} | ${n(f.props)} | ${n(f.kills)} | **${n(drops)}** | ${n(f.levels)} | ${n(f.perks)} | -${n(f.steps)} | -${n(f.hits)} | **${n(net)}** |`);
     }
   };
   const chosen = results.find(r => r.sc.name === "Chosen")!;

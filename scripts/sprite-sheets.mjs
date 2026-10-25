@@ -276,6 +276,7 @@ export const CURB_ORDER = ["curb-h", "curb-v", "curb-outer", "curb-inner", "curb
 export const CURB_HEIGHT = { "curb-h": 8, "curb-v": 32, "curb-outer": 32, "curb-inner": 32, "curb-end-h": 8, "curb-end-v": 32 };
 
 const KINDS = {
+  perks:{raw:'art/perks/raw/',out:'public/perks/'},
   tiles: { raw: "art/tiles/raw/", out: "public/tiles/" },
   // Cerberus: down/left/right/up, idle/step/wind-up/attack, retaining the source eyes at 2x density.
   bosses: { raw: "art/bosses/raw/", out: "public/bosses/", cols: 4, rows: 4, cellW: 128, cellH: 112, footX: 64, footY: 104, main: true, height: () => 72, textureScale: 2, fixes: {} },
@@ -336,6 +337,29 @@ const toHex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0'))
 export function nearestMobColor(rgb, colors) {
   const lab = rgbToOklab(rgb);
   return colors.reduce((best, color) => labDistance(lab, rgbToOklab(color)) < labDistance(lab, rgbToOklab(best)) ? color : best);
+}
+
+/** One owner-made 5x3 sheet; exact 32px cells, shared mob palette, transparent clean matte. */
+export async function writePerks(input='art/perks/raw/perks.webp',output='public/perks/perks.png'){
+  const {data,info}=await sharp(input).ensureAlpha().raw().toBuffer({resolveWithObject:true}),w=info.width,h=info.height;
+  const palette=JSON.parse(readFileSync('art/palette/mobs.json','utf8')).colors.map(fromHex),atlas=Buffer.alloc(160*96*4);
+  const bg=(x,y)=>x<0||y<0||x>=w||y>=h||!data[(y*w+x)*4+3]||isBg(...data.subarray((y*w+x)*4,(y*w+x)*4+3));
+  for(let row=0;row<3;row++)for(let col=0;col<5;col++){
+    const x0=Math.floor(col*w/5),x1=Math.floor((col+1)*w/5),y0=Math.floor(row*h/3),y1=Math.floor((row+1)*h/3);
+    let left=x1,right=x0,top=y1,bottom=y0;
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)if(!bg(x,y)){left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);}
+    if(right<left||bottom<top)throw new Error(`Empty perk icon at ${col+1},${row+1}`);
+    const cw=right-left+1,ch=bottom-top+1,clean=Buffer.alloc(cw*ch*4);
+    for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++){
+      if(bg(x,y))continue;const p=(y*w+x)*4,edge=[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>bg(x+dx,y+dy));let rgb=[data[p],data[p+1],data[p+2]];
+      if(edge){const neighbours=[];for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)if(!bg(x+dx,y+dy)){const n=((y+dy)*w+x+dx)*4;neighbours.push([...data.subarray(n,n+3)]);}rgb=cleanMobFringe(rgb,neighbours);}
+      if(!rgb)continue;const q=nearestMobColor(rgb,palette),at=((y-top)*cw+x-left)*4;clean[at]=q[0];clean[at+1]=q[1];clean[at+2]=q[2];clean[at+3]=255;
+    }
+    const resized=await sharp(clean,{raw:{width:cw,height:ch,channels:4}}).resize(30,30,{fit:'inside',kernel:'nearest'}).raw().toBuffer({resolveWithObject:true});
+    const ox=col*32+Math.floor((32-resized.info.width)/2),oy=row*32+Math.floor((32-resized.info.height)/2);
+    for(let y=0;y<resized.info.height;y++)for(let x=0;x<resized.info.width;x++)resized.data.copy(atlas,((oy+y)*160+ox+x)*4,(y*resized.info.width+x)*4,(y*resized.info.width+x+1)*4);
+  }
+  await sharp(atlas,{raw:{width:160,height:96,channels:4}}).png().toFile(output);return{width:160,height:96,icons:15};
 }
 
 /** Derive a frozen palette from existing artwork, retaining small semantic accents before weighted clustering. */
@@ -708,6 +732,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const [kind, only] = process.argv.slice(2);
   for (const [id, k] of Object.entries(KINDS)) {
     if (kind && kind !== id) continue;
+    if(id==='perks'){
+      if(existsSync(k.raw+'perks.webp')){mkdirSync(k.out,{recursive:true});await writePerks(k.raw+'perks.webp',k.out+'perks.png');}
+      else if(kind==='perks')console.log('No art/perks/raw/perks.webp yet; the game uses its temporary distinct perk icons.');
+      continue;
+    }
     if (!existsSync(k.raw)) continue;
     if (id === "tiles") {
       if (!only || only === "catacombs" || only === "catacombs-v5") {

@@ -8,6 +8,7 @@ import {
 } from "./catalog";
 import { LOCK_MAX, MAX_FLASKS, PASSES, STAKE_GOLD_CAP, TICKET_DROP_CHANCE } from "./config";
 import { applyAction, startRun, type PotionBag, type RunAction, type RunSetup, type RunState } from "./run";
+import {isLevelPerk} from './level-perks';
 
 /**
  * A five-flask descent with the strongest loadout is about 2,000 moves and replays in half a second. Ten times that is
@@ -35,6 +36,7 @@ export function encodeMove(action: RunAction): string {
     case "descend": return ">";
     case "extract": return "X";
     case "potion": return `P${action.id}`;
+    case "perk": return `K${action.id}`;
   }
 }
 
@@ -44,6 +46,7 @@ export function decodeMove(code: unknown): RunAction {
   if (code === "W") return { type: "wait" };
   if (code === ">") return { type: "descend" };
   if (code === "X") return { type: "extract" };
+  if(code.startsWith('K')&&isLevelPerk(code.slice(1)))return{type:'perk',id:code.slice(1) as import('./level-perks').LevelPerkId};
   if (code.startsWith("P") && (POTION_IDS as readonly string[]).includes(code.slice(1))) return { type: "potion", id: code.slice(1) as PotionId };
   throw new ReplayError(`Unknown move: ${code.slice(0, 12)}`);
 }
@@ -147,7 +150,11 @@ export function replayRun(rawSetup: unknown, rawMoves: unknown): ReplayResult {
   let state = startRun(setup);
   for (const code of rawMoves) {
     if (state.status !== "playing") throw new ReplayError("Moves go on after the descent ended");
-    state = applyAction(state, decodeMove(code));
+    const action=decodeMove(code);
+    if(state.perkChoice&&action.type!=='perk')throw new ReplayError('Choose the pending level perk before another action');
+    const next=applyAction(state,action);
+    if(action.type==='perk'&&next===state)throw new ReplayError('Illegal level perk choice');
+    state=next;
   }
   if (state.status === "playing") throw new ReplayError("The descent has not ended");
   return {

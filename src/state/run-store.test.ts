@@ -19,6 +19,12 @@ beforeAll(async () => {
 });
 
 describe("active run recovery", () => {
+  it('loads an old unfinished run with default perk fields and without an obsolete signing tape',()=>{
+    const legacy=startRun({seed:7,flasks:2,perks:NO_PERKS,weaponDamage:8,bag:emptyBag()});
+    for(const key of ['levelPerks','perkChoice','perkQueue','flickersUsed','interruptsUsed','stoneWardUsed','riposteReady','momentumSteps','breathWaits'] as const)delete legacy[key];
+    const result=useRun.persist.getOptions().merge!({run:legacy,log:{setup:{seed:7},moves:['W']}},useRun.getState()) as ReturnType<typeof useRun.getState>;
+    expect(result.run?.levelPerks).toEqual([]);expect(result.run?.perkChoice).toBeNull();expect(result.run?.status).toBe('playing');expect(result.log).toBeNull();expect(validSavedRun({...legacy,levelPerks:[{id:'fake',rank:3}]})).toBe(false);
+  });
   it("restores an old lantern's capacity from start light and level, clamps overflow and rejects invalid capacity",()=>{
     const legacy=startRun({seed:7,flasks:2,perks:NO_PERKS,weaponDamage:8,bag:emptyBag()});
     legacy.level=3;legacy.light=999;

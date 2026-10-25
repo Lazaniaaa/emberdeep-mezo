@@ -4,6 +4,12 @@ import { dimlingDistance, distances, footprint, idx, isFloor, visibleSet, type P
 import { attackTiles } from "./enemy-ai";
 import { settleRound } from "./economy";
 import { applyAction, baseDamage, bossAlive, currentRadius, currentStepCost, emptyBag, onRift, onStairs, propsOf, startRun, type RunState } from "./run";
+import {botPerkChoice} from './level-perks';
+
+/** Free choices are resolved before planning a turn, with the same four-slot restrictions as a player. */
+export function resolveBotPerks(state:RunState){
+  let s=state;while(s.status==='playing'&&s.perkChoice){const id=botPerkChoice(s);if(!id)throw new Error('Bot has no legal perk choice');s=applyAction(s,{type:'perk',id});}return s;
+}
 
 /** Route one step toward `goal` using BFS distances computed from the goal. */
 function stepToward(state: RunState, goal: Point) {
@@ -32,6 +38,7 @@ const runCost = (flasks: number) => flasks * FLASK_PRICE + KEY_PRICE;
 export function simulateRun(seed: number, flasks = 1, perks: Perks = NO_PERKS, greed = 1.6): SimResult {
   let s = startRun({ seed, flasks, perks: mergePerks(perks), weaponDamage: WEAPONS.dagger.damage, bag: emptyBag() });
   for (let turn = 0; turn < 2_000 && s.status === "playing"; turn++) {
+    s=resolveBotPerks(s);
     const cost = currentStepCost(s);
     const home = distances(s.floor, s.floor.spawn);
     const backCost = home[idx(s.floor, s.player.x, s.player.y)] * cost;
@@ -114,6 +121,7 @@ export function simulateFogRun(seed: number, flasks = 1, perks: Perks = NO_PERKS
   const move = (d: Point | null) => (d ? applyAction(s, { type: "move", dx: d.x, dy: d.y }) : applyAction(s, { type: "wait" }));
 
   for (let turn = 0; turn < 3_000 && s.status === "playing"; turn++) {
+    s=resolveBotPerks(s);
     if (s.depth !== floorDepth) { floorDepth = s.depth; sawItems = new Set(); }
     const cost = currentStepCost(s);
     const known = knownDistances(s, s.player);
@@ -198,6 +206,7 @@ export function simulateDiveRun(seed: number, flasks = 1, perks: Perks = NO_PERK
   const reach = new Map<number, number>();
   reach.set(1, 0);
   for (let turn = 0; turn < 6_000 && s.status === "playing"; turn++) {
+    s=resolveBotPerks(s);
     if (!reach.has(s.depth)) reach.set(s.depth, s.steps);
     const pathFrom = (from: Point) => (style.knowsMap ? distances(s.floor, from) : knownDistances(s, from));
     const known = pathFrom(s.player);

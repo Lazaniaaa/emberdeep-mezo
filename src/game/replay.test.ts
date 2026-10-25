@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { NO_PERKS, WEAPONS } from "./catalog";
 import { MAX_MOVES, ReplayError, decodeMove, encodeMove, maxRunPerks, replayRun, validateSetup } from "./replay";
-import { emptyBag, type RunAction, type RunState } from "./run";
+import { applyAction,startRun,emptyBag, type RunAction, type RunState } from "./run";
+import {PERK_IDS} from './level-perks';
 import { simulateDiveRun, simulateFogRun } from "./sim";
 
 // The bots play through the real applyAction; this records the moves they make while the descent is on.
@@ -27,6 +28,20 @@ function recordBot(play: () => unknown) {
 const setupFor = (seed: number, flasks: number) => ({ seed, flasks, perks: { ...NO_PERKS }, weaponDamage: WEAPONS.dagger.damage, bag: emptyBag() });
 
 describe("replayRun", () => {
+  it('replays four slots and ranks II/III, rejects a substituted offer, fifth slot, and skipping a choice',()=>{
+    const setup=setupFor(77,5),{moves,final}=recordBot(()=>simulateDiveRun(77,5));
+    const replay=replayRun(setup,moves);expect(replay.state.levelPerks).toEqual(final.levelPerks);
+    expect(final.levelPerks).toHaveLength(4);expect(final.levelPerks!.some(p=>p.rank===3)).toBe(true);
+    let s=startRun(setup),badOffer=false,badFifth=false;
+    for(let i=0;i<moves.length;i++){
+      if(moves[i].startsWith('K')){
+        if(!badOffer){const invalid=PERK_IDS.find(id=>!s.perkChoice!.options.includes(id))!;const bad=[...moves];bad[i]=`K${invalid}`;expect(()=>replayRun(setup,bad)).toThrow(/Illegal level perk/);bad[i]='W';expect(()=>replayRun(setup,bad)).toThrow(/pending level perk/);badOffer=true;}
+        if(!badFifth&&s.levelPerks?.length===4){const invalid=PERK_IDS.find(id=>!s.levelPerks!.some(p=>p.id===id))!;const bad=[...moves];bad[i]=`K${invalid}`;expect(()=>replayRun(setup,bad)).toThrow(/Illegal level perk/);badFifth=true;}
+      }
+      s=applyAction(s,decodeMove(moves[i]));
+    }
+    expect(badOffer&&badFifth).toBe(true);
+  },60000);
   it("reaches exactly what the bots reached, home or lost", () => {
     let home = 0, lost = 0;
     for (let i = 0; i < 6; i++) {

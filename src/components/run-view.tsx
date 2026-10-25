@@ -24,6 +24,8 @@ import { holdRunLock } from "@/state/run-lock";
 import { useGame } from "@/state/store";
 import { resolveHero } from "./hero-info";
 import { rememberDeath, reportDeath } from "./death-cause";
+import {PerkBar,PerkChoiceDialog} from './level-perks';
+import type {LevelPerkId} from '@/game/level-perks';
 
 type Screen = { w: number; h: number };
 
@@ -89,6 +91,7 @@ export function RunView() {
   }, [impact, game.reducedMotion]);
 
   const dispatch = useCallback((action: RunAction) => { act(action); }, [act]);
+  const choosePerk=useCallback((id:LevelPerkId)=>{const prev=useRun.getState().run,next=act({type:'perk',id});if(next&&next!==prev)playSfx('buy',useGame.getState().muted);},[act]);
 
   const contextAction = useCallback(() => {
     const r = useRun.getState().run;
@@ -174,6 +177,9 @@ export function RunView() {
             {run.ward > 0 && <Badge className="bg-crystal text-black"><Shield /> Ward {run.ward}</Badge>}
             {(run.rage ?? 0) > 0 && <Badge className="bg-red-500 text-white">Rage {run.rage}</Badge>}
             {(run.regen ?? 0) > 0 && <Badge className="bg-emerald-500 text-black">Regen {run.regen}</Badge>}
+            {(run.momentumSteps??0)>0&&<Badge className="bg-gold text-black">Free steps {run.momentumSteps}</Badge>}
+            {(run.breathWaits??0)>0&&<Badge variant="outline">Free waits {run.breathWaits}</Badge>}
+            {run.riposteReady&&<Badge className="bg-sigil text-black">Riposte ready</Badge>}
           </div>
           <p className="mt-1 text-[10px] leading-tight text-muted-foreground" aria-label="Rift walk estimate"
             title="Lower bound for walking over seen tiles only. Threats, occupants and refills are excluded; survival is not guaranteed.">
@@ -211,7 +217,7 @@ export function RunView() {
       </section>
 
       {/* Actions, warnings and the log share one stack, so nothing sits on the touch pad */}
-      <div data-run-hud className="pointer-events-none absolute bottom-3 left-3 z-20 flex w-[calc(100%-10.5rem)] max-w-[26rem] flex-col gap-1.5 sm:bottom-4 lg:w-[26rem]">
+      <div data-run-hud className="pointer-events-none absolute bottom-20 left-3 z-20 flex w-[calc(100%-10.5rem)] max-w-[26rem] flex-col gap-1.5 lg:w-[26rem]">
         <div className="pointer-events-auto flex flex-col items-start gap-1.5">
           {atStairs && playing && !sealed && (
             <Button size="lg" className="font-pixel shadow-lg" onClick={contextAction}><ArrowDown data-icon="inline-start" /> Descend to depth {run.depth + 1} <Kbd>E</Kbd></Button>
@@ -244,9 +250,12 @@ export function RunView() {
         </section>
       </div>
 
-      <div data-run-hud className="absolute right-3 bottom-4 z-20 opacity-90 lg:hidden">
+      <div data-run-hud className="absolute right-3 bottom-20 z-20 opacity-90 lg:hidden">
         <DPad compact disabled={!playing} onMove={(dx, dy) => dispatch({ type: "move", dx, dy })} onWait={() => dispatch({ type: "wait" })} />
       </div>
+
+      <PerkBar run={run}/>
+      <PerkChoiceDialog run={run} onChoose={choosePerk}/>
 
       {!playing && (
         <div className="absolute inset-0 z-40 grid place-items-center bg-black/75 p-4 backdrop-blur-[2px]">

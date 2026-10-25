@@ -42,11 +42,11 @@ export const MAX_KEYS = 999;
 export const FIELD_WEEK_SPEND = 20_000;
 /**
  * Simulated crowd: gold banked per cent they spend. The simulated 70/20/10 crowd of unperked, held-Delver and top-build
- * bots banked 5.3636 with the lantern cap and telegraphed Cerberus (2026-10-24).
- * Recalibrated only after the old 5.5 failed its guard: 5.2, just below that measured bot baseline.
+ * bots banked 11.62935 with level-perk choices and Steady Wick 8/16/24% (2026-10-25).
+ * Recalibrated only after 5.2 failed the unchanged guard: 9.9, about 85% of that measured bot baseline.
  * Prices, loot, pool split and return cap are unchanged.
  */
-export const FIELD_GOLD_PER_CENT = 5.2;
+export const FIELD_GOLD_PER_CENT = 9.9;
 /**
  * The most a delver takes back from the round pool, as a multiple of what they put into descents that round
  * (entry keys plus oil): +60% at the very best. Whatever the cap withholds stays in the pool for the next round.

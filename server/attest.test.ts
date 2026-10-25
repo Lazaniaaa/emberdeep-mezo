@@ -5,8 +5,9 @@ import { recoverTypedDataAddress, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { DESCENT_TYPES, fromWire, hallDomain, type Attestation } from "@/chain/hall-typed";
 import { NO_PERKS, WEAPONS } from "@/game/catalog";
-import { encodeMove } from "@/game/replay";
-import { emptyBag, type RunAction, type RunState } from "@/game/run";
+import { encodeMove,decodeMove } from "@/game/replay";
+import { applyAction,startRun,emptyBag, type RunAction, type RunState } from "@/game/run";
+import {PERK_IDS} from '@/game/level-perks';
 import { simulateDiveRun, simulateFogRun } from "@/game/sim";
 import { EVM_CHAIN_ID, EVM_NOW, deployHall } from "../contracts/hall-evm";
 import { createAttestServer, type AttestConfig } from "./attest";
@@ -61,6 +62,20 @@ beforeAll(async () => {
 afterAll(() => close.forEach(c => c()));
 
 describe("attestation server", () => {
+  it('attests a replay with four perk slots and rank III, rejects a forged offer and fifth perk',async()=>{
+    const setup=setupFor(77,5),{moves,final}=play(()=>simulateDiveRun(77,5));
+    expect(final.levelPerks).toHaveLength(4);expect(final.levelPerks!.some(p=>p.rank===3)).toBe(true);
+    expect((await post(base,{player:PLAYER,setup,moves})).status).toBe(200);
+    let s=startRun(setup),checkedOffer=false,checkedFifth=false;
+    for(let i=0;i<moves.length;i++){
+      if(moves[i].startsWith('K')){
+        if(!checkedOffer){const invalid=PERK_IDS.find(id=>!s.perkChoice!.options.includes(id))!,bad=[...moves];bad[i]=`K${invalid}`;expect((await post(base,{player:PLAYER,setup,moves:bad})).status).toBe(422);checkedOffer=true;}
+        if(!checkedFifth&&s.levelPerks?.length===4){const invalid=PERK_IDS.find(id=>!s.levelPerks!.some(p=>p.id===id))!,bad=[...moves];bad[i]=`K${invalid}`;expect((await post(base,{player:PLAYER,setup,moves:bad})).status).toBe(422);checkedFifth=true;}
+      }
+      s=applyAction(s,decodeMove(moves[i]));
+    }
+    expect(checkedOffer&&checkedFifth).toBe(true);
+  },60000);
   it("replays a descent that came home, signs exactly its result, and the Hall accepts it", async () => {
     // Three-wide catacombs change the bot's route. Keep an extracting fixture, not an obsolete survival assumption.
     const seed = 8919;

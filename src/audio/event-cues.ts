@@ -3,6 +3,7 @@ import { DEFAULT_SPECIES } from '@/game/enemies';
 import type { RunEvent,RunState } from '@/game/run';
 import type { Dimling } from '@/game/dungeon';
 import type { SoundName } from './sfx';
+import {wardBlockedIds} from '@/render/turn-feedback';
 /** Exhaustive fallback map. Rich cues use the immutable before/after states below. */
 export const EVENT_CUES:Record<RunEvent,SoundName>={
   step:'step',bump:'bump',hit:'hit',kill:'kill',warn:'swing',drain:'hurt',bossDrain:'cerberus:s',miss:'dodge',
@@ -21,6 +22,7 @@ export function turnCues(prev:RunState,next:RunState):TurnCue[]{
   if(events.has('hit')||events.has('kill')||events.has('boss')||events.has('smash')||events.has('break'))add('swing');
   if(!same)return cues;
   const current=new Map(next.floor.dimlings.map(d=>[d.id,d]));
+  const blocked=wardBlockedIds(prev,next);
   const warns=next.floor.dimlings.filter(d=>d.phase==='windup'&&prev.floor.dimlings.find(p=>p.id===d.id)?.phase!=='windup');
   for(const d of warns.slice(0,2))add(`${species(d)}:w` as SoundName);
   for(const d of prev.floor.dimlings){
@@ -28,9 +30,10 @@ export function turnCues(prev:RunState,next:RunState):TurnCue[]{
     if(!n&&(events.has('kill')||events.has('boss')))add(`${species(d)}:d` as SoundName,true);
     if(d.boss&&!d.awake&&n?.awake&&!warns.some(w=>w.id===d.id))add('cerberus:w');
     if(d.phase!=='windup'||n?.phase!=='recovery')continue;
+    if(!d.boss&&n.hp<d.hp&&(next.interruptsUsed??0)>(prev.interruptsUsed??0))continue;
     add(`${species(d)}:s` as SoundName);
     const hit=attackTiles(next.floor,d).some(p=>p.x===next.player.x&&p.y===next.player.y);
-    if(hit&&prev.ward>0)add('ward');else add(hit?'hurt':'dodge');
+    if(hit&&blocked.has(d.id))add('ward');else add(hit?'hurt':'dodge');
   }
   if(events.has('potion')&&next.ward>prev.ward)add('ward');
   if(events.has('smash')||events.has('break')){

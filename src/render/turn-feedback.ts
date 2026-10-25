@@ -1,5 +1,21 @@
 import { isFloor, idx } from "@/game/dungeon";
 import { currentStepCost, type RunState } from "@/game/run";
+import {attackTiles} from '@/game/enemy-ai';
+import {rankOf} from '@/game/level-perks';
+
+/** Reconstruct Ward blocks in creature turn order; simultaneous unblocked boss hits must stay hits. */
+export function wardBlockedIds(prev:RunState,next:RunState):ReadonlySet<number>{
+  const blocked=new Set<number>(),before=new Map(prev.floor.dimlings.map(d=>[d.id,d]));
+  let stone=Math.max(0,(next.stoneWardUsed??0)-(prev.stoneWardUsed??0));
+  for(const n of next.floor.dimlings){
+    const d=before.get(n.id);if(!d||d.phase!=='windup'||n.phase!=='recovery')continue;
+    if(!d.boss&&n.hp<d.hp&&(next.interruptsUsed??0)>(prev.interruptsUsed??0))continue;
+    if(!attackTiles(next.floor,d).some(p=>p.x===next.player.x&&p.y===next.player.y))continue;
+    if(prev.ward>0)blocked.add(d.id);
+    else if(stone>0&&(!d.boss||rankOf(prev,'stone-ward')===3)){blocked.add(d.id);stone--;}
+  }
+  return blocked;
+}
 
 export type LossCause = "step" | "hit" | "boss";
 export type LightLoss = { amount: number; cause: LossCause };
@@ -48,7 +64,7 @@ export function riftEstimate(run: RunState): { steps: number; light: number } | 
   const queue = [{ x: player.x, y: player.y, steps: 0 }], visited = new Set<number>([idx(floor, player.x, player.y)]);
   for (let head = 0; head < queue.length; head++) {
     const p = queue[head];
-    if (p.x === floor.spawn.x && p.y === floor.spawn.y) return { steps: p.steps, light: p.steps * currentStepCost(run) };
+    if (p.x === floor.spawn.x && p.y === floor.spawn.y) return { steps: p.steps, light: Math.max(0,p.steps-(run.momentumSteps??0))*currentStepCost(run) };
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const x = p.x + dx, y = p.y + dy, k = idx(floor, x, y);
       if (!isFloor(floor, x, y) || !floor.seen[k] || visited.has(k)) continue;
