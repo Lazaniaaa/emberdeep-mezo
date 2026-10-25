@@ -17,6 +17,12 @@ try{
     window.__emberdeep.useGame.setState({muted:true});window.__emberdeep.useRun.getState().start(setup);
   },route.setup);
   await page.getByLabel('Lantern light',{exact:true}).waitFor();
+  const verifyAtlas=async()=>{
+    const icons=page.locator('[data-perk-art]');assert(await icons.count()>0,'No perk icons visible');
+    await page.waitForFunction(()=>Array.from(document.querySelectorAll('[data-perk-art]')).every(icon=>{
+      const image=icon.querySelector('img');return icon.getAttribute('data-perk-art')==='atlas'&&image?.complete&&image.naturalWidth===160&&image.naturalHeight===96;
+    }));
+  };
   let choices=0,paused=false,rankTwo=false,index=0;
   for(;index<route.moves.length;index++){
    const code=route.moves[index];
@@ -28,7 +34,7 @@ try{
      await page.keyboard.press('Escape');await page.mouse.click(1,height-1);assert(await dialog.isVisible());
      await page.evaluate(()=>window.__emberdeep.useRun.getState().act({type:'wait'}));
      assert.deepEqual(await page.evaluate(()=>{const s=window.__emberdeep.useRun.getState().run;return{steps:s.steps,light:s.light};}),{steps:state.steps,light:state.light});
-     await page.screenshot({path:`docs/screenshots/perks-${name}-choice.png`});paused=true;
+     await verifyAtlas();await page.screenshot({path:`docs/screenshots/perks-${name}-choice.png`});paused=true;
     }
     await page.waitForTimeout(650);
     if(name==='phone')await page.locator(`[data-perk-option="${id}"]`).tap();else if(choices%2===0)await page.locator(`[data-perk-option="${id}"]`).click();else await page.keyboard.press(String(state.choice.options.indexOf(id)+1));
@@ -36,11 +42,11 @@ try{
     const after=await page.evaluate(()=>{const s=window.__emberdeep.useRun.getState().run;return{perks:s.levelPerks,level:s.level,light:s.light,steps:s.steps};});
     assert.equal(after.steps,state.steps);rankTwo=after.perks.some(p=>p.rank>=2);
     if(after.perks.length===4&&rankTwo){
-      await page.screenshot({path:`docs/screenshots/perks-${name}-bar.png`});
+      await verifyAtlas();await page.screenshot({path:`docs/screenshots/perks-${name}-bar.png`});
       const bar=await page.getByRole('region',{name:'Descent perks'}).boundingBox(),log=await page.getByRole('region',{name:'Log',exact:true}).boundingBox(),potions=await page.getByRole('region',{name:'Potions',exact:true}).boundingBox();
       assert(bar&&log&&potions);assert(log.y+log.height<=bar.y,'Perk bar overlaps log');assert(potions.y+potions.height<=bar.y,'Perk bar overlaps potions');
       const first=page.getByRole('region',{name:'Descent perks'}).getByRole('button').first();if(name==='phone')await first.tap();else await first.click();assert(await page.getByRole('tooltip').isVisible());await page.mouse.click(1,height-1);
-      results.push({name,viewport:{width,height},choices,level:after.level,perks:after.perks,bar,log,potions});
+      results.push({name,viewport:{width,height},choices,atlas:true,level:after.level,perks:after.perks,bar,log,potions});
       break;
     }
    }else{

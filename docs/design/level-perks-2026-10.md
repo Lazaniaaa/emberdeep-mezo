@@ -64,8 +64,27 @@ Level-up uses the existing approved cue. Accepting a perk uses `buy`. Interrupt 
 creature strike/sound. Stone Ward uses the Ward feedback, including simultaneous normal-block/boss-hit cases.
 Rift Sense III chests remain drawable on their known cells outside the current lantern radius.
 
-**No artwork was generated.** Distinct temporary code icons are active because the owner's atlas is absent.
-The complete owner prompt is **P-perks** in `docs/art/PROMPTS.md`, one 5×3 sheet in the mob palette.
+**Artwork added, 2026-10-26:** at the owner's explicit request, the built-in image generator produced the
+**P-perks** sheet from `docs/art/PROMPTS.md` in one attempt. No icon was drawn in code. The original generated
+1619×971 raster was converted losslessly to WebP. Keyed background pixels were normalized to exact #FF00FF;
+one backdrop pixel right/bottom made square cells, then each untouched 324×324 cell received 42 px of extra
+backdrop on every side. The resulting **2040×1224 (5:3)** sheet guarantees at least **10.29% empty margin**
+per icon without resampling or redrawing the artwork. SHA-256 confirmed this padding leaves the sliced atlas
+byte-for-byte unchanged.
+The existing importer produces the in-game atlas; the dev server was restarted and the atlas path verified.
+
+All fifteen cells were reviewed at 8× nearest-neighbour zoom and in the 32×32 atlas. Order/semantics: claw + oil,
+calm wick, cyan lens, heart lantern, candle + spark, sword + return arrow, hammer + sparks, three pawprints,
+fur coat, cracked shield, stopping paw, wind + wick, rift compass, stairs + upward light, fanged flame.
+All fifteen crops are distinct; opaque output pixels use only the shared palette, with no magenta fringe.
+Local enlarged contact sheet and pixel checks: `artifacts/perks/icon-review.png`, `artifacts/perks/icon-qa.json`.
+No second generation was needed. Fallback icons remain available if the atlas fails to load.
+
+**Artwork validation:** typecheck, all **533 tests / 50 files**, build and lint passed (only the three existing
+Fast Refresh warnings). Desktop/phone browser QA had no console errors.
+
+**This artwork follow-up changes no game rules, replay or signing-server code.** The earlier feature's coordinated
+server/site release requirement below still applies to publishing the accumulated work.
 
 ```powershell
 node scripts/sprite-sheets.mjs perks
@@ -73,7 +92,7 @@ node scripts/sprite-sheets.mjs perks
 
 Input: `art/perks/raw/perks.webp`; output: `public/perks/perks.png`, **160×96**, fifteen 32×32 cells.
 The importer finds each cell's tight content, removes magenta and boundary fringe, fits it with nearest sampling
-and maps to `art/palette/mobs.json`. Restart dev/rebuild after adding the atlas; the build-time presence flag avoids
+and maps to `art/palette/mobs.json`. Restart dev/rebuild after replacing the atlas; the build-time presence flag avoids
 missing-file 404s. Tests cover both fallback and atlas UI paths, all cell positions, palette and transparent matte.
 
 ## Balance: before → after
@@ -132,12 +151,17 @@ offers/choices; this change does not complete the separate equal-loadout/prize-m
 - **533 tests / 50 files**: every perk at every rank, limits/queues/RNG, charges, legacy save recovery,
   real replay, HTTP attestation rejection, interrupted/blocked feedback, fallback/atlas import and all old guards.
 - On this Windows sandbox, tests use a writable shared TEMP/TMP under `artifacts/perks/tmp` to avoid worker-cache
-  ENOENT errors. No dependency install or lockfile change was necessary. Contracts are unchanged.
+  ENOENT errors. The initial artwork-follow-up run passed 526 tests but its seven HTTP server tests failed with
+  localhost EACCES; the complete suite was rerun outside those network restrictions. No dependency install or
+  lockfile change was necessary. Contracts are unchanged.
 - Edge: seed **7**, real replay over generated floors, no injected XP, ranks or grids. Five choices reach level 6,
   first four fill four different slots, then Oil Thief upgrades to II. Mouse and number-key choices, Escape/outside
   click rejection, frozen input, real touch taps/descriptions and non-overlap of bar/log/potions were checked; no console errors.
   QA uses production-default oil in memory, without editing the owner's optional local `.env` oil-preview setting.
-- Screenshots: `docs/screenshots/perks-{desktop,phone}-{choice,bar}.png`.
+- Artwork captures: `docs/screenshots/perks-{desktop,phone}-{choice,bar}.png`, at 1440×1000 and 375×812.
+  The smoke check now requires every displayed icon to load the actual 160×96 atlas, never a fallback.
+- Source sheet: `art/perks/raw/perks.webp`; runtime atlas: `public/perks/perks.png`.
+  Reproduce slicing with the command above, then browser captures with the commands below.
 - Playwright videos (local, ignored): **`artifacts/perks/perks-desktop.webm`**, **`artifacts/perks/perks-phone.webm`**.
   They show real actions, choices, the filled bar and subsequent gameplay. Videos are intentionally silent.
 - Browser details: `artifacts/perks/browser-qa.json`; route: `artifacts/perks/browser-route.json`.
