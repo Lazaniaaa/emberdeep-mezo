@@ -1,7 +1,6 @@
 # Ember Pot
 
-A weekly prize pool for Emberdeep, paid in MUSD on Mezo. Built in Arc Studio and deployed by the
-project owner; these are its sources and Foundry tests.
+A weekly prize pool for Emberdeep, paid in MUSD on Mezo. These are its sources and Foundry tests.
 
 - Keys cost 1 MUSD. 80% of every key goes into the current week's pot, 20% to the treasury.
 - The game's server replays a prize descent and signs it (EIP-712 `RunRecord`); `recordRun` spends one of the
