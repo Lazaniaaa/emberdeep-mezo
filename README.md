@@ -1,16 +1,37 @@
-# Emberdeep
+# Emberdeep on Mezo
 
-A pixel dungeon crawl with a **simulated USDC economy**, where the descents you bring home are replayed, signed and
-recorded on **[Arc](https://arc.io)**, Circle's stablecoin-native chain.
+A pixel roguelike where skill wins, with a **real weekly MUSD prize pool on [Mezo](https://mezo.org)**.
+You descend with a lantern, light is your only resource, and you bring gold home through the rift. Prize descents
+start equal for everyone; the gold you carry home takes its share of the week's **Ember Pot**.
 
-**Play:** https://64-176-72-12.sslip.io &nbsp;·&nbsp; **Hall of Descents on Arc mainnet:**
-[`0x0b03e2c77fee4edac4c51a5be04df7175d7b423a`](https://explorer.arc.io/address/0x0b03e2c77fee4edac4c51a5be04df7175d7b423a?tab=contract)
-(source verified on the Arc explorer)
+**Play:** https://45-63-99-54.sslip.io (Mezo Testnet) &nbsp;·&nbsp; **Mezo Buildathon, Wave 1**
 
-> **What is on chain, and what is not.** Balances, payouts and character mints are simulated USDC kept in your
-> browser's `localStorage`; nothing there moves real money. The one thing written on chain is a descent you choose to
-> record in the **Hall of Descents** on Arc mainnet: the game's server replays it move by move, signs the result, and
-> your wallet sends it to the contract (gas is a fraction of a cent of USDC). See [On Arc](#on-arc-the-hall-of-descents).
+### How it uses Mezo
+
+- **MUSD prize pool.** A prize key costs 1 MUSD: 80% goes into this week's pot, 20% to the treasury. No game token,
+  no inflation, and no function that lets anyone (us included) take the pot out.
+- **Pay with BTC or MEZO.** `EmberKeyRouter` swaps BTC or MEZO to MUSD on **Tigris** and buys the keys in one
+  transaction. No owner, no admin functions, nothing kept between calls.
+- **Claim in one click.** After a prize descent the game's server replays every move, signs only the true result,
+  and its relayer sends it to the pot and to the **Hall of Descents** on Mezo, paying the gas. The player signs one
+  login message a week (no transaction) so nobody can spend another player's keys.
+- **Automatic weekly payout.** When the week ends the server calls `distribute`: everyone is paid by gold, straight
+  to their wallet. Anyone else may call it too, so a server outage can never hold the pot back.
+
+| On Mezo Testnet (chain 31611) | Address | Source |
+| --- | --- | --- |
+| Ember Pot (EmberPotV2) | [`0x7a3e5548a81456ae695d058a90aa73ca543b16eb`](https://explorer.test.mezo.org/address/0x7a3e5548a81456ae695d058a90aa73ca543b16eb) | [`contracts/ember-pot/`](contracts/ember-pot/) |
+| Key router (BTC or MEZO → keys) | [`0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d`](https://explorer.test.mezo.org/address/0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d) | [`contracts/EmberKeyRouter.sol`](contracts/EmberKeyRouter.sol) |
+| Hall of Descents | [`0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6`](https://explorer.test.mezo.org/address/0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6) | [`contracts/EmberdeepHall.sol`](contracts/EmberdeepHall.sol) |
+
+Where to look in the code: the game rules are one pure function (`src/game/run.ts`), the signing server and relayer
+are `server/attest.ts` and `server/payout.ts`, the Mezo client is `src/chain/mezo.ts`, and the pot window is
+`src/components/ember-pot-dialog.tsx`.
+
+> **What is real and what is not.** Real money lives only in the Ember Pot on Mezo. The camp around it (shop, altar,
+> draw) runs on crystals you find in the deep and is kept in your browser. Earlier versions of the game ran a
+> simulated USDC economy with a Hall of Descents on Arc; the sections below still describe that build, which the
+> same code produces without `VITE_ARC=off`.
 
 <p align="center">
   <img src="docs/screenshots/descent.png" alt="A descent: a husky delver with a lantern fights a Cave Spider; the light bar, level and loot on the left, potions on the right" width="720">
