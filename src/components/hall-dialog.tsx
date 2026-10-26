@@ -31,13 +31,15 @@ export function HallDialog() {
   const config = hallConfig();
   const mezoHall = mezoHallAddress();
   const mezo = useMezoBoard();
-  if (!config) return null;
-  const onMezo = net === "mezo" && !!mezoHall;
+  if (!config && !mezoHall) return null;
+  // With Arc on, Mezo is a second tab; on a Mezo-only site the Hall store itself reads Mezo.
+  const mezoTab = !!config && net === "mezo" && !!mezoHall;
   const { open, setOpen } = arcHall;
-  const board = onMezo ? mezo.board : arcHall.board;
-  const boardStatus = onMezo ? mezo.status : arcHall.boardStatus;
-  const boardError = onMezo ? mezo.error : arcHall.boardError;
-  const refresh = onMezo ? async () => mezo.load() : arcHall.refresh;
+  const board = mezoTab ? mezo.board : arcHall.board;
+  const boardStatus = mezoTab ? mezo.status : arcHall.boardStatus;
+  const boardError = mezoTab ? mezo.error : arcHall.boardError;
+  const refresh = mezoTab ? async () => mezo.load() : arcHall.refresh;
+  const onMezo = mezoTab || !config;
   const chainName = onMezo ? "Mezo" : "Arc";
 
   return (
@@ -50,7 +52,7 @@ export function HallDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        {mezoHall && (
+        {config && mezoHall && (
           <div className="flex gap-2" role="tablist" aria-label="Chain">
             {(["arc", "mezo"] as const).map(n => (
               <Button key={n} role="tab" aria-selected={net === n} size="sm" variant={net === n ? "default" : "outline"} onClick={() => { setNet(n); if (n === "mezo") mezo.load(); }}>
@@ -96,7 +98,7 @@ export function HallDialog() {
 
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
           {board && <span>{board.records} record{board.records === 1 ? "" : "s"} from {board.players} wallet{board.players === 1 ? "" : "s"}.</span>}
-          <a className="inline-flex items-center gap-1 underline underline-offset-2" href={onMezo ? mezoAddressUrl(mezoHall!) : addressUrl(config.address)} target="_blank" rel="noreferrer">
+          <a className="inline-flex items-center gap-1 underline underline-offset-2" href={onMezo ? mezoAddressUrl(mezoHall!) : addressUrl(config!.address)} target="_blank" rel="noreferrer">
             Contract on {chainName} <ExternalLink className="size-3" aria-hidden />
           </a>
           <Button variant="ghost" size="sm" className="ml-auto" onClick={() => void refresh()} disabled={boardStatus === "loading"}>

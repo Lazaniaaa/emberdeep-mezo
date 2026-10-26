@@ -6,6 +6,7 @@ import { hallConfig } from "@/chain/arc-config";
 import { shortAddress, usd } from "@/lib/format";
 import { useHall } from "@/state/hall";
 import { useMezo } from "@/state/mezo";
+import { mezoHallAddress } from "@/chain/mezo-config";
 import { useGame } from "@/state/store";
 import { useWallet } from "@/state/wallet";
 import { DEFAULT_TUNING, tuning } from "@/game/tuning";
@@ -29,7 +30,7 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
           <Tooltip>
             <TooltipTrigger render={<Badge variant="outline" className="border-gold/50 text-gold">Simulated</Badge>} />
             <TooltipContent className="max-w-64">
-              Balances, payouts and mints are simulated USDC kept in this browser. The only thing written on chain is a descent you choose to record in the Hall of Descents on Arc.
+              Balances, payouts and mints are simulated USDC kept in this browser. What is real is on chain: the Ember Pot and the Hall of Descents.
             </TooltipContent>
           </Tooltip>
           {tuning.dropOil !== DEFAULT_TUNING.dropOil && (
@@ -54,14 +55,14 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
             } />
             <TooltipContent>Ember Pot on Mezo: the real weekly MUSD prize pool</TooltipContent>
           </Tooltip>
-          {hallConfig() && (
+          {(hallConfig() || mezoHallAddress()) && (
             <Tooltip>
               <TooltipTrigger render={
-                <Button variant="ghost" size="icon" aria-label="Open the Hall of Descents on Arc" onClick={() => useHall.getState().setOpen(true)}>
+                <Button variant="ghost" size="icon" aria-label="Open the Hall of Descents" onClick={() => useHall.getState().setOpen(true)}>
                   <Trophy />
                 </Button>
               } />
-              <TooltipContent>Hall of Descents on Arc</TooltipContent>
+              <TooltipContent>Hall of Descents{hallConfig() ? "" : " on Mezo"}</TooltipContent>
             </Tooltip>
           )}
           <Button variant="ghost" size="icon" aria-label={muted ? "Unmute sound" : "Mute sound"} title={muted ? "Enable music and effects" : "Mute music and effects"} onClick={() => setMuted(!muted)}>

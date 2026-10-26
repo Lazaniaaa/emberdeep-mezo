@@ -29,18 +29,19 @@ export const TIGRIS = {
 } as const satisfies { router: Address; factory: Address; pools: Record<"BTC" | "MEZO", Address> };
 
 /**
- * The Ember Pot on Mezo Testnet (EmberPotV2, deployed 2026-10-23): keys cost 1 MUSD, 80% of each goes into the week's
+ * The Ember Pot on Mezo Testnet (EmberPotV2, deployed 2026-10-26 at block 16371144; the 2026-10-23 one at
+ * 0xaf6d…e3ea lost its signer with the old server): keys cost 1 MUSD, 80% of each goes into the week's
  * pot and 20% to the treasury; the server-signed descents add gold; after the week anyone splits the pot by gold.
- * Its signer is the game server's key (0x8973…55Cd). Round timing is immutable on chain.
+ * Its signer is the game server's key (0xc070…1240). Round timing is immutable on chain.
  */
 export const MEZO_POT = {
-  address: "0xaf6d0eb582900417d635ff43348052b8cf68e3ea",
-  launchTime: 1_792_762_860,
+  address: "0x7a3e5548a81456ae695d058a90aa73ca543b16eb",
+  launchTime: 1_792_976_870,
   roundSeconds: 604_800,
   maxGoldPerRun: 5000,
 } as const;
 
-/** The first router: BTC only, owner-less. Kept so BTC purchases work before the BTC/MEZO router is deployed. */
+/** The first router: BTC only, owner-less, bound to the 2026-10-23 pot. Used only if KEY_ROUTER is ever unset. */
 export const BTC_ROUTER: Address = "0xd261fc219ef4f48dde9a9ff0ede3a133c78c114e";
 
 const ADDRESS = /^0x[\da-fA-F]{40}$/;
@@ -49,10 +50,10 @@ const env = (key: string): Address | null => {
   return v && ADDRESS.test(v) ? (v as Address) : null;
 };
 
-/** The Hall of Descents on Mezo: the same contract as on Arc. Deployed 2026-10-26 at block 16370281, signer 0x8973…55Cd. */
-const MEZO_HALL: Address | null = "0x959acdcb3edb3f6c12e177a5001ef016292017e2";
-/** EmberKeyRouter (contracts/EmberKeyRouter.sol): keys for BTC or MEZO. Deployed 2026-10-26 at block 16370143. */
-const KEY_ROUTER: Address | null = "0xe8d844fc256feb611635a5038ff8b9d4e9c61ed5";
+/** The Hall of Descents on Mezo: the same contract as on Arc. Deployed 2026-10-26 at block 16371186, signer 0xc070…1240. */
+const MEZO_HALL: Address | null = "0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6";
+/** EmberKeyRouter (contracts/EmberKeyRouter.sol): keys for BTC or MEZO, for the pot above. Deployed 2026-10-26. */
+const KEY_ROUTER: Address | null = "0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d";
 
 export const mezoHallAddress = (): Address | null => env("VITE_MEZO_HALL_ADDRESS") ?? MEZO_HALL;
 export const keyRouterAddress = (): Address | null => env("VITE_MEZO_KEY_ROUTER") ?? KEY_ROUTER;

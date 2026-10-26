@@ -38,8 +38,11 @@
         <label for="contract">Contract</label>
         <select id="contract">
           <option value="EmberdeepHall">Hall of Descents (needs the signer below)</option>
-          <option value="EmberKeyRouter">Ember Pot key router: BTC or MEZO to keys (Mezo only, no settings)</option>
+          <option value="EmberPotV2">Ember Pot: weekly MUSD prize pool (Mezo only, needs the signer below)</option>
+          <option value="EmberKeyRouter">Ember Pot key router: BTC or MEZO to keys (Mezo only, needs the pot below)</option>
         </select>
+        <label for="pot">Pot address (for the key router)</label>
+        <input id="pot" placeholder="0x…" autocomplete="off" spellcheck="false" />
         <button id="connect">Connect wallet and switch network</button>
         <p id="wallet" class="mono"></p>
       </section>

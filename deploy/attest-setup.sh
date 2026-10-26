@@ -47,7 +47,17 @@ if [ ! -f /etc/emberdeep/relayer.key ]; then
 fi
 RELAYER="$(runuser -u emberdeep-attest -- node /opt/emberdeep-attest/attest.mjs address /etc/emberdeep/relayer.key)"
 
-# Settings. The Hall address is kept from an earlier run unless a new one is given.
+# Settings. The Hall address is kept from an earlier run unless a new one is given. Without any, the server signs for
+# Mezo only (its contracts come with the build).
+if [ -z "$HALL_ADDRESS" ] && [ ! -f /etc/emberdeep/attest.env ]; then
+	cat > /etc/emberdeep/attest.env <<ENV
+SIGNER_KEY_FILE=/etc/emberdeep/signer.key
+PORT=8787
+HOST=127.0.0.1
+ENV
+	chmod 640 /etc/emberdeep/attest.env
+	chgrp emberdeep-attest /etc/emberdeep/attest.env
+fi
 if [ -n "$HALL_ADDRESS" ]; then
 	if ! [[ "$HALL_ADDRESS" =~ ^0x[0-9a-fA-F]{40}$ ]]; then echo "Not an address: $HALL_ADDRESS" >&2; exit 1; fi
 	cat > /etc/emberdeep/attest.env <<ENV
@@ -61,11 +71,9 @@ ENV
 	chgrp emberdeep-attest /etc/emberdeep/attest.env
 fi
 
-# Mezo Testnet: the Ember Pot is always signed for; the Hall on Mezo once its address is given (second argument).
+# Mezo Testnet: the pot and the Hall come with the build; a second argument overrides the Hall on Mezo.
 if [ -f /etc/emberdeep/attest.env ]; then
-	if ! grep -q '^MEZO_POT_ADDRESS=' /etc/emberdeep/attest.env; then
-		echo "MEZO_POT_ADDRESS=0xaf6d0eb582900417d635ff43348052b8cf68e3ea" >> /etc/emberdeep/attest.env
-	fi
+	sed -i '/^MEZO_POT_ADDRESS=/d' /etc/emberdeep/attest.env
 	if ! grep -q '^RELAYER_KEY_FILE=' /etc/emberdeep/attest.env; then
 		echo "RELAYER_KEY_FILE=/etc/emberdeep/relayer.key" >> /etc/emberdeep/attest.env
 	fi

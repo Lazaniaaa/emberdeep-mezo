@@ -5,6 +5,7 @@ import {
 } from "viem";
 import { ARC_NETWORKS } from "@/chain/arc-config";
 import { MEZO_NETWORK, MEZO_POT, MEZO_TOKENS, TIGRIS } from "@/chain/mezo-config";
+import { parseEther } from "viem";
 import { injectedProvider, type Eip1193 } from "@/chain/wallet";
 import { waitForReceipt } from "@/chain/receipt";
 
@@ -19,13 +20,20 @@ const NETWORKS = {
   mezo: network(MEZO_NETWORK, { name: "Bitcoin", symbol: "BTC", decimals: 18 }),
 };
 
-/** The key router's constructor, fixed for Mezo Testnet: the pot, MUSD, BTC, MEZO and Tigris. */
-const ROUTER_ARGS = [MEZO_POT.address, MEZO_TOKENS.MUSD.address, MEZO_TOKENS.BTC.address, MEZO_TOKENS.MEZO.address, TIGRIS.router, TIGRIS.factory] as Address[];
+/** The key router's constructor on Mezo Testnet: the pot it buys keys from, then MUSD, BTC, MEZO and Tigris. */
+const routerArgs = (pot: Address) => [pot, MEZO_TOKENS.MUSD.address, MEZO_TOKENS.BTC.address, MEZO_TOKENS.MEZO.address, TIGRIS.router, TIGRIS.factory] as Address[];
+
+/** The pot's constructor: MUSD, the treasury (the deployer), the signer, 1 MUSD a key, 5,000 gold a run, 7-day rounds. */
+const potArgs = (treasury: Address, signer: Address) =>
+  [MEZO_TOKENS.MUSD.address, treasury, signer, parseEther("1"), BigInt(MEZO_POT.maxGoldPerRun), BigInt(MEZO_POT.roundSeconds)] as const;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const net = $<HTMLSelectElement>("net");
 const contract = $<HTMLSelectElement>("contract");
 const isRouter = () => contract.value === "EmberKeyRouter";
+const isPot = () => contract.value === "EmberPotV2";
+const potInput = $<HTMLInputElement>("pot");
+potInput.value = MEZO_POT.address;
 const signerInput = $<HTMLInputElement>("signer");
 const deployButton = $<HTMLButtonElement>("deploy");
 const walletLine = $("wallet");
@@ -41,7 +49,9 @@ const reader = (c: Chain) => createPublicClient({ chain: c, transport: fallback(
 const say = (text: string, cls = "") => { out.className = cls; out.textContent = text; };
 
 function refreshButton() {
-  const ready = isRouter() ? net.value === "mezo" : isAddress(signerInput.value.trim());
+  const ready = isRouter() ? net.value === "mezo" && isAddress(potInput.value.trim())
+    : isPot() ? net.value === "mezo" && isAddress(signerInput.value.trim())
+    : isAddress(signerInput.value.trim());
   deployButton.disabled = !(account && connectedChain === chain().id && ready);
 }
 
@@ -80,6 +90,7 @@ $("connect").addEventListener("click", async () => {
 
 net.addEventListener("change", () => { connectedChain = null; walletLine.textContent = "Network changed: connect again."; refreshButton(); });
 signerInput.addEventListener("input", refreshButton);
+potInput.addEventListener("input", refreshButton);
 contract.addEventListener("change", refreshButton);
 
 deployButton.addEventListener("click", async () => {
@@ -93,12 +104,30 @@ deployButton.addEventListener("click", async () => {
     const c = chain();
     const wallet = createWalletClient({ account, chain: c, transport: custom(provider) });
     say("Confirm the deployment in your wallet…");
-    const ctorArgs = isRouter() ? ROUTER_ARGS : [signer];
-    const hash = await wallet.deployContract({ abi: artifact.abi, bytecode: artifact.bytecode, args: ctorArgs });
+    const ctorArgs: readonly unknown[] = isRouter() ? routerArgs(potInput.value.trim() as Address) : isPot() ? potArgs(account, signer) : [signer];
+    const hash = await wallet.deployContract({ abi: artifact.abi, bytecode: artifact.bytecode, args: ctorArgs as never });
     say(`Sent: ${hash}\nWaiting for ${c.name}…`);
     const receipt = await waitForReceipt(reader(c), hash);
     if (receipt.status !== "success" || !receipt.contractAddress) throw new Error(`The deployment failed (${hash}).`);
-    const args = encodeAbiParameters(ctorArgs.map(() => ({ type: "address" })), ctorArgs).slice(2);
+    if (isPot()) {
+      const block = await reader(c).getBlock({ blockNumber: receipt.blockNumber });
+      say([
+        `Deployed the Ember Pot on ${c.name}.`,
+        ``,
+        `Pot address:    ${receipt.contractAddress}`,
+        `Launch time:    ${block.timestamp} (block ${receipt.blockNumber})`,
+        `Signer:         ${signer}`,
+        `Treasury/owner: ${account}`,
+        `Explorer:       ${c.blockExplorers.default.url}/address/${receipt.contractAddress}`,
+        ``,
+        `Next: give the pot address to whoever wires it into MEZO_POT in src/chain/mezo-config.ts,`,
+        `then deploy a key router for it (its address is filled in below for you).`,
+      ].join("\n"), "ok");
+      potInput.value = receipt.contractAddress;
+      refreshButton();
+      return;
+    }
+    const args = encodeAbiParameters(ctorArgs.map(() => ({ type: "address" })), ctorArgs as Address[]).slice(2);
     if (isRouter()) {
       say([
         `Deployed the key router on ${c.name}.`,

@@ -37,8 +37,12 @@ const DEPLOYED: HallConfig | null = ARC_NETWORK === ARC_NETWORKS.mainnet ? { add
 
 const ADDRESS = /^0x[\da-fA-F]{40}$/;
 
+/** `VITE_ARC=off` builds the site for Mezo only: no Hall on Arc anywhere (see .env.production). */
+export const ARC_ENABLED = import.meta.env.VITE_ARC !== "off";
+
 /** `VITE_ARC_HALL_ADDRESS` overrides the deployed Hall, for local tests. */
 export function hallConfig(): HallConfig | null {
+  if (!ARC_ENABLED) return null;
   const address = import.meta.env.VITE_ARC_HALL_ADDRESS as string | undefined;
   if (address && ADDRESS.test(address)) return { address: address as `0x${string}` };
   return DEPLOYED;

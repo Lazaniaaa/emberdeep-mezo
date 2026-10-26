@@ -24,6 +24,7 @@ import { ReplayError, replayRun } from "@/game/replay";
 import { DESCENT_TYPES, fromWire, hallDomain, toWire, type Attestation, type SignedDescent } from "@/chain/hall-typed";
 import { RUN_RECORD_TYPES, potDomain, runFromWire, runToWire, type PotAttestation, type RunRecord } from "@/chain/pot-typed";
 import { RELAY_LOGIN_SECONDS, relayMessage } from "@/chain/relay-auth";
+import { MEZO_NETWORK, MEZO_POT, mezoHallAddress } from "@/chain/mezo-config";
 import { waitForReceipt } from "@/chain/receipt";
 
 /** One contract call the relayer sends. */
@@ -52,7 +53,8 @@ export type TargetId = "arc" | "mezo" | "pot";
 
 export type AttestConfig = {
   account: PrivateKeyAccount;
-  hall: Address;
+  /** The Hall on Arc, or null when this server signs for Mezo only. */
+  hall: Address | null;
   chainId: number;
   /** The Hall on Mezo, when it is deployed. */
   mezoHall?: HallTarget;
@@ -125,6 +127,7 @@ export async function attest(config: AttestConfig, body: unknown): Promise<Attes
   const player = getAddress(b.player);
   const target = (b.target ?? "arc") as TargetId;
   if (target !== "arc" && target !== "mezo" && target !== "pot") throw new HttpError(400, "target must be arc, mezo or pot");
+  if (target === "arc" && !config.hall) throw new HttpError(404, "The Hall on Arc is not set up on this server");
   if (target === "mezo" && !config.mezoHall) throw new HttpError(404, "The Hall on Mezo is not set up on this server");
   if (target === "pot" && !config.pot) throw new HttpError(404, "The Ember Pot is not set up on this server");
 
@@ -159,7 +162,7 @@ export async function attest(config: AttestConfig, body: unknown): Promise<Attes
     return { run: runToWire(run), signature };
   }
 
-  const hall = target === "mezo" ? config.mezoHall! : { address: config.hall, chainId: config.chainId };
+  const hall = target === "mezo" ? config.mezoHall! : { address: config.hall!, chainId: config.chainId };
   const descent: SignedDescent = {
     player,
     runId,
@@ -334,32 +337,34 @@ function main(argv: string[]) {
     return;
   }
 
-  const hall = process.env.HALL_ADDRESS ?? "";
-  if (!isAddress(hall)) throw new Error("Set HALL_ADDRESS to the deployed Hall's address");
   const optional = (key: string) => {
     const v = process.env[key];
     if (!v) return null;
     if (!isAddress(v)) throw new Error(`${key} is not an address`);
     return getAddress(v);
   };
-  const mezoChainId = Number(process.env.MEZO_CHAIN_ID ?? 31611);
+  // Arc is optional: a server without HALL_ADDRESS signs for Mezo only.
+  const hall = optional("HALL_ADDRESS");
+  const mezoChainId = Number(process.env.MEZO_CHAIN_ID ?? MEZO_NETWORK.id);
   const relayerFile = process.env.RELAYER_KEY_FILE;
   const relayer = relayerFile && existsSync(relayerFile)
     ? createRelay(loadKey(relayerFile), mezoChainId, process.env.MEZO_RPC ?? "https://rpc.test.mezo.org")
     : null;
-  const mezoHall = optional("MEZO_HALL_ADDRESS");
-  const pot = optional("MEZO_POT_ADDRESS");
+  // The Mezo contracts come from the same build as the site (src/chain/mezo-config.ts); the environment only overrides.
+  const mezoHallEnv = optional("MEZO_HALL_ADDRESS");
+  const mezoHall = mezoHallEnv ?? (mezoHallAddress() ? getAddress(mezoHallAddress()!) : null);
+  const pot = optional("MEZO_POT_ADDRESS") ?? getAddress(MEZO_POT.address);
   const config: AttestConfig = {
     account: loadKey(file),
-    hall: getAddress(hall),
+    hall,
     chainId: Number(process.env.HALL_CHAIN_ID ?? 5042),
     ...(mezoHall ? { mezoHall: { address: mezoHall, chainId: mezoChainId } } : {}),
     ...(pot ? {
       pot: {
         address: pot, chainId: mezoChainId,
-        launchTime: Number(process.env.MEZO_POT_LAUNCH ?? 1_792_762_860),
-        roundSeconds: Number(process.env.MEZO_POT_ROUND_SECONDS ?? 604_800),
-        maxGold: Number(process.env.MEZO_POT_MAX_GOLD ?? 5000),
+        launchTime: Number(process.env.MEZO_POT_LAUNCH ?? MEZO_POT.launchTime),
+        roundSeconds: Number(process.env.MEZO_POT_ROUND_SECONDS ?? MEZO_POT.roundSeconds),
+        maxGold: Number(process.env.MEZO_POT_MAX_GOLD ?? MEZO_POT.maxGoldPerRun),
       },
     } : {}),
     ...(relayer ? { relay: relayer } : {}),
@@ -369,7 +374,8 @@ function main(argv: string[]) {
   const port = Number(process.env.PORT ?? 8787);
   const host = process.env.HOST ?? "127.0.0.1";
   createAttestServer(config).listen(port, host, () => {
-    console.log(`Emberdeep attestation on http://${host}:${port}, signer ${config.account.address}, Hall ${config.hall} on chain ${config.chainId}`);
+    console.log(`Emberdeep attestation on http://${host}:${port}, signer ${config.account.address}`);
+    if (config.hall) console.log(`  Hall on Arc ${config.hall} (chain ${config.chainId})`);
     if (config.mezoHall) console.log(`  Hall on Mezo ${config.mezoHall.address} (chain ${config.mezoHall.chainId})`);
     if (config.pot) console.log(`  Ember Pot ${config.pot.address} (chain ${config.pot.chainId})`);
     if (config.relay) console.log(`  Relayer ${config.relay.address} pays the gas on Mezo Testnet`);

@@ -37,12 +37,15 @@ export const useHall = create<HallState>()((set, get) => ({
 
   refresh: async () => {
     const config = hallConfig();
-    if (!config) return;
+    const { mezoHallAddress } = await import("@/chain/mezo-config");
+    // A Mezo-only site shows the Hall on Mezo here.
+    if (!config && !mezoHallAddress()) return;
     const request = ++boardRequest;
     set({ boardStatus: "loading", boardError: null });
     try {
-      const { readHall } = await import("@/chain/arc");
-      const board = await readHall(config);
+      const board = config
+        ? await (await import("@/chain/arc")).readHall(config)
+        : await (await import("@/chain/mezo")).readMezoHall();
       if (request === boardRequest) set({ board, boardStatus: "ready" });
     } catch (e) {
       if (request === boardRequest) {
