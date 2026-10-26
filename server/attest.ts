@@ -25,6 +25,7 @@ import { DESCENT_TYPES, fromWire, hallDomain, toWire, type Attestation, type Sig
 import { RUN_RECORD_TYPES, potDomain, runFromWire, runToWire, type PotAttestation, type RunRecord } from "@/chain/pot-typed";
 import { RELAY_LOGIN_SECONDS, relayMessage } from "@/chain/relay-auth";
 import { MEZO_NETWORK, MEZO_POT, mezoHallAddress } from "@/chain/mezo-config";
+import { startAutoPayout } from "./payout";
 import { waitForReceipt } from "@/chain/receipt";
 
 /** One contract call the relayer sends. */
@@ -380,6 +381,13 @@ function main(argv: string[]) {
     if (config.pot) console.log(`  Ember Pot ${config.pot.address} (chain ${config.pot.chainId})`);
     if (config.relay) console.log(`  Relayer ${config.relay.address} pays the gas on Mezo Testnet`);
   });
+  // When a pot week ends, the relayer pays everyone out; anyone else could too, so this never holds the pot back.
+  if (config.relay && config.pot && process.env.AUTO_PAYOUT !== "off") {
+    const rpc = process.env.MEZO_RPC ?? MEZO_NETWORK.rpcs[0];
+    const reader = createPublicClient({ transport: http(rpc) });
+    startAutoPayout(reader, config.relay, { address: config.pot.address, launchTime: config.pot.launchTime, roundSeconds: config.pot.roundSeconds }, line => console.log(line));
+    console.log("  Pays out each ended pot week automatically");
+  }
 }
 
 // Runs only as the built server, never when the tests import this file.

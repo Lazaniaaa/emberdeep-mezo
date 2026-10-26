@@ -49,13 +49,13 @@ export function EmberPotDialog() {
         <DialogDescription className="sr-only">This week's MUSD prize pool, your keys and prize descents.</DialogDescription>
         <WindowHead icon={Coins} title="Ember Pot" accent={ACCENT.pot}
           badge={<span className="rounded-full border border-gold/40 px-2 py-0.5 text-[10px] tracking-wider text-gold uppercase">Mezo Testnet</span>}
-          subtitle="A real weekly prize pool in MUSD. Every key adds to it; when the week ends it is split by the gold players carried home. Nobody can take it out." />
+          subtitle="A real weekly prize pool in MUSD. Every key adds to it; when the week ends the game pays it out automatically, split by the gold players carried home. Nobody can take it out." />
 
         {loadError && <p className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive" role="alert">Could not read the pot: {loadError}</p>}
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Tile label={snapshot ? `Round ${snapshot.round} pot` : "This week"} value={snapshot ? `${tokens(snapshot.pot)} MUSD` : loading ? "…" : "—"} tone={ACCENT.pot} />
-          <Tile label="Ends in" value={snapshot ? timeLeft(snapshot.endsAt) : "…"} sub="Then anyone pays it out" />
+          <Tile label="Ends in" value={snapshot ? timeLeft(snapshot.endsAt) : "…"} sub="Then paid out automatically" />
           <Tile label="Players" value={snapshot ? snapshot.players : "…"} sub={snapshot ? `${snapshot.totalGold} gold in` : undefined} />
           <Tile label="Your keys" value={me ? me.keys : "—"} tone={ACCENT.gate} sub={me ? `${me.gold} gold · ~${tokens(me.share)} MUSD` : "Connect a wallet"} />
         </div>
@@ -136,7 +136,7 @@ export function EmberPotDialog() {
 
         {snapshot?.previous && (
           <Section title={`Round ${snapshot.previous.round} has ended`} icon={Coins}>
-            <p className="text-sm text-foreground/80">{tokens(snapshot.previous.pot)} MUSD for {snapshot.previous.totalGold} gold, {snapshot.previous.unpaid.length} player{snapshot.previous.unpaid.length === 1 ? "" : "s"} not paid yet. Anyone can press this; the MUSD goes straight to the players, by their gold.</p>
+            <p className="text-sm text-foreground/80">{tokens(snapshot.previous.pot)} MUSD for {snapshot.previous.totalGold} gold, {snapshot.previous.unpaid.length} player{snapshot.previous.unpaid.length === 1 ? "" : "s"} not paid yet. The game pays rounds out automatically within minutes; if it has not, anyone can press this, and the MUSD goes straight to the players, by their gold.</p>
             <Button size="sm" variant="secondary" onClick={() => void payOut()} disabled={!wallet.account || payout.status === "confirming" || snapshot.previous.unpaid.length === 0}>
               {payout.status === "confirming" ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Coins data-icon="inline-start" />} Pay out round {snapshot.previous.round}
             </Button>

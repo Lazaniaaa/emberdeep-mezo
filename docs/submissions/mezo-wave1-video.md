@@ -12,7 +12,7 @@ This is Emberdeep: a pixel roguelike where skill wins. You descend into a cave w
 
 Every descent is deterministic. Our server replays it move by move, and signs only what really happened. Scores cannot be faked.
 
-Now the Ember Pot. A key costs one MUSD. Eighty percent goes straight into this week's prize pot on Mezo, twenty percent to the treasury. At the end of the week, anyone can trigger the payout, and the pot is split by the gold players carried home. No token. No inflation. Nobody, including us, can withdraw the pot.
+Now the Ember Pot. A key costs one MUSD. Eighty percent goes straight into this week's prize pot on Mezo, twenty percent to the treasury. When the week ends, the game pays everyone out automatically, split by the gold they carried home, straight to their wallets. No token. No inflation. Nobody, including us, can withdraw the pot, and if our server ever went down, anyone could still trigger the payout.
 
 You don't even need MUSD first. Pay with BTC or with MEZO: our key router swaps it to MUSD on Tigris and buys the key, in one transaction, with no owner and no admin keys.
 

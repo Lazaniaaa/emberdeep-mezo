@@ -33,14 +33,14 @@ export function CampVault() {
         {loadError && <p className="text-sm text-destructive" role="alert">Could not read the pot: {loadError}</p>}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Tile label={snapshot ? `Round ${snapshot.round}` : "Round"} value={snapshot ? `${tokens(snapshot.pot)} MUSD` : "…"} tone={ACCENT.pot} sub="In the pot" />
-          <Tile label="Ends in" value={snapshot ? timeLeft(snapshot.endsAt) : "…"} sub="Then anyone pays it out" />
+          <Tile label="Ends in" value={snapshot ? timeLeft(snapshot.endsAt) : "…"} sub="Then paid out automatically" />
           <Tile label="Players" value={snapshot ? snapshot.players : "…"} sub={snapshot ? `${snapshot.totalGold} gold in` : undefined} />
           <Tile label="Your share" value={me ? `${tokens(me.share)} MUSD` : "—"} tone={ACCENT.gate} sub={me ? `${me.gold} gold · ${me.keys} key${me.keys === 1 ? "" : "s"}` : wallet.account ? "Reading…" : "Connect a wallet"} />
         </div>
         <ul className="space-y-1 text-sm text-foreground/80">
           <li>A prize key costs <b className="text-gold">1 MUSD</b> (or BTC or MEZO, swapped on Tigris): <b>80%</b> goes into this week's pot, 20% to the treasury.</li>
           <li>Prize descents start equal. Bring gold home, press Claim, and the game records it in the pot.</li>
-          <li>After the week the pot is split by gold. Nobody, us included, can take it out.</li>
+          <li>When the week ends, the game pays everyone out automatically, by gold, straight to their wallets. Nobody, us included, can take the pot out.</li>
         </ul>
         <div className="flex flex-wrap gap-2">
           <Button className="font-pixel" onClick={() => setOpen(true)}><Coins data-icon="inline-start" /> Open the Ember Pot</Button>
