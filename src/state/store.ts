@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { PRACTICE_KEYS, campMode, crystalsFor } from "@/lib/camp-mode";
 import { persist } from "zustand/middleware";
 import {
   EXPEDITION_COST, EXPEDITION_DURATION_MS, EXPEDITION_PACKS, FAUCET_AMOUNT, FIELD_LOCK_GOLD, FLASK_PRICE, KEY_PRICE,
@@ -137,6 +138,8 @@ type Actions = {
   mint: (rarity: Rarity) => HeroNft;
   buyKey: (count: number) => void;
   payForRun: () => boolean;
+  /** Tops the free practice keys back up (crystal economy only). */
+  refillKeys: () => void;
   finishRun: (run: RunState) => RunReport;
   /**
    * Books a prize descent (game/prize.ts). It cost nothing simulated and pays nothing simulated: its gold counts only
@@ -400,7 +403,16 @@ export class ExpeditionError extends Error {}
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/** A descent has been paid for (or, with free practice keys, opened) and not settled yet. */
+const runOpen = (s: Pick<State, "runSpent" | "runId">) => s.runSpent > 0 || s.runId !== null;
+
 function spend(state: State, amount: number, label: string): Partial<State> {
+  if (campMode.crystals) {
+    // The Mezo release has no money: the price is paid in crystals, and no simulated pool moves.
+    const cost = crystalsFor(amount);
+    if (cost > state.crystals) throw new InsufficientFunds(`Not enough crystals for ${label}`);
+    return { crystals: state.crystals - cost };
+  }
   if (amount > state.balance + 1e-9) throw new InsufficientFunds(`Not enough USDC for ${label}`);
   const ledger = applySpend(state, amount);
   const { revenue, pooled, locked } = splitSpend(amount);
@@ -453,7 +465,7 @@ export const useGame = create<State & Actions>()(
         const s = get();
         const p = POTIONS[id];
         if (!p.shop) throw new Error(`${p.name} can only be found in the deep`);
-        if (pay === "crystals") {
+        if (pay === "crystals" || campMode.crystals) {
           if (s.crystals < p.crystals) throw new InsufficientFunds("Not enough crystals");
           set({ crystals: s.crystals - p.crystals, potions: { ...s.potions, [id]: s.potions[id] + 1 } });
           return;
@@ -465,8 +477,9 @@ export const useGame = create<State & Actions>()(
         const s = get();
         const w = WEAPONS[id];
         if (s.weapons.includes(id)) return;
-        if (s.crystals < w.crystals) throw new InsufficientFunds("Not enough crystals");
-        set({ ...spend(s, w.price, w.name), crystals: s.crystals - w.crystals, weapons: [...s.weapons, id], weapon: id });
+        if (s.crystals < w.crystals + (campMode.crystals ? crystalsFor(w.price) : 0)) throw new InsufficientFunds("Not enough crystals");
+        const paid = spend(s, w.price, w.name);
+        set({ ...paid, crystals: (paid.crystals ?? s.crystals) - w.crystals, weapons: [...s.weapons, id], weapon: id });
       },
 
       equipWeapon: id => { if (get().weapons.includes(id)) set({ weapon: id }); },
@@ -475,8 +488,9 @@ export const useGame = create<State & Actions>()(
         const s = get();
         const a = ARMORS[id];
         if (s.armors.includes(id)) return;
-        if (s.crystals < a.crystals) throw new InsufficientFunds("Not enough crystals");
-        set({ ...spend(s, a.price, a.name), crystals: s.crystals - a.crystals, armors: [...s.armors, id], armor: id });
+        if (s.crystals < a.crystals + (campMode.crystals ? crystalsFor(a.price) : 0)) throw new InsufficientFunds("Not enough crystals");
+        const paid = spend(s, a.price, a.name);
+        set({ ...paid, crystals: (paid.crystals ?? s.crystals) - a.crystals, armors: [...s.armors, id], armor: id });
       },
 
       equipArmor: id => { if (get().armors.includes(id)) set({ armor: id }); },
@@ -497,6 +511,11 @@ export const useGame = create<State & Actions>()(
         return hero;
       },
 
+      refillKeys: () => {
+        if (!campMode.crystals) return;
+        set(s => ({ keys: Math.max(s.keys, PRACTICE_KEYS) }));
+      },
+
       buyKey: count => {
         const s = get();
         const n = Math.max(1, Math.floor(count));
@@ -506,7 +525,12 @@ export const useGame = create<State & Actions>()(
 
       payForRun: () => {
         const s = get();
-        if (s.runSpent > 0 || s.keys < 1) return false;
+        if (runOpen(s) || s.keys < 1) return false;
+        if (campMode.crystals) {
+          // A practice descent: the key is free and so is the oil.
+          set({ keys: s.keys - 1, runSpent: 0, runId: newRunId(), carried: { ...s.potions }, potions: emptyBag() });
+          return true;
+        }
         const cost = s.flasks * FLASK_PRICE;
         if (cost > s.balance) return false;
         // The potions go into the descent's pack now, so closing the tab cannot hand them back.
@@ -520,7 +544,7 @@ export const useGame = create<State & Actions>()(
       finishRun: run => {
         const s = get();
         if (run.status === "playing") throw new Error("A run cannot finish while it is still playing");
-        if (s.runSpent <= 0) {
+        if (!runOpen(s)) {
           if (s.lastReport) return s.lastReport;
           throw new Error("No paid run to finish");
         }
@@ -610,7 +634,7 @@ export const useGame = create<State & Actions>()(
 
       abandonRun: () => {
         const s = get();
-        if (s.runSpent <= 0) return false;
+        if (!runOpen(s)) return false;
         set({
           runSpent: 0,
           roundSpent: round2(s.roundSpent + KEY_PRICE + s.runSpent),
@@ -734,8 +758,20 @@ export const useGame = create<State & Actions>()(
         const s = get();
         if (!s.heroes.some(h => h.id === heroId)) throw new ExpeditionError("That Delver is not in your collection");
         if (s.expeditions.some(e => e.heroId === heroId)) throw new ExpeditionError("That Delver is already away");
-        if (s.runSpent > 0 && s.hero.kind === "nft" && s.hero.id === heroId) throw new ExpeditionError("Finish the descent first: that Delver is in the cave");
+        if (runOpen(s) && s.hero.kind === "nft" && s.hero.id === heroId) throw new ExpeditionError("Finish the descent first: that Delver is in the cave");
         const cost = EXPEDITION_COST + EXPEDITION_PACKS[pack].price;
+        if (campMode.crystals) {
+          if (crystalsFor(cost) > s.crystals) throw new InsufficientFunds(`Not enough crystals: this expedition costs ${crystalsFor(cost)}`);
+          const trip: Expedition = {
+            id: newRunId(), heroId, pack, sentAt: now, returnsAt: now + EXPEDITION_DURATION_MS, outcome: rollExpedition(randomSeed(), pack),
+          };
+          set({
+            crystals: s.crystals - crystalsFor(cost),
+            expeditions: [...s.expeditions, trip],
+            hero: s.hero.kind === "nft" && s.hero.id === heroId ? { kind: "wanderer" } : s.hero,
+          });
+          return trip;
+        }
         if (cost > s.balance + 1e-9) throw new InsufficientFunds(`Not enough USDC: this expedition costs ${dollars(cost)}`);
         const split = splitExpeditionSpend(cost);
         const trip: Expedition = {

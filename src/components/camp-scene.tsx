@@ -1,6 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { BookOpen, Flame, Gem, KeyRound, ScrollText, Sparkles, Swords, Ticket, Trophy, Vault } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { WindowHead } from "@/components/camp-ui";
+import { ACCENT, WINDOW_CLASS, windowStyle } from "@/lib/camp-style";
+import { campMode } from "@/lib/camp-mode";
+import { tokens } from "@/lib/format";
+import { useMezo } from "@/state/mezo";
 import { DescendTab } from "@/components/descend-tab";
 import { DPad } from "@/components/dpad";
 import { GuidePanel, HallPanel } from "@/components/camp-panels";
@@ -32,6 +37,22 @@ const AltarTab = lazy(() => import("@/components/altar-tab").then(m => ({ defaul
 const ArmoryTab = lazy(() => import("@/components/armory-tab").then(m => ({ default: m.ArmoryTab })));
 const RaffleTab = lazy(() => import("@/components/raffle-tab").then(m => ({ default: m.RaffleTab })));
 const LedgerTab = lazy(() => import("@/components/ledger-tab").then(m => ({ default: m.LedgerTab })));
+const CampVault = lazy(() => import("@/components/camp-vault").then(m => ({ default: m.CampVault })));
+
+const STATION_ACCENT: Record<StationId, string> = {
+  gate: ACCENT.gate, altar: ACCENT.altar, armory: ACCENT.armory, board: ACCENT.board, ledger: ACCENT.vault, guide: ACCENT.guide, hall: ACCENT.hall,
+};
+
+/** What each window is for, in the words of the build: the Mezo release has no money in camp. */
+const CRYSTAL_BLURB: Partial<Record<StationId, string>> = {
+  gate: "Pick who descends and light the lantern. Practice keys and oil are free.",
+  altar: "Mint Delvers with crystals, or send them on expeditions.",
+  armory: "Weapons, armor and potions, paid with the crystals you find in the deep.",
+  board: "The weekly draw for free Delver mints, your tickets and the passes.",
+  ledger: "This week's Ember Pot on Mezo, your keys and your camp.",
+  hall: "Your own records, and the Hall of Descents on Mezo.",
+};
+const stationBlurb = (s: Station) => (campMode.crystals ? CRYSTAL_BLURB[s.id] : undefined) ?? s.blurb;
 
 const ICON: Record<StationId, typeof Flame> = {
   gate: Flame, altar: Sparkles, armory: Swords, board: ScrollText, ledger: Vault, guide: BookOpen, hall: Trophy,
@@ -61,6 +82,8 @@ export function CampScene() {
   const game = useGame();
   const hero = resolveHero(game.hero, game.heroes);
   const [panel, setPanel] = useState<StationId | null>(null);
+  const potSnapshot = useMezo(m => m.snapshot);
+  useEffect(() => { if (campMode.crystals && !useMezo.getState().snapshot) void useMezo.getState().refresh(); }, []);
   const [walker, setWalker] = useState<Walker>({ ...CAMP_SPAWN, facing: "up" });
   const walkerRef = useRef(walker);
   const tween = useRef({ from: { x: CAMP_SPAWN.x, y: CAMP_SPAWN.y }, to: { x: CAMP_SPAWN.x, y: CAMP_SPAWN.y }, at: 0 });
@@ -210,6 +233,15 @@ export function CampScene() {
 
       {/* The round and the weekly draw */}
       <div className="absolute top-14 right-3 z-20 flex w-44 flex-col items-stretch gap-2 sm:top-[4.25rem] sm:w-64">
+        {campMode.crystals ? (
+          <button type="button" aria-label="Open the Ember Pot on Mezo" onClick={() => useMezo.getState().setOpen(true)}
+            className="rounded-xl border-2 border-gold/70 bg-[#150c2b]/90 px-3 py-2 text-left shadow-[0_0_18px_rgba(255,201,77,0.22)] backdrop-blur-sm outline-none hover:border-gold focus-visible:ring-2 focus-visible:ring-lime">
+            <span className="block font-pixel text-[10px] leading-tight text-gold sm:text-xs">EMBER POT · MEZO</span>
+            <span className="block text-[10px] leading-tight sm:text-xs">
+              {potSnapshot ? <><b className="font-pixel text-gold">{tokens(potSnapshot.pot)} MUSD</b> this week · real prizes</> : "Real MUSD prizes · prize descents"}
+            </span>
+          </button>
+        ) : (
         <button type="button" aria-label="Open Vault" onClick={() => openStation("ledger")}
           className="rounded-xl border border-white/20 bg-[#150c2b]/85 px-3 py-2 text-left backdrop-blur-sm outline-none hover:border-gold focus-visible:ring-2 focus-visible:ring-lime">
           <span className="block font-pixel text-[9px] text-gold sm:text-[10px]">ROUND {game.round}</span>
@@ -217,6 +249,7 @@ export function CampScene() {
             Pool {usd(game.pool)} · {game.roundGold > 0 ? `you hold ${percent(share)}` : "bank gold to join"}
           </span>
         </button>
+        )}
         <button type="button" aria-label="Open Draw Board" onClick={() => openStation("board")}
           className="rounded-xl border-2 border-sigil/70 bg-[#150c2b]/90 px-3 py-2 text-left shadow-[0_0_18px_rgba(255,95,220,0.25)] backdrop-blur-sm outline-none hover:border-sigil focus-visible:ring-2 focus-visible:ring-lime">
           <span className="block font-pixel text-[10px] leading-tight text-sigil sm:text-xs">WEEKLY DELVER DRAW</span>
@@ -246,31 +279,32 @@ export function CampScene() {
         <div className="absolute bottom-24 left-1/2 z-20 w-[min(22rem,92%)] -translate-x-1/2 rounded-xl border border-lime/50 bg-[#150c2b]/95 p-3 text-xs shadow-lg backdrop-blur-sm sm:bottom-28">
           <div className="mb-1 font-pixel text-[11px] text-lime">FIRST DESCENT</div>
           <p className="text-white/85">
-            You already hold <b>{game.keys} keys</b> and {usd(game.balance)} of simulated USDC. Press <b>PLAY</b>, pick your oil, collect gold in the cave, then walk back to the
-            green rift to bring it home. Potions are keys 1-7.
+            {campMode.crystals
+              ? <>You hold <b>{game.keys} free practice keys</b>. Press <b>PLAY</b>, collect gold and crystals in the cave, then walk back to the green rift to bring it home. Crystals buy gear in camp; real MUSD prizes are in the Ember Pot (the coin at the top).</>
+              : <>You already hold <b>{game.keys} keys</b> and {usd(game.balance)} of simulated USDC. Press <b>PLAY</b>, pick your oil, collect gold in the cave, then walk back to the green rift to bring it home.</>}
+            {" "}Potions are keys 1-7.
           </p>
           <button type="button" onClick={() => setHint(false)} className="mt-2 rounded-md border border-white/25 px-2 py-1 font-pixel text-[10px] text-white hover:border-lime">GOT IT</button>
         </div>
       )}
 
       <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 hidden -translate-x-1/2 rounded-full bg-[#150c2b]/70 px-3 py-1 font-pixel text-[9px] text-white/70 sm:block">
-        DEMO · SIMULATED USDC · OTHER DELVERS ARE SIMULATED
+        {campMode.crystals ? "PRACTICE CAMP · REAL PRIZES IN THE EMBER POT ON MEZO" : "DEMO · SIMULATED USDC · OTHER DELVERS ARE SIMULATED"}
       </div>
 
       <Dialog open={current !== null} onOpenChange={open => { if (!open) setPanel(null); }}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-5xl">
+        <DialogContent className={`${WINDOW_CLASS} sm:max-w-5xl`} style={current ? windowStyle(STATION_ACCENT[current.id]) : undefined}>
           {current && (
             <>
-              <DialogHeader>
-                <DialogTitle className="font-pixel text-lg text-lime">{current.name}</DialogTitle>
-                <DialogDescription>{current.blurb}</DialogDescription>
-              </DialogHeader>
+              <DialogTitle className="sr-only">{current.name}</DialogTitle>
+              <DialogDescription className="sr-only">{stationBlurb(current)}</DialogDescription>
+              <WindowHead icon={ICON[current.id]} title={current.name} subtitle={stationBlurb(current)} accent={STATION_ACCENT[current.id]} />
               <Suspense fallback={<p className="py-8 text-center text-muted-foreground">Opening…</p>}>
                 {current.id === "gate" && <DescendTab />}
                 {current.id === "altar" && <AltarTab />}
                 {current.id === "armory" && <ArmoryTab />}
                 {current.id === "board" && <RaffleTab />}
-                {current.id === "ledger" && <LedgerTab />}
+                {current.id === "ledger" && (campMode.crystals ? <CampVault /> : <LedgerTab />)}
                 {current.id === "guide" && <GuidePanel onPlay={() => setPanel("gate")} />}
                 {current.id === "hall" && <HallPanel />}
               </Suspense>

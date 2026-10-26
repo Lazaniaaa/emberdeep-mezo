@@ -418,3 +418,37 @@ describe("carrying potions into a descent", () => {
   });
 });
 
+
+describe("the crystal economy of the Mezo release", () => {
+  it("has no money: practice keys and oil are free, the shop costs crystals, and a practice descent settles", async () => {
+    const { campMode, PRACTICE_KEYS } = await import("@/lib/camp-mode");
+    const { WEAPONS } = await import("@/game/catalog");
+    const { startRun: start, emptyBag: bag } = await import("@/game/run");
+    const { NO_PERKS: none } = await import("@/game/catalog");
+    campMode.crystals = true;
+    try {
+      useGame.getState().reset();
+      const before = useGame.getState();
+      expect(useGame.getState().payForRun()).toBe(true);
+      const paid = useGame.getState();
+      expect(paid.balance).toBe(before.balance);
+      expect(paid.keys).toBe(before.keys - 1);
+      const run = { ...start({ seed: 3, flasks: 2, perks: none, weaponDamage: 8, bag: bag(), runId: paid.runId! }), status: "extracted" as const, gold: 40, crystals: 30 };
+      expect(useGame.getState().finishRun(run).outcome).toBe("extracted");
+      expect(useGame.getState().crystals).toBe(before.crystals + 30);
+
+      expect(() => useGame.getState().buyWeapon("emberblade")).toThrow(/crystals/);
+      useGame.getState().buyWeapon("dagger"); // 60 cents = 6 crystals
+      expect(useGame.getState().weapons).toContain("dagger");
+      expect(useGame.getState().crystals).toBe(before.crystals + 30 - Math.ceil(WEAPONS.dagger.price / 10) - WEAPONS.dagger.crystals);
+      expect(useGame.getState().balance).toBe(before.balance);
+
+      useGame.setState({ keys: 3 });
+      useGame.getState().refillKeys();
+      expect(useGame.getState().keys).toBe(PRACTICE_KEYS);
+    } finally {
+      campMode.crystals = false;
+      useGame.getState().reset();
+    }
+  });
+});

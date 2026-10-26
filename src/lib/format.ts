@@ -1,4 +1,5 @@
 import { toUsd } from "@/game/config";
+import { campMode, crystalsFor } from "@/lib/camp-mode";
 
 /** A share of a whole as a percentage: two decimals below 10%, one below 100%. */
 export function percent(share: number) {
@@ -12,6 +13,11 @@ export function usd(cents: number) {
   const v = toUsd(cents);
   const digits = Math.abs(v) >= 1_000 ? 0 : 2;
   return `$${v.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+}
+
+/** A price for a toast or plain text: crystals in the Mezo release, simulated dollars elsewhere. */
+export function money(cents: number) {
+  return campMode.crystals ? `${crystalsFor(cents)} crystals` : usd(cents);
 }
 
 /** An 18-decimal token amount (MUSD, BTC, MEZO): whole units with at most `digits` decimals, trailing zeros dropped. */

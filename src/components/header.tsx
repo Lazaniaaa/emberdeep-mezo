@@ -7,6 +7,8 @@ import { shortAddress, usd } from "@/lib/format";
 import { useHall } from "@/state/hall";
 import { useMezo } from "@/state/mezo";
 import { mezoHallAddress } from "@/chain/mezo-config";
+import { campMode } from "@/lib/camp-mode";
+import { tokens } from "@/lib/format";
 import { useGame } from "@/state/store";
 import { useWallet } from "@/state/wallet";
 import { DEFAULT_TUNING, tuning } from "@/game/tuning";
@@ -27,12 +29,21 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
         <div className="flex items-center gap-2">
           <Flame className="size-5 text-lime" aria-hidden />
           <span className={overlay ? "hidden font-pixel text-lg text-lime sm:inline" : "font-pixel text-lg text-lime"}>Emberdeep</span>
-          <Tooltip>
-            <TooltipTrigger render={<Badge variant="outline" className="border-gold/50 text-gold">Simulated</Badge>} />
-            <TooltipContent className="max-w-64">
-              Balances, payouts and mints are simulated USDC kept in this browser. What is real is on chain: the Ember Pot and the Hall of Descents.
-            </TooltipContent>
-          </Tooltip>
+          {campMode.crystals ? (
+            <Tooltip>
+              <TooltipTrigger render={<Badge variant="outline" className="border-gold/50 text-gold">Mezo Testnet</Badge>} />
+              <TooltipContent className="max-w-64">
+                Real prizes in MUSD live in the Ember Pot on Mezo Testnet. The camp runs on crystals you find in the deep.
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger render={<Badge variant="outline" className="border-gold/50 text-gold">Simulated</Badge>} />
+              <TooltipContent className="max-w-64">
+                Balances, payouts and mints are simulated USDC kept in this browser. What is real is on chain: the Ember Pot and the Hall of Descents.
+              </TooltipContent>
+            </Tooltip>
+          )}
           {tuning.dropOil !== DEFAULT_TUNING.dropOil && (
             <Tooltip>
               <TooltipTrigger render={<Badge variant="outline" className="border-lime/60 text-lime">Oil ×{tuning.dropOil}</Badge>} />
@@ -44,8 +55,14 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
         </div>
 
         <div className={overlay ? "ml-auto flex items-center gap-2 text-sm" : "ml-auto flex flex-wrap items-center gap-2 text-sm"}>
-          <Stat label="Balance" value={usd(balance)} hint={overlay ? undefined : "USDC"} />
-          <Stat label={`Round ${round} pool`} value={usd(pool)} accent className={overlay ? "hidden sm:flex" : "hidden sm:flex"} />
+          {campMode.crystals ? (
+            <PotStat />
+          ) : (
+            <>
+              <Stat label="Balance" value={usd(balance)} hint={overlay ? undefined : "USDC"} />
+              <Stat label={`Round ${round} pool`} value={usd(pool)} accent className={overlay ? "hidden sm:flex" : "hidden sm:flex"} />
+            </>
+          )}
 
           <Tooltip>
             <TooltipTrigger render={
@@ -103,4 +120,11 @@ function Stat({ label, value, hint, accent, className }: { label: string; value:
       </span>
     </div>
   );
+}
+
+/** This week's real pot, once it has been read from Mezo. */
+function PotStat() {
+  const pot = useMezo(m => m.snapshot?.pot ?? null);
+  if (pot === null) return null;
+  return <Stat label="Ember Pot" value={`${tokens(pot)} MUSD`} accent className="hidden sm:flex" />;
 }

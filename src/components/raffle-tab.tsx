@@ -10,7 +10,8 @@ import { RARITIES, RARITY_INFO, type HeroNft } from "@/game/catalog";
 import { DRAW_MINTS, FIELD_WEEK_SPEND, PASSES, REVENUE_SHARE, SIGIL_RARITY_WEIGHTS, TICKET_DROP_CHANCE, type PassId } from "@/game/config";
 import { mintsLeft } from "@/game/economy";
 import { passCost, ticketChance, type DrawResult } from "@/game/raffle";
-import { usd } from "@/lib/format";
+import { money, usd } from "@/lib/format";
+import { campMode, crystalsFor } from "@/lib/camp-mode";
 import { activePass, useGame, InsufficientFunds } from "@/state/store";
 import { nftVisual } from "./hero-info";
 import { HeroAvatar } from "./art";
@@ -48,7 +49,7 @@ export function RaffleTab() {
           <div className="grid grid-cols-3 gap-2 text-center">
             <Stat label="Free mints" value={`${DRAW_MINTS}`} sub={`Week ${g.week}`} />
             <Stat label="Your tickets" value={`${g.tickets}`} sub={total ? `${Math.round(odds * 100)}% of the drum` : "Extract to earn"} accent="text-sigil" />
-            <Stat label="Field tickets" value={`${g.fieldTickets}`} sub="Simulated delvers" />
+            <Stat label="Field tickets" value={`${g.fieldTickets}`} sub="Other delvers" />
           </div>
 
           <div>
@@ -69,8 +70,8 @@ export function RaffleTab() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => { g.addFieldWeek(); toast(`Other delvers spent ${usd(FIELD_WEEK_SPEND)}. Their cut is in the pools, their gold in the round and their tickets in the drum.`); }}>
-              <Users data-icon="inline-start" /> Add a simulated week of play
+            <Button variant="outline" onClick={() => { g.addFieldWeek(); toast(campMode.crystals ? "A week of other delvers' play: their tickets are in the drum." : `Other delvers spent ${usd(FIELD_WEEK_SPEND)}. Their cut is in the pools, their gold in the round and their tickets in the drum.`); }}>
+              <Users data-icon="inline-start" /> {campMode.crystals ? "Fast-forward a week" : "Add a simulated week of play"}
             </Button>
             <Button onClick={reveal} disabled={total <= 0}>
               <Ticket data-icon="inline-start" /> Draw the week
@@ -139,19 +140,19 @@ function PassCard({ id }: { id: PassId }) {
       playSfx("buy", useGame.getState().muted);
       toast.success(`${pass.name} is on until this week's draw.`);
     } catch (e) {
-      toast.error(e instanceof InsufficientFunds ? `Not enough USDC for ${pass.name}.` : "Could not start the pass.");
+      toast.error(e instanceof InsufficientFunds ? `Not enough ${campMode.crystals ? "crystals" : "USDC"} for ${pass.name}.` : "Could not start the pass.");
     }
   };
   return (
     <div className={`rounded-lg border p-3 ${current === id ? "border-sigil bg-sigil/10" : "border-white/10 bg-black/40"}`}>
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-pixel text-sm">{pass.name}</span>
-        <span className="text-xs text-muted-foreground">{usd(pass.price)} / week</span>
+        <span className="text-xs text-muted-foreground">{money(pass.price)} / week</span>
       </div>
       <div className="mt-1 font-pixel text-2xl text-sigil">{Math.round(pass.chance * 1000) / 10}%</div>
       <p className="text-xs text-muted-foreground">drop chance, from {Math.round(TICKET_DROP_CHANCE * 1000) / 10}% free</p>
-      <Button className="mt-3 w-full" size="sm" disabled={cost === null || cost === 0 || (cost ?? 0) > g.balance} onClick={buy}>
-        {cost === 0 ? "Active this week" : cost === null ? "Included in Deep Pass" : usd(cost)}
+      <Button className="mt-3 w-full" size="sm" disabled={cost === null || cost === 0 || (campMode.crystals ? crystalsFor(cost ?? 0) > g.crystals : (cost ?? 0) > g.balance)} onClick={buy}>
+        {cost === 0 ? "Active this week" : cost === null ? "Included in Deep Pass" : money(cost)}
       </Button>
     </div>
   );

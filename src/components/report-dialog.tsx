@@ -12,6 +12,7 @@ import { usd } from "@/lib/format";
 import { useHall } from "@/state/hall";
 import { useMezo, type MezoRecordStatus } from "@/state/mezo";
 import { useRun } from "@/state/run-store";
+import { campMode } from "@/lib/camp-mode";
 import { useUi } from "@/state/ui";
 import { useGame, type RunReport } from "@/state/store";
 import { useWallet } from "@/state/wallet";
@@ -31,8 +32,8 @@ export function ReportDialog() {
     `Emberdeep`,
     extracted ? `Extracted from depth ${report.depth}` : `Lost in the dark at depth ${report.depth}`,
     cause,
-    extracted ? `${report.gold} gold ${report.prize ? "for the Ember Pot on Mezo" : "banked for the round"}` : `${report.gold} gold lost in the dark`,
-    report.prize ? `Prize descent: equal loadout` : `Spent ${usd(report.spent)} of simulated USDC on oil`,
+    extracted ? `${report.gold} gold ${report.prize ? "for the Ember Pot on Mezo" : campMode.crystals ? "carried home" : "banked for the round"}` : `${report.gold} gold lost in the dark`,
+    report.prize ? `Prize descent: equal loadout` : campMode.crystals ? `Practice descent` : `Spent ${usd(report.spent)} of simulated USDC on oil`,
     report.bossSlain ? `Slew Cerberus` : null,
     report.minted.length ? `Found ${report.minted.length} Soul Sigil${report.minted.length > 1 ? "s" : ""}` : null,
   ].filter(Boolean).join("\n");
@@ -64,7 +65,15 @@ export function ReportDialog() {
 
         <LootSummary report={report} />
 
-        {report.prize ? null : (
+        {!report.prize && campMode.crystals && (
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <Row label="Crystals" value={extracted ? `+${report.crystals}` : "0"} sub={extracted ? "Added to your camp" : "Lost in the dark"} accent="text-crystal" />
+            <Row label="Soul Sigils" value={`${extracted ? report.sigils : 0}`} accent="text-sigil" />
+            <Row label="Draw tickets" value={extracted ? `+${report.tickets}` : "0"} accent="text-sigil" />
+          </div>
+        )}
+
+        {report.prize || campMode.crystals ? null : (
         <div className="grid grid-cols-2 gap-2 text-sm">
           <Row label="Oil spent" value={usd(report.spent)} sub="Simulated USDC · 1 entry key used" />
           <Row label="Back to players" value={usd(report.spent - report.revenue)} sub="Into the round and lock pools" accent="text-lime" icon />

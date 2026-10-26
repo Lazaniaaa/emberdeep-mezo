@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Bitcoin, Coins, ExternalLink, Flame, KeyRound, Loader2, Minus, Plus, RefreshCw, Wallet } from "lucide-react";
+import { Bitcoin, Coins, ExternalLink, Flame, KeyRound, Loader2, Minus, Plus, RefreshCw, Trophy, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { ACCENT, WINDOW_CLASS, windowStyle } from "@/lib/camp-style";
+import { Section, Tile, WindowHead } from "./camp-ui";
 import { BTC_ROUTER, MEZO_POT, keyRouterAddress, mezoAddressUrl, mezoTxUrl, type PayToken } from "@/chain/mezo-config";
 import { PRIZE_FLASKS, PRIZE_WEAPON, prizeSetup } from "@/game/prize";
 import { randomSeed } from "@/game/rng";
@@ -42,128 +44,115 @@ export function EmberPotDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-pixel text-gold"><Coins className="size-4" aria-hidden /> Ember Pot · Mezo</DialogTitle>
-          <DialogDescription>
-            A real weekly prize pool in MUSD. Keys cost 1 MUSD: 80% goes into this week's pot, 20% to the treasury. Play a
-            prize descent, come home, and record it: your gold takes its share when the week ends. Nobody can take the pot out.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className={`${WINDOW_CLASS} sm:max-w-3xl`} style={windowStyle(ACCENT.pot)}>
+        <DialogTitle className="sr-only">Ember Pot on Mezo</DialogTitle>
+        <DialogDescription className="sr-only">This week's MUSD prize pool, your keys and prize descents.</DialogDescription>
+        <WindowHead icon={Coins} title="Ember Pot" accent={ACCENT.pot}
+          badge={<span className="rounded-full border border-gold/40 px-2 py-0.5 text-[10px] tracking-wider text-gold uppercase">Mezo Testnet</span>}
+          subtitle="A real weekly prize pool in MUSD. Every key adds to it; when the week ends it is split by the gold players carried home. Nobody can take it out." />
 
-        {loading && !snapshot && <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden /> Reading the pot from Mezo…</p>}
         {loadError && <p className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive" role="alert">Could not read the pot: {loadError}</p>}
 
-        {snapshot && (
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <Stat label={`Round ${snapshot.round} pot`} value={`${tokens(snapshot.pot)} MUSD`} accent="text-gold" />
-            <Stat label="Ends in" value={timeLeft(snapshot.endsAt)} />
-            <Stat label="Players" value={`${snapshot.players}`} sub={`${snapshot.totalGold} gold recorded`} />
-            <Stat label="Your keys" value={me ? `${me.keys}` : "—"} sub={me ? `${me.gold} gold · ~${tokens(me.share)} MUSD` : "Connect a wallet"} accent="text-lime" />
-          </div>
-        )}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Tile label={snapshot ? `Round ${snapshot.round} pot` : "This week"} value={snapshot ? `${tokens(snapshot.pot)} MUSD` : loading ? "…" : "—"} tone={ACCENT.pot} />
+          <Tile label="Ends in" value={snapshot ? timeLeft(snapshot.endsAt) : "…"} sub="Then anyone pays it out" />
+          <Tile label="Players" value={snapshot ? snapshot.players : "…"} sub={snapshot ? `${snapshot.totalGold} gold in` : undefined} />
+          <Tile label="Your keys" value={me ? me.keys : "—"} tone={ACCENT.gate} sub={me ? `${me.gold} gold · ~${tokens(me.share)} MUSD` : "Connect a wallet"} />
+        </div>
 
-        <section className="space-y-2 rounded-lg border border-white/10 bg-black/40 p-3">
-          <h3 className="flex items-center gap-1.5 text-[10px] tracking-wider text-muted-foreground uppercase"><KeyRound className="size-3" aria-hidden /> Buy keys</h3>
-          {!wallet.account ? (
-            <Button size="sm" variant="outline" onClick={() => void wallet.connect().then(() => refresh())} disabled={wallet.status === "connecting"}>
-              <Wallet data-icon="inline-start" /> Connect a wallet
-            </Button>
-          ) : (
-            <>
-              {me && (
-                <p className="text-xs text-muted-foreground">
-                  On Mezo: {tokens(me.balances.BTC, 6)} BTC · {tokens(me.balances.MEZO)} MEZO · {tokens(me.balances.MUSD)} MUSD
-                </p>
-              )}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <Button variant="outline" size="icon" aria-label="Fewer keys" onClick={() => setQuantity(q => Math.max(1, q - 1))} disabled={quantity <= 1}><Minus /></Button>
-                  <span className="w-8 text-center font-pixel text-lg text-gold" aria-live="polite">{quantity}</span>
-                  <Button variant="outline" size="icon" aria-label="More keys" onClick={() => setQuantity(q => Math.min(10, q + 1))} disabled={quantity >= 10}><Plus /></Button>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Section title="Buy prize keys" icon={KeyRound} tone={ACCENT.pot}>
+            {!wallet.account ? (
+              <Button variant="outline" onClick={() => void wallet.connect().then(() => refresh())} disabled={wallet.status === "connecting"}>
+                <Wallet data-icon="inline-start" /> Connect a wallet
+              </Button>
+            ) : (
+              <>
+                {me && (
+                  <p className="text-xs text-muted-foreground">
+                    Your wallet on Mezo: {tokens(me.balances.BTC, 6)} BTC · {tokens(me.balances.MEZO)} MEZO · {tokens(me.balances.MUSD)} MUSD
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Keys</span>
+                  <Button variant="outline" size="icon-sm" aria-label="Fewer keys" onClick={() => setQuantity(q => Math.max(1, q - 1))} disabled={quantity <= 1}><Minus /></Button>
+                  <span className="w-7 text-center font-pixel text-lg text-gold" aria-live="polite">{quantity}</span>
+                  <Button variant="outline" size="icon-sm" aria-label="More keys" onClick={() => setQuantity(q => Math.min(10, q + 1))} disabled={quantity >= 10}><Plus /></Button>
+                  <span className="ml-auto text-xs text-muted-foreground">{quantity} MUSD</span>
                 </div>
-                {PAY.map(({ token, label, icon: Icon }) => {
-                  const unavailable = token === "MEZO" && !router;
-                  const busy = buying?.token === token;
-                  return (
-                    <Button key={token} size="sm" variant={token === "MEZO" ? "default" : "secondary"} disabled={!!buying || unavailable} onClick={() => void buy(token, quantity)}
-                      title={unavailable ? "The BTC/MEZO key router is not deployed yet" : undefined}>
-                      {busy ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Icon data-icon="inline-start" />}
-                      {busy ? BUY_LABEL[buying.step] : `Pay with ${label}`}
-                    </Button>
-                  );
-                })}
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                BTC and MEZO are swapped to MUSD on Tigris and the keys are bought in one transaction; leftover MUSD comes back to you.
-              </p>
-              {buyError && <p className="text-xs text-destructive" role="alert">{buyError}</p>}
-              {lastBuyTx && (
-                <a className="inline-flex items-center gap-1 text-xs text-lime underline underline-offset-2" href={mezoTxUrl(lastBuyTx)} target="_blank" rel="noreferrer">
-                  Keys bought · transaction <ExternalLink className="size-3" aria-hidden />
-                </a>
-              )}
-            </>
-          )}
-        </section>
+                <div className="grid grid-cols-3 gap-2">
+                  {PAY.map(({ token, label, icon: Icon }) => {
+                    const unavailable = token === "MEZO" && !router;
+                    const busy = buying?.token === token;
+                    return (
+                      <Button key={token} variant={token === "MEZO" ? "default" : "secondary"} disabled={!!buying || unavailable} onClick={() => void buy(token, quantity)}
+                        title={unavailable ? "The BTC/MEZO key router is not deployed yet" : `Pay with ${label}`}>
+                        {busy ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Icon data-icon="inline-start" />}
+                        {label}
+                      </Button>
+                    );
+                  })}
+                </div>
+                {buying && <p className="text-xs text-gold" aria-live="polite">{BUY_LABEL[buying.step]}</p>}
+                <p className="text-[11px] text-muted-foreground">BTC and MEZO are swapped to MUSD on Tigris and the keys bought in one transaction; leftover MUSD comes back to you.</p>
+                {buyError && <p className="text-xs text-destructive" role="alert">{buyError}</p>}
+                {lastBuyTx && (
+                  <a className="inline-flex items-center gap-1 text-xs text-lime underline underline-offset-2" href={mezoTxUrl(lastBuyTx)} target="_blank" rel="noreferrer">
+                    Keys bought · transaction <ExternalLink className="size-3" aria-hidden />
+                  </a>
+                )}
+              </>
+            )}
+          </Section>
 
-        <section className="space-y-2 rounded-lg border border-gold/30 bg-gold/[0.06] p-3">
-          <h3 className="text-[10px] tracking-wider text-gold uppercase">Prize descent</h3>
-          <p className="text-xs text-muted-foreground">
-            Everyone starts equal: {PRIZE_FLASKS} flasks, the {PRIZE_WEAPON.name}, no Delver perks and no potions. Level perks are
-            earned in the deep. Recording it spends one key; the server replays every move before it signs.
-          </p>
-          <Button className="w-full font-pixel" onClick={startPrize} disabled={!me || me.keys < 1}>
-            <Flame data-icon="inline-start" /> Start a prize descent
-          </Button>
-          {me && me.keys < 1 && <p className="text-xs text-muted-foreground">Buy a key above first.</p>}
-        </section>
+          <Section title="Prize descent" icon={Flame} tone={ACCENT.gate}>
+            <p className="text-sm text-foreground/80">
+              Everyone starts equal: {PRIZE_FLASKS} flasks, the {PRIZE_WEAPON.name}, no Delver perks, no potions. Level perks are earned in the deep.
+              Come home and press <b>Claim</b>: the game checks every move, records your gold and pays the gas. One key per claim.
+            </p>
+            <Button className="w-full font-pixel" onClick={startPrize} disabled={!me || me.keys < 1}>
+              <Flame data-icon="inline-start" /> Start a prize descent
+            </Button>
+            {me && me.keys < 1 && <p className="text-xs text-muted-foreground">Buy a key first.</p>}
+          </Section>
+        </div>
 
         {snapshot && snapshot.standings.length > 0 && (
-          <ol className="space-y-1" aria-label="This round's gold">
-            {snapshot.standings.slice(0, 10).map((s, i) => {
-              const mine = wallet.account?.toLowerCase() === s.player.toLowerCase();
-              return (
-                <li key={s.player} className={`flex items-center gap-3 rounded-lg border p-2 text-sm ${mine ? "border-lime/60 bg-lime/10" : "border-white/10 bg-black/40"}`}>
-                  <span className="w-5 text-center font-pixel text-muted-foreground">{i + 1}</span>
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs">{shortAddress(s.player)}{mine && <span className="ml-1 text-lime">you</span>}</span>
-                  <span className="text-right text-xs"><span className="text-gold">{s.gold} gold</span> · ~{tokens(s.share)} MUSD</span>
-                </li>
-              );
-            })}
-          </ol>
+          <Section title="This week's gold" icon={Trophy}>
+            <ol className="space-y-1" aria-label="This round's gold">
+              {snapshot.standings.slice(0, 10).map((s, i) => {
+                const mine = wallet.account?.toLowerCase() === s.player.toLowerCase();
+                return (
+                  <li key={s.player} className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-sm ${mine ? "border-lime/60 bg-lime/10" : "border-white/[0.07] bg-black/30"}`}>
+                    <span className="w-5 text-center font-pixel text-muted-foreground">{i + 1}</span>
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs">{shortAddress(s.player)}{mine && <span className="ml-1 text-lime">you</span>}</span>
+                    <span className="text-right text-xs"><span className="text-gold">{s.gold} gold</span> · ~{tokens(s.share)} MUSD</span>
+                  </li>
+                );
+              })}
+            </ol>
+          </Section>
         )}
 
         {snapshot?.previous && (
-          <section className="space-y-2 rounded-lg border border-white/10 bg-black/40 p-3 text-xs">
-            <p>Round {snapshot.previous.round} has ended: {tokens(snapshot.previous.pot)} MUSD for {snapshot.previous.totalGold} gold, {snapshot.previous.unpaid.length} player{snapshot.previous.unpaid.length === 1 ? "" : "s"} not paid yet.</p>
+          <Section title={`Round ${snapshot.previous.round} has ended`} icon={Coins}>
+            <p className="text-sm text-foreground/80">{tokens(snapshot.previous.pot)} MUSD for {snapshot.previous.totalGold} gold, {snapshot.previous.unpaid.length} player{snapshot.previous.unpaid.length === 1 ? "" : "s"} not paid yet. Anyone can press this; the MUSD goes straight to the players, by their gold.</p>
             <Button size="sm" variant="secondary" onClick={() => void payOut()} disabled={!wallet.account || payout.status === "confirming" || snapshot.previous.unpaid.length === 0}>
               {payout.status === "confirming" ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Coins data-icon="inline-start" />} Pay out round {snapshot.previous.round}
             </Button>
-            <p className="text-muted-foreground">Anyone can press this; the MUSD goes straight to the players, by their gold.</p>
-            {payout.error && <p className="text-destructive" role="alert">{payout.error}</p>}
-          </section>
+            {payout.error && <p className="text-xs text-destructive" role="alert">{payout.error}</p>}
+          </Section>
         )}
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
           <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(MEZO_POT.address)} target="_blank" rel="noreferrer">Pot contract <ExternalLink className="size-3" aria-hidden /></a>
           <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(router ?? BTC_ROUTER)} target="_blank" rel="noreferrer">Key router <ExternalLink className="size-3" aria-hidden /></a>
-          <span>Mezo Testnet</span>
+          <span>80% to the pot · 20% to the treasury</span>
           <Button variant="ghost" size="sm" className="ml-auto" onClick={() => void refresh()} disabled={loading}>
             <RefreshCw className={loading ? "animate-spin" : ""} data-icon="inline-start" /> Refresh
           </Button>
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
-  return (
-    <div className="rounded-lg border border-white/10 bg-black/40 p-2.5">
-      <div className="text-[10px] tracking-wider text-muted-foreground uppercase">{label}</div>
-      <div className={`font-pixel ${accent ?? ""}`}>{value}</div>
-      {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
-    </div>
   );
 }

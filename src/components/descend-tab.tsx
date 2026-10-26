@@ -1,4 +1,4 @@
-import { Flame, KeyRound, Minus, Plus } from "lucide-react";
+import { Coins, Flame, KeyRound, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,10 @@ import { ARMORS, POTIONS, POTION_IDS, WEAPONS } from "@/game/catalog";
 import { heroLockKey, strength } from "@/game/locks";
 import { ticketChance } from "@/game/raffle";
 import { randomSeed } from "@/game/rng";
-import { usd } from "@/lib/format";
+import { money, usd } from "@/lib/format";
+import { PRACTICE_KEYS, campMode } from "@/lib/camp-mode";
+import { useMezo } from "@/state/mezo";
+import { Price } from "./camp-ui";
 import { cn } from "@/lib/utils";
 import { useRun } from "@/state/run-store";
 import { activePass, computeRunPerks, useGame, type HeroChoice } from "@/state/store";
@@ -25,7 +28,7 @@ export function DescendTab() {
   const perks = computeRunPerks(game);
   const pass = activePass(game);
   const drop = ticketChance(pass);
-  const cost = game.flasks * FLASK_PRICE;
+  const cost = campMode.crystals ? 0 : game.flasks * FLASK_PRICE;
   const light = game.flasks * FLASK_LIGHT + perks.startLight;
   const weapon = WEAPONS[game.weapon];
 
@@ -68,16 +71,16 @@ export function DescendTab() {
     }
     if (!selectedValid) game.selectHero({ kind: "wanderer" });
     // A tab closed mid-descent loses the run but not the paid flag; count it as lost so play can go on.
-    if (useGame.getState().runSpent > 0 && !useRun.getState().run) {
+    if ((useGame.getState().runSpent > 0 || useGame.getState().runId) && !useRun.getState().run) {
       game.abandonRun();
       toast("Your last descent was lost when the page closed. Its key and oil are gone.");
     }
     if (useGame.getState().keys < 1) {
-      toast.error(`You need an entry key (${usd(KEY_PRICE)}). Buy one below.`);
+      toast.error(campMode.crystals ? "Out of practice keys. Take more below, they are free." : `You need an entry key (${usd(KEY_PRICE)}). Buy one below.`);
       return;
     }
     if (!game.payForRun()) {
-      toast.error(`You need ${usd(cost)} for ${game.flasks} flask${game.flasks > 1 ? "s" : ""}. Top up in the Vault.`);
+      toast.error(`You need ${money(cost)} for ${game.flasks} flask${game.flasks > 1 ? "s" : ""}. Top up in the Vault.`);
       return;
     }
     playSfx("burn", game.muted);
@@ -98,7 +101,9 @@ export function DescendTab() {
       <Card>
         <CardHeader>
           <CardTitle className="font-pixel">Choose who descends</CardTitle>
-          <CardDescription>Every character has a perk, and it works at {Math.round(HOLD_FACTOR * 100)}% strength while you only hold it. Lock it at the Ember Altar to make it stronger over time. Mint more there, or find a Soul Sigil in a Sealed Vault.</CardDescription>
+          <CardDescription>{campMode.crystals
+            ? "Every character has a perk for practice descents. Mint more at the Ember Altar with crystals, or find a Soul Sigil in a Sealed Vault. Prize descents start equal, without these perks."
+            : `Every character has a perk, and it works at ${Math.round(HOLD_FACTOR * 100)}% strength while you only hold it. Lock it at the Ember Altar to make it stronger over time. Mint more there, or find a Soul Sigil in a Sealed Vault.`}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Character">
@@ -130,6 +135,39 @@ export function DescendTab() {
       </Card>
 
       <div className="space-y-4">
+        {campMode.crystals && (
+          <Card className="border-gold/40 bg-gold/[0.06]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 font-pixel text-gold"><Coins className="size-4" /> Prize descent</CardTitle>
+              <CardDescription>
+                For real MUSD: everyone starts equal, and the gold you bring home takes its share of this week's Ember Pot on Mezo.
+                A prize key costs 1 MUSD, or pay with BTC or MEZO.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full font-pixel" variant="secondary" onClick={() => useMezo.getState().setOpen(true)}>
+                <Coins data-icon="inline-start" /> Open the Ember Pot
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {campMode.crystals ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-pixel">Practice keys</CardTitle>
+              <CardDescription>One key opens one practice descent. They are free: take more whenever you run low.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <KeyRound className="size-5 text-gold" />
+                <span className="font-pixel text-2xl text-gold" aria-live="polite">{game.keys}</span>
+                <span className="text-xs text-muted-foreground">practice keys</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => game.refillKeys()} disabled={game.keys >= PRACTICE_KEYS}>Top up to {PRACTICE_KEYS}</Button>
+            </CardContent>
+          </Card>
+        ) : (
         <Card>
           <CardHeader>
             <CardTitle className="font-pixel">Entry keys</CardTitle>
@@ -149,12 +187,13 @@ export function DescendTab() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         <Card>
           <CardHeader>
             <CardTitle className="font-pixel">Lantern oil</CardTitle>
             <CardDescription>
-              Each flask costs {usd(FLASK_PRICE)} and gives {FLASK_LIGHT} light. More light, wider vision. Finds drop a draw ticket {Math.round(drop * 1000) / 10}% of the time{pass ? ` (${PASSES[pass].name})` : ""}. Carry it home or lose it.
+              {campMode.crystals ? "Oil is free in practice." : `Each flask costs ${usd(FLASK_PRICE)}.`} Each flask gives {FLASK_LIGHT} light. More light, wider vision. Finds drop a draw ticket {Math.round(drop * 1000) / 10}% of the time{pass ? ` (${PASSES[pass].name})` : ""}. Carry it home or lose it.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -165,8 +204,8 @@ export function DescendTab() {
                 <Button variant="outline" size="icon" aria-label="More flasks" onClick={() => game.setFlasks(game.flasks + 1)} disabled={game.flasks >= MAX_FLASKS}><Plus /></Button>
               </div>
               <div className="text-right">
-                <div className="font-pixel text-sm">{usd(cost)}</div>
-                <div className="text-xs text-muted-foreground">{light} light · {usd(cost * (1 - REVENUE_SHARE))} back to players</div>
+                <div className="font-pixel text-sm"><Price cents={cost} /></div>
+                <div className="text-xs text-muted-foreground">{light} light{campMode.crystals ? "" : ` · ${usd(cost * (1 - REVENUE_SHARE))} back to players`}</div>
               </div>
             </div>
 
@@ -181,7 +220,7 @@ export function DescendTab() {
             <Button size="lg" className="h-12 w-full font-pixel text-base" onClick={descend} disabled={cost > game.balance || game.keys < 1}>
               <Flame data-icon="inline-start" /> Light it and descend
             </Button>
-            {game.keys < 1 && <p className="text-xs text-destructive">No entry key. Buy one to descend.</p>}
+            {game.keys < 1 && <p className="text-xs text-destructive">{campMode.crystals ? "No practice key. Take more above, they are free." : "No entry key. Buy one to descend."}</p>}
             {cost > game.balance && <p className="text-xs text-destructive">Not enough USDC. Grab a simulated top-up in the Vault.</p>}
           </CardContent>
         </Card>

@@ -9,6 +9,12 @@ import {
   ARMORS, ARMOR_IDS, POTIONS, SHOP_POTION_IDS, WEAPONS, WEAPON_IDS, type ArmorId, type PotionId, type WeaponId,
 } from "@/game/catalog";
 import { usd } from "@/lib/format";
+import { campMode, crystalsFor } from "@/lib/camp-mode";
+import { Price } from "./camp-ui";
+
+/** Whether the player can pay a cents price plus a crystal price, in the build's economy. */
+const affordable = (balance: number, crystals: number, cents: number, extraCrystals: number) =>
+  campMode.crystals ? crystals >= crystalsFor(cents) + extraCrystals : balance >= cents && crystals >= extraCrystals;
 import { InsufficientFunds, useGame } from "@/state/store";
 import { ItemArt } from "./art";
 
@@ -52,8 +58,8 @@ export function ArmoryTab() {
                       {equipped ? <><Check data-icon="inline-start" /> Equipped</> : "Equip"}
                     </Button>
                   ) : (
-                    <Button size="sm" onClick={() => buy(`${w.name} forged and equipped.`, () => game.buyWeapon(id as WeaponId))} disabled={game.balance < w.price || game.crystals < w.crystals}>
-                      {usd(w.price)}{w.crystals > 0 && <> + {w.crystals} <Gem className="text-crystal" /></>}
+                    <Button size="sm" onClick={() => buy(`${w.name} forged and equipped.`, () => game.buyWeapon(id as WeaponId))} disabled={!affordable(game.balance, game.crystals, w.price, w.crystals)}>
+                      <Price cents={w.price} crystals={w.crystals} />
                     </Button>
                   )}
                 </div>
@@ -87,8 +93,8 @@ export function ArmoryTab() {
                       {equipped ? <><Check data-icon="inline-start" /> Worn</> : "Wear"}
                     </Button>
                   ) : (
-                    <Button size="sm" onClick={() => buy(`${a.name} fitted and worn.`, () => game.buyArmor(id))} disabled={game.balance < a.price || game.crystals < a.crystals}>
-                      {usd(a.price)}{a.crystals > 0 && <> + {a.crystals} <Gem className="text-crystal" /></>}
+                    <Button size="sm" onClick={() => buy(`${a.name} fitted and worn.`, () => game.buyArmor(id))} disabled={!affordable(game.balance, game.crystals, a.price, a.crystals)}>
+                      <Price cents={a.price} crystals={a.crystals} />
                     </Button>
                   )}
                 </div>
@@ -102,8 +108,10 @@ export function ArmoryTab() {
         <CardHeader>
           <CardTitle className="font-pixel">Potions</CardTitle>
           <CardDescription>
-            Carried into every descent and only consumed when used. Pay in simulated USDC ({Math.round((1 - REVENUE_SHARE) * 100)}% goes back to players) or craft with crystals you brought home.
-            You own <span className="text-crystal">{game.crystals} crystals</span>.
+            Carried into every descent and only consumed when used. {campMode.crystals
+              ? "Craft them with crystals you brought home."
+              : `Pay in simulated USDC (${Math.round((1 - REVENUE_SHARE) * 100)}% goes back to players) or craft with crystals you brought home.`}
+            {" "}You own <span className="text-crystal">{game.crystals} crystals</span>.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -121,9 +129,11 @@ export function ArmoryTab() {
                   <p className="text-xs text-muted-foreground">{p.blurb}</p>
                 </div>
                 <div className="flex gap-1.5">
-                  <Button size="sm" onClick={() => buyPotion(id, "usdc")} disabled={game.balance < p.price} aria-label={`Buy ${p.name} for ${usd(p.price)}`}>
-                    {usd(p.price)}
-                  </Button>
+                  {!campMode.crystals && (
+                    <Button size="sm" onClick={() => buyPotion(id, "usdc")} disabled={game.balance < p.price} aria-label={`Buy ${p.name} for ${usd(p.price)}`}>
+                      {usd(p.price)}
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => buyPotion(id, "crystals")} disabled={game.crystals < p.crystals} aria-label={`Craft ${p.name} for ${p.crystals} crystals`}>
                     {p.crystals} <Gem className="text-crystal" />
                   </Button>

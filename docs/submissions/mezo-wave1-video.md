@@ -1,22 +1,44 @@
-# Mezo Buildathon Wave 1 — 2-minute video script
+# Mezo Buildathon Wave 1 — 2-minute video
 
-Deadline: 2026-10-26, 17:00. Record the screen (OBS or Win+G), voice in English, ~120 s.
-Built around the judging weights: Mezo integration 30%, product and business viability 30%, technical 20%, UX 10%, materials 10%.
-Notes for the owner are in Ukrainian in square brackets.
+Deadline: 2026-10-26, 17:00. Judging: Mezo integration 30%, product and business viability 30%, technical 20%,
+UX 10%, materials 10%. Voice: ElevenLabs, English, calm and confident, about 2 minutes (~280 words).
+Site: https://45-63-99-54.sslip.io (Mezo Testnet). Notes for the owner are in Ukrainian in square brackets.
 
-| Time | Part | On screen | Voice |
-| --- | --- | --- | --- |
-| 0:00–0:15 | Problem | Title slide [слайд 1–2 презентації] | "BTC holders can mint MUSD on Mezo, but there is little fun to do with it. And most web3 games pay out through an inflating token, so early players win and the game dies." |
-| 0:15–0:35 | Solution | Emberdeep descent: lantern, a fight, gold, rift exit [живий сайт або `npm run dev`, 15 с гри] | "Emberdeep is a roguelike where skill wins: light is your only resource, and you escape through a rift with the gold you found. Every run is replayed and signed by our server, so scores can't be faked." |
-| 0:35–1:00 | How MUSD flows | Slide with the Ember Pot model [слайд зі схемою пулу] | "Players buy keys for 1 MUSD. 80% goes into this week's prize pot, 20% to the treasury. After the week anyone can call distribute, and the pot is split by gold carried out. There is no admin withdrawal: no token, no inflation, real MUSD." |
-| 1:00–1:25 | Mezo integration, live | Ember Pot site on Mezo Testnet: buy a key with BTC → wallet confirm → success [купити 1 ключ наживо; у гаманці трохи тестового BTC] | "You don't even need MUSD first. Our EmberKeyRouter swaps BTC to MUSD through Tigris and buys the key in one transaction." |
-| 1:25–1:40 | Proof | Mezo Testnet explorer: that transaction, then EmberPotV2 with the pot balance [показати tx і баланс пулу] | "Here it is on Mezo: one transaction, swap plus key. The router has no owner and no admin functions. The pot now holds the MUSD from that key." |
-| 1:40–2:00 | Business and next | Roadmap slide [останній слайд] | "Revenue is the 20% treasury share, and it grows with every key. Next wave: server-recorded runs into the pot, and Delver NFTs with a MUSD marketplace. Emberdeep: bet your light, win real MUSD." |
+## Narration (paste into ElevenLabs as one block)
 
-Honest scope (say it if asked, don't hide it): the game and the pot are both live, but recording runs into the Mezo pot from the game server is the next step (Wave 2). The current scores go to the Hall of Descents on Arc.
+Bitcoin holders on Mezo can mint MUSD, a dollar backed by their BTC. But there is very little fun to do with it. And most crypto games pay players with a token they print themselves, so early players win, and the game dies.
+
+This is Emberdeep: a pixel roguelike where skill wins. You descend into a cave with a lantern. Light is your only resource. Collect gold, fight, choose a new perk every level, and escape through the rift before the dark takes you.
+
+Every descent is deterministic. Our server replays it move by move, and signs only what really happened. Scores cannot be faked.
+
+Now the Ember Pot. A key costs one MUSD. Eighty percent goes straight into this week's prize pot on Mezo, twenty percent to the treasury. At the end of the week, anyone can trigger the payout, and the pot is split by the gold players carried home. No token. No inflation. Nobody, including us, can withdraw the pot.
+
+You don't even need MUSD first. Pay with BTC or with MEZO: our key router swaps it to MUSD on Tigris and buys the key, in one transaction, with no owner and no admin keys.
+
+Every prize descent starts equal. Same lantern, same dagger, no paid boosts. When you come home, you see your loot, and press Claim. That's it. The server checks every move, records your gold in the pot, and adds you to the Hall of Descents on Mezo. The game pays the gas.
+
+The business is simple: the treasury share grows with every key, and the pot grows with every player.
+
+Next wave: Delver NFTs with perks, and a marketplace priced in MUSD.
+
+Emberdeep. Bet your light. Win real MUSD.
+
+## What to show while the voice plays
+
+| Voice | On screen |
+| --- | --- |
+| "Bitcoin holders…" | Title or slide 1 of the deck |
+| "This is Emberdeep…" | A descent: lantern, a fight, a perk choice, the rift [15–20 s of play] |
+| "Every descent is deterministic…" | Keep playing; reach the rift |
+| "Now the Ember Pot…" | Coin button in the header → Ember Pot window: pot, round timer, standings |
+| "You don't even need MUSD…" | Pay with MEZO (or BTC) → wallet confirm → "Keys bought" + explorer link |
+| "Every prize descent starts equal…" | Start a prize descent → come home → loot summary → Claim → "Claimed" |
+| "The business is simple…" | Ember Pot window again: pot grew, your gold in the standings |
+| "Next wave…" | Roadmap slide |
 
 Addresses (Mezo Testnet, chain 31611):
-- EmberPotV2: `0xaf6d0eb582900417d635ff43348052b8cf68e3ea`
-- EmberKeyRouter: `0xd261fc219ef4f48dde9a9ff0ede3a133c78c114e`
-- MUSD: `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503`
-- Tigris BTC/MUSD pool: `0xd16A5Df82120ED8D626a1a15232bFcE2366d6AA9`
+- Ember Pot: `0x7a3e5548a81456ae695d058a90aa73ca543b16eb`
+- Key router (BTC/MEZO → keys): `0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d`
+- Hall of Descents: `0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6`
+- MUSD `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503`, MEZO `0x7b7c…0001`, BTC `0x7b7c…0000`
