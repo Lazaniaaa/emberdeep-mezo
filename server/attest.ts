@@ -24,6 +24,7 @@ import { ReplayError, replayRun } from "@/game/replay";
 import { DESCENT_TYPES, fromWire, hallDomain, toWire, type Attestation, type SignedDescent } from "@/chain/hall-typed";
 import { RUN_RECORD_TYPES, potDomain, runFromWire, runToWire, type PotAttestation, type RunRecord } from "@/chain/pot-typed";
 import { RELAY_LOGIN_SECONDS, relayMessage } from "@/chain/relay-auth";
+import { waitForReceipt } from "@/chain/receipt";
 
 /** One contract call the relayer sends. */
 export type RelayCall = { address: Address; abi: Abi; functionName: string; args: readonly unknown[] };
@@ -231,7 +232,7 @@ export function createRelay(account: PrivateKeyAccount, chainId: number, rpc: st
       const job = queue.then(async () => {
         const { request } = await reader.simulateContract({ ...call, account } as never);
         const hash = await writer.writeContract(request as never);
-        const receipt = await reader.waitForTransactionReceipt({ hash, timeout: 90_000 });
+        const receipt = await waitForReceipt(reader, hash, 90_000);
         if (receipt.status !== "success") throw new Error(`The relayed transaction reverted (${hash})`);
         return hash;
       });

@@ -10,6 +10,7 @@ import {
   BTC_ROUTER, MEZO_NETWORK, MEZO_POT, MEZO_TOKENS, TIGRIS, keyRouterAddress, mezoHallAddress, potRound, type PayToken,
 } from "./mezo-config";
 import { runFromWire, type PotAttestation } from "./pot-typed";
+import { waitForReceipt } from "./receipt";
 import { RELAY_LOGIN_SECONDS, relayMessage } from "./relay-auth";
 import type { Eip1193 } from "./wallet";
 
@@ -66,7 +67,7 @@ export async function switchToMezo(provider: Eip1193) {
 const wallet = (provider: Eip1193, account: Address) => createWalletClient({ account, chain: MEZO, transport: custom(provider) });
 
 async function confirm(hash: Hash) {
-  const receipt = await mezoClient.waitForTransactionReceipt({ hash, timeout: 120_000 });
+  const receipt = await waitForReceipt(mezoClient, hash);
   if (receipt.status !== "success") throw new Error("The transaction reverted on Mezo.");
   return hash;
 }

@@ -6,6 +6,7 @@ import {
 import { ARC_NETWORKS } from "@/chain/arc-config";
 import { MEZO_NETWORK, MEZO_POT, MEZO_TOKENS, TIGRIS } from "@/chain/mezo-config";
 import { injectedProvider, type Eip1193 } from "@/chain/wallet";
+import { waitForReceipt } from "@/chain/receipt";
 
 const network = (n: { id: number; name: string; rpcs: readonly string[]; explorer: string }, gas = { name: "USD Coin", symbol: "USDC", decimals: 18 }) => defineChain({
   id: n.id, name: n.name, nativeCurrency: gas,
@@ -95,7 +96,7 @@ deployButton.addEventListener("click", async () => {
     const ctorArgs = isRouter() ? ROUTER_ARGS : [signer];
     const hash = await wallet.deployContract({ abi: artifact.abi, bytecode: artifact.bytecode, args: ctorArgs });
     say(`Sent: ${hash}\nWaiting for ${c.name}…`);
-    const receipt = await reader(c).waitForTransactionReceipt({ hash, timeout: 120_000 });
+    const receipt = await waitForReceipt(reader(c), hash);
     if (receipt.status !== "success" || !receipt.contractAddress) throw new Error(`The deployment failed (${hash}).`);
     const args = encodeAbiParameters(ctorArgs.map(() => ({ type: "address" })), ctorArgs).slice(2);
     if (isRouter()) {

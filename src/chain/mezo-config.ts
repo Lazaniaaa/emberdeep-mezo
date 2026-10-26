@@ -49,10 +49,10 @@ const env = (key: string): Address | null => {
   return v && ADDRESS.test(v) ? (v as Address) : null;
 };
 
-/** The Hall of Descents on Mezo: the same contract as on Arc. Filled in after the owner deploys it. */
-const MEZO_HALL: Address | null = null;
-/** EmberKeyRouter (contracts/EmberKeyRouter.sol): keys for BTC or MEZO. Filled in after the owner deploys it. */
-const KEY_ROUTER: Address | null = null;
+/** The Hall of Descents on Mezo: the same contract as on Arc. Deployed 2026-10-26 at block 16370281, signer 0x8973…55Cd. */
+const MEZO_HALL: Address | null = "0x959acdcb3edb3f6c12e177a5001ef016292017e2";
+/** EmberKeyRouter (contracts/EmberKeyRouter.sol): keys for BTC or MEZO. Deployed 2026-10-26 at block 16370143. */
+const KEY_ROUTER: Address | null = "0xe8d844fc256feb611635a5038ff8b9d4e9c61ed5";
 
 export const mezoHallAddress = (): Address | null => env("VITE_MEZO_HALL_ADDRESS") ?? MEZO_HALL;
 export const keyRouterAddress = (): Address | null => env("VITE_MEZO_KEY_ROUTER") ?? KEY_ROUTER;
