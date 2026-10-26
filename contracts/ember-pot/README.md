@@ -1,6 +1,6 @@
 # Ember Pot
 
-A weekly prize pool for Emberdeep, paid in a stablecoin (MUSD on Mezo). Built in Arc Studio and deployed by the
+A weekly prize pool for Emberdeep, paid in MUSD on Mezo. Built in Arc Studio and deployed by the
 project owner; these are its sources and Foundry tests.
 
 - Keys cost 1 MUSD. 80% of every key goes into the current week's pot, 20% to the treasury.
@@ -14,8 +14,7 @@ project owner; these are its sources and Foundry tests.
 
 | File | What |
 | --- | --- |
-| `EmberPotV2.sol` | The pot used on Mezo: `EmberPot` plus `buyKeysFor(player, quantity)` for routers |
-| `EmberPot.sol` | The first version (Arc mainnet with USDC) |
+| `EmberPotV2.sol` | The pot used on Mezo, with `buyKeysFor(player, quantity)` so a router can buy keys for a player |
 | `EmberKeyRouter.sol` | The first router: BTC → MUSD on Tigris → keys, bound to the first Mezo pot. The current router, which takes BTC **or MEZO**, is [`../EmberKeyRouter.sol`](../EmberKeyRouter.sol) |
 | `test/` | Foundry tests (`forge test`); `test-helpers/MockERC20.sol` |
 
