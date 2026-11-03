@@ -19,6 +19,8 @@ import { useWallet } from "@/state/wallet";
 import { nftVisual } from "./hero-info";
 import { HeroAvatar } from "./art";
 import { reportDeath } from "./death-cause";
+import { ChestPanel } from "./chest-panel";
+import { earnedChest, itemsLive } from "@/state/items";
 
 export function ReportDialog() {
   const report = useGame(s => s.lastReport);
@@ -106,6 +108,7 @@ export function ReportDialog() {
         )}
 
         {extracted && <ClaimPanel report={report} />}
+        {earnedChest(report) && itemsLive() && <ChestPanel report={report} />}
         {extracted && !report.prize && <ArcRecord report={report} />}
 
         <pre className="rounded-lg border border-white/10 bg-black p-3 text-xs whitespace-pre-wrap text-muted-foreground select-all">{share}</pre>

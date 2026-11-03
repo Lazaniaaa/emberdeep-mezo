@@ -1,4 +1,5 @@
-import { Check, Gem, Shield, Swords } from "lucide-react";
+import { useEffect } from "react";
+import { Check, Gem, Loader2, Shield, Sparkles, Swords, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,10 +17,59 @@ import { Price } from "./camp-ui";
 const affordable = (balance: number, crystals: number, cents: number, extraCrystals: number) =>
   campMode.crystals ? crystals >= crystalsFor(cents) + extraCrystals : balance >= cents && crystals >= extraCrystals;
 import { InsufficientFunds, useGame } from "@/state/store";
+import { carriedItem, itemsLive, useItems } from "@/state/items";
+import { useWallet } from "@/state/wallet";
 import { ItemArt } from "./art";
+import { FoundWeaponRow } from "./found-weapon";
+
+/** The sword is found only in the deep now; the camp still lists it for whoever forged one before. */
+const SHOP_WEAPON = (id: WeaponId, owned: readonly WeaponId[]) => id !== "sword" || owned.includes(id);
+
+/** Weapons found in the deep: EmberItems NFTs in the connected wallet, equipped for practice descents. */
+function FoundWeapons() {
+  const { owned, loading, error, refresh, equip } = useItems();
+  const wallet = useWallet();
+  const carried = useItems(s => s.equipped && carriedItem());
+  useEffect(() => { if (wallet.account) void useItems.getState().refresh(); }, [wallet.account]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 font-pixel"><Sparkles className="size-4" /> Found in the deep</CardTitle>
+        <CardDescription>
+          Slay Cerberus and come home to open its chest: a pickaxe, axe, sword or spear, from Common to Legendary, minted to your
+          wallet on Mezo. Carry one into practice descents instead of a camp weapon, or sell it at the Market.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {!wallet.account ? (
+          <Button variant="outline" onClick={() => void wallet.connect()} disabled={wallet.status === "connecting"}>
+            <Wallet data-icon="inline-start" /> Connect a wallet to see yours
+          </Button>
+        ) : loading && owned.length === 0 ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Reading your weapons on Mezo…</p>
+        ) : error ? (
+          <p className="text-sm text-destructive" role="alert">Could not read your weapons: {error} <button type="button" className="underline" onClick={() => void refresh()}>Retry</button></p>
+        ) : owned.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nothing yet. Cerberus guards floor 7.</p>
+        ) : owned.map(item => {
+          const on = carried?.id === item.id;
+          return (
+            <FoundWeaponRow key={item.id} item={item}>
+              <Button size="sm" variant={on ? "secondary" : "outline"} onClick={() => equip(on ? null : item)}>
+                {on ? <><Check data-icon="inline-start" /> Carried</> : "Carry"}
+              </Button>
+            </FoundWeaponRow>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function ArmoryTab() {
   const game = useGame();
+  const carried = useItems(s => s.equipped && carriedItem());
 
   const buy = (label: string, act: () => void) => {
     try { act(); playSfx("buy", game.muted); toast.success(label); }
@@ -33,16 +83,17 @@ export function ArmoryTab() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="space-y-4">
+        {itemsLive() && <FoundWeapons />}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-pixel"><Swords className="size-4" /> Weapons</CardTitle>
             <CardDescription>Permanent. Damage decides how many swings a dimling takes, and every swing costs a step of light.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {WEAPON_IDS.map(id => {
+            {WEAPON_IDS.filter(id => SHOP_WEAPON(id, game.weapons)).map(id => {
               const w = WEAPONS[id];
               const owned = game.weapons.includes(id);
-              const equipped = game.weapon === id;
+              const equipped = game.weapon === id && !carried;
               return (
                 <div key={id} className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/40 p-3">
                   <ItemArt id={id} px={3} />
@@ -54,7 +105,7 @@ export function ArmoryTab() {
                     <p className="text-xs text-muted-foreground">{w.blurb}</p>
                   </div>
                   {owned ? (
-                    <Button size="sm" variant={equipped ? "secondary" : "outline"} disabled={equipped} onClick={() => game.equipWeapon(id)}>
+                    <Button size="sm" variant={equipped ? "secondary" : "outline"} disabled={equipped} onClick={() => { game.equipWeapon(id); useItems.getState().equip(null); }}>
                       {equipped ? <><Check data-icon="inline-start" /> Equipped</> : "Equip"}
                     </Button>
                   ) : (

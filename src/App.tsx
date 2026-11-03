@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CampScene } from "@/components/camp-scene";
 import { EmberPotDialog } from "@/components/ember-pot-dialog";
+import { MarketDialog } from "@/components/market-dialog";
 import { HallDialog } from "@/components/hall-dialog";
 import { ReportDialog } from "@/components/report-dialog";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ export default function App() {
       {!inRun && <ReportDialog />}
       <HallDialog />
       <EmberPotDialog />
+      <MarketDialog />
       <Toaster theme="dark" position="bottom-center" />
     </TooltipProvider>
   );

@@ -62,6 +62,9 @@ export type Item = { kind: number; rarity: number; seed: bigint };
 /** An item the player holds, with its token id. */
 export type OwnedItem = Item & { id: number };
 
+/** An owned item as a descent's setup carries it (plain JSON: the seed as a decimal string). */
+export const toSetupItem = (i: OwnedItem) => ({ id: i.id, kind: i.kind, rarity: i.rarity, seed: i.seed.toString() });
+
 export const isItem = (i: Item) =>
   Number.isSafeInteger(i.kind) && i.kind >= 0 && i.kind < ITEM_KINDS.length
   && Number.isSafeInteger(i.rarity) && i.rarity >= 0 && i.rarity < RARITIES.length

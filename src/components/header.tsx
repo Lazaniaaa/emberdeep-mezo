@@ -1,4 +1,5 @@
-import { Coins, Flame, Volume2, VolumeX, Wallet, Sparkles, Loader2, Trophy } from "lucide-react";
+import { Coins, Flame, Volume2, VolumeX, Wallet, Sparkles, Loader2, Store, Trophy } from "lucide-react";
+import { marketLive, useItems } from "@/state/items";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -72,6 +73,16 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
             } />
             <TooltipContent>Ember Pot on Mezo: the real weekly MUSD prize pool</TooltipContent>
           </Tooltip>
+          {marketLive() && (
+            <Tooltip>
+              <TooltipTrigger render={
+                <Button variant="ghost" size="icon" aria-label="Open the Market" onClick={() => useItems.getState().setMarketOpen(true)}>
+                  <Store />
+                </Button>
+              } />
+              <TooltipContent>Market: found weapons for MUSD, BTC or MEZO</TooltipContent>
+            </Tooltip>
+          )}
           {(hallConfig() || mezoHallAddress()) && (
             <Tooltip>
               <TooltipTrigger render={

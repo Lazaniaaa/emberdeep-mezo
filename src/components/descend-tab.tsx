@@ -18,6 +18,8 @@ import { useRun } from "@/state/run-store";
 import { activePass, computeRunPerks, useGame, type HeroChoice } from "@/state/store";
 import { InsufficientFunds } from "@/state/store";
 import { foreignRunActive } from "@/state/run-lock";
+import { carriedItem, useItems } from "@/state/items";
+import { itemName, itemStats } from "@/game/items";
 import { WANDERER, nftVisual, type HeroVisual } from "./hero-info";
 import { HeroAvatar, ItemArt } from "./art";
 
@@ -31,6 +33,7 @@ export function DescendTab() {
   const cost = campMode.crystals ? 0 : game.flasks * FLASK_PRICE;
   const light = game.flasks * FLASK_LIGHT + perks.startLight;
   const weapon = WEAPONS[game.weapon];
+  const found = useItems(s => s.equipped && carriedItem());
 
   // What a perk is worth depends on whether the thing behind it is locked, and for how long.
   const lockOf = (key: string) => game.locks.find(l => l.key === key);
@@ -85,14 +88,17 @@ export function DescendTab() {
     }
     playSfx("burn", game.muted);
     const state = useGame.getState();
+    // A found weapon replaces the camp weapon: its own damage and perks, none of the camp weapon's.
+    const item = carriedItem();
     start({
       seed: randomSeed(),
       flasks: state.flasks,
-      perks: computeRunPerks(state),
+      perks: computeRunPerks(item ? { ...state, weapon: "fists" } : state),
       ticketChance: ticketChance(activePass(state)),
-      weaponDamage: WEAPONS[state.weapon].damage,
+      weaponDamage: item ? itemStats({ ...item, seed: BigInt(item.seed) }).damage : WEAPONS[state.weapon].damage,
       bag: { ...state.carried },
       runId: state.runId ?? undefined,
+      ...(item ? { item } : {}),
     });
   };
 
@@ -210,7 +216,9 @@ export function DescendTab() {
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <Badge variant="outline"><ItemArt id={game.weapon} px={1} /> {weapon.name} ({weapon.damage} dmg)</Badge>
+              {found
+                ? <Badge variant="outline">{itemName({ ...found, seed: BigInt(found.seed) })} ({itemStats({ ...found, seed: BigInt(found.seed) }).damage} dmg)</Badge>
+                : <Badge variant="outline"><ItemArt id={game.weapon} px={1} /> {weapon.name} ({weapon.damage} dmg)</Badge>}
               {game.armor !== "none" && <Badge variant="outline"><ItemArt id={game.armor} px={1} /> {ARMORS[game.armor].name}</Badge>}
               {POTION_IDS.filter(id => game.potions[id] > 0).map(id => (
                 <Badge key={id} variant="outline"><ItemArt id={id} px={1} /> {POTIONS[id].name} ×{game.potions[id]}</Badge>

@@ -11,6 +11,7 @@ export const ACCENT = {
   guide: "#c6f15a",
   hall: "#ffd166",
   pot: "#ffc94d",
+  market: "#ff8f5a",
 } as const;
 
 /** The frame class for a camp window's dialog: dark, roomy, a thin accent edge. */

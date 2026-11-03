@@ -64,9 +64,9 @@ export async function switchToMezo(provider: Eip1193) {
   }
 }
 
-const wallet = (provider: Eip1193, account: Address) => createWalletClient({ account, chain: MEZO, transport: custom(provider) });
+export const wallet = (provider: Eip1193, account: Address) => createWalletClient({ account, chain: MEZO, transport: custom(provider) });
 
-async function confirm(hash: Hash) {
+export async function confirm(hash: Hash) {
   const receipt = await waitForReceipt(mezoClient, hash);
   if (receipt.status !== "success") throw new Error("The transaction reverted on Mezo.");
   return hash;
@@ -170,7 +170,7 @@ export async function quoteIn(token: "BTC" | "MEZO", musdOut: bigint): Promise<b
 
 export type BuyStep = "switching" | "approving" | "buying" | "confirming";
 
-async function ensureAllowance(provider: Eip1193, account: Address, token: Address, spender: Address, amount: bigint, onStep: (s: BuyStep) => void) {
+export async function ensureAllowance(provider: Eip1193, account: Address, token: Address, spender: Address, amount: bigint, onStep: (s: BuyStep) => void) {
   const allowance = await mezoClient.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [account, spender] });
   if (allowance >= amount) return;
   onStep("approving");
@@ -268,7 +268,7 @@ export async function relayerAddress(attestUrl: string, fetchImpl: typeof fetch 
   }
 }
 
-const loginKey = (account: Address) => `emberdeep-relay-login:${account.toLowerCase()}`;
+export const loginKey = (account: Address) => `emberdeep-relay-login:${account.toLowerCase()}`;
 
 /** Whether this browser still holds a valid sign-in for the wallet, so relaying needs no popup at all. */
 export function savedLogin(account: Address): { until: number; login: Hex } | null {
@@ -346,6 +346,11 @@ const POT_REFUSALS: [RegExp, string][] = [
   [/Bad gold/, "The pot refused the gold of this descent."],
   [/Paused/, "The Ember Pot is paused for now. Nothing changed."],
   [/Round not ended/, "That round has not ended yet."],
+  [/AlreadyDropped/, "This chest is opened already."],
+  [/PriceAbove/, "The seller raised the price. Look again before buying."],
+  [/NotListed/, "That item is no longer for sale."],
+  [/AlreadyListed/, "That item is listed already."],
+  [/NotSeller/, "Only the seller can change this listing."],
 ];
 
 /** A wallet, RPC or contract error on Mezo as one short sentence a player can act on. */

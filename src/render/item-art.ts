@@ -126,6 +126,48 @@ export const ITEM_ART: Record<WeaponId | Exclude<ArmorId, "none"> | PotionId, Sp
 
 export type ItemArtId = keyof typeof ITEM_ART;
 
+// ---------------------------------------------------------------- found weapons (EmberItems), until the drawn icons land
+
+/** A wooden haft from the bottom-left corner toward `top`. */
+function haft(top: [number, number]): Grid {
+  const g = blank();
+  line(g, 2, 13, top[0], top[1], "B", true);
+  line(g, 2, 13, top[0], top[1], "b");
+  return g;
+}
+
+function pickaxe(): Sprite {
+  const g = haft([10, 5]);
+  // A curved two-pointed head across the top of the haft.
+  line(g, 6, 3, 9, 3, "S"); line(g, 9, 3, 12, 5, "S"); line(g, 12, 5, 13, 8, "S");
+  line(g, 7, 2, 10, 2, "s"); line(g, 10, 2, 13, 4, "s"); line(g, 13, 4, 14, 8, "s");
+  put(g, 5, 4, "s"); put(g, 14, 9, "s");
+  return outline(g);
+}
+
+function axe(): Sprite {
+  const g = haft([11, 4]);
+  // A broad single blade on the right of the haft's head.
+  for (let y = 1; y <= 8; y++) for (let x = 10; x <= 14; x++) {
+    if (x - 10 + Math.abs(y - 4.5) <= 5) put(g, x, y, x >= 13 ? "w" : "s");
+  }
+  line(g, 10, 1, 10, 8, "S");
+  return outline(g);
+}
+
+function spear(): Sprite {
+  const g = blank();
+  line(g, 1, 14, 11, 4, "B", true);
+  line(g, 1, 14, 11, 4, "b");
+  // A leaf-shaped head past the shaft.
+  line(g, 11, 4, 14, 1, "s", true);
+  put(g, 12, 2, "s"); put(g, 13, 3, "s"); put(g, 11, 3, "w"); put(g, 12, 4, "S"); put(g, 15, 0, "w");
+  return outline(g);
+}
+
+/** Code icons for the four found-weapon kinds, in the order the chain numbers them. */
+export const FOUND_ART: readonly Sprite[] = [pickaxe(), axe(), sword("s", "w", "y", "B", [14, 1], [6, 9]), spear()];
+
 // ---------------------------------------------------------------- Delver portraits
 
 const PORTRAIT = [
