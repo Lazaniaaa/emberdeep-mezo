@@ -676,3 +676,28 @@ Save as `art/perks/raw/perks.webp`, then run `node scripts/sprite-sheets.mjs per
 transparent 160×96 PNG atlas (15 cells of 32×32) at `public/perks/perks.png`, cleans magenta fringe and maps into
 the shared palette. Restart the dev server / rebuild after adding the source. Until then, distinct temporary code
 icons keep the game usable; they are placeholders, not substitute approved artwork.
+
+## I-items — four found-weapon icons (2026-11-03)
+
+Owner-generated art; do not generate it in the coding assistant. Attach `docs/screenshots/mobs-palette.png` and the
+perk sheet `public/perks/perks.png` as the style reference: these icons sit next to the perk icons.
+
+**Prompt (one image):**
+
+Create ONE pixel-art icon sheet for Emberdeep, an original cave roguelike with cat/dog delvers carrying lanterns.
+Exactly **4 columns × 1 row**, four equally sized SQUARE cells, left to right in the order below. Canvas aspect ratio
+4:1 (suggested 1280×320, each cell 320×320). All background and gutters must be perfect flat **#FF00FF**; keep every
+icon isolated and centred inside its own cell, with at least 10% empty margin. No words, letters, numbers, borders,
+frames, gradients, antialiasing, soft shadows, watermarks or scenery. Each icon must remain immediately recognizable
+at **32×32**: large deliberate pixel clusters, crisp single-width dark outline #0a0b16, the weapon drawn diagonally
+(handle bottom-left, head top-right), maximum three shades per material and one clear silhouette. Draw every metal
+part in NEUTRAL GREY steel (#555857 #8c8c83 #bdbaab) and wood in brown (#614834 #95654d): the game tints the metal
+per item, so no coloured metal and no glow. Use only the shared palette from `art/palette/mobs.json`.
+
+1. **Pickaxe:** a miner's pickaxe, a worn wooden handle and a curved two-pointed steel head; clearly a tool, not a weapon.
+2. **Axe:** a short one-handed war axe with a broad single steel blade and a wrapped wooden handle.
+3. **Sword:** a straight one-handed sword with a simple cross guard and a leather-wrapped grip; the finest of the four.
+4. **Spear:** a long spear with a leaf-shaped steel head and a thin wooden shaft; it fills the cell corner to corner.
+
+Save as `art/items/raw/items.webp`. The importer (`node scripts/sprite-sheets.mjs items`) turns it into a transparent
+128×32 atlas (4 cells of 32×32) at `public/items/items.png`. Until then the game draws simple code icons.
