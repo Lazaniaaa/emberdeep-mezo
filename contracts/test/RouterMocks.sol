@@ -3,8 +3,8 @@ pragma solidity 0.8.28;
 
 import {Route} from "../EmberKeyRouter.sol";
 
-/// Test helpers for EmberKeyRouter: a plain ERC-20, a Tigris router with a fixed rate, and an Ember Pot that only
-/// sells keys. Never deployed.
+/// Test helpers for EmberKeyRouter and EmberMarket: a plain ERC-20, a Tigris router with a fixed rate, and an Ember Pot that only
+/// sells keys and takes fees. Never deployed.
 contract MockToken {
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
@@ -62,5 +62,13 @@ contract MockPot {
     function buyKeysFor(address player, uint256 quantity) external {
         musd.transferFrom(msg.sender, address(this), keyPrice * quantity);
         keyBalance[player] += quantity;
+    }
+
+    /// Fees the market added to the prizes.
+    uint256 public funded;
+
+    function fund(uint256 amount) external {
+        musd.transferFrom(msg.sender, address(this), amount);
+        funded += amount;
     }
 }

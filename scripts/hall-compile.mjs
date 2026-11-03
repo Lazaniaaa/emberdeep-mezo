@@ -1,4 +1,5 @@
-// Compiles the contracts with solc 0.8.28 (Solady from node_modules): the Hall of Descents and the Mezo key router.
+// Compiles the contracts with solc 0.8.28 (Solady and OpenZeppelin from node_modules): the Hall of Descents, the Mezo
+// key router, the items, their market and the Ember Pot.
 // `npm run hall:compile` writes contracts/out/<Name>.json (ABI and bytecode, used by the deploy page) and
 // contracts/out/<Name>.standard-input.json (paste into the explorer's "Standard JSON input" verification).
 // The tests import compileHall() / compileContract() so they always test the source, not a stale artifact.
@@ -10,7 +11,13 @@ const require = createRequire(import.meta.url);
 const solc = require("solc");
 const root = new URL("../", import.meta.url);
 /** The contracts that ship, by name. Mezo runs Cancun, so the same settings serve Arc and Mezo. */
-export const CONTRACTS = { EmberdeepHall: "contracts/EmberdeepHall.sol", EmberKeyRouter: "contracts/EmberKeyRouter.sol" };
+export const CONTRACTS = {
+  EmberdeepHall: "contracts/EmberdeepHall.sol",
+  EmberKeyRouter: "contracts/EmberKeyRouter.sol",
+  EmberItems: "contracts/EmberItems.sol",
+  EmberMarket: "contracts/EmberMarket.sol",
+  EmberPotV3: "contracts/ember-pot/EmberPotV3.sol",
+};
 
 /** Settings the deployed bytecode is built with. Changing them changes the bytecode, so verification must match. */
 export const SETTINGS = {
@@ -20,7 +27,8 @@ export const SETTINGS = {
 };
 
 function readImport(path) {
-  const file = path.startsWith("solady/") ? `node_modules/solady/src/${path.slice("solady/".length)}` : path;
+  const file = path.startsWith("solady/") ? `node_modules/solady/src/${path.slice("solady/".length)}`
+    : path.startsWith("@openzeppelin/") ? `node_modules/${path}` : path;
   return readFileSync(fileURLToPath(new URL(file, root)), "utf8");
 }
 
