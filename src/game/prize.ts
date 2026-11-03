@@ -13,9 +13,9 @@ export const prizeSetup = (seed: number): RunSetup => ({
   seed, flasks: PRIZE_FLASKS, perks: { ...NO_PERKS }, weaponDamage: PRIZE_WEAPON.damage, bag: emptyBag(),
 });
 
-/** Whether a (validated) setup is the prize loadout. The seed and the ticket chance do not matter. */
+/** Whether a (validated) setup is the prize loadout: no found weapon either. The seed and the ticket chance do not matter. */
 export function isPrizeSetup(setup: RunSetup): boolean {
-  if (setup.flasks !== PRIZE_FLASKS || setup.weaponDamage !== PRIZE_WEAPON.damage) return false;
+  if (setup.flasks !== PRIZE_FLASKS || setup.weaponDamage !== PRIZE_WEAPON.damage || setup.item) return false;
   if (POTION_IDS.some(id => (setup.bag[id] ?? 0) !== 0)) return false;
   return (Object.keys(NO_PERKS) as (keyof typeof NO_PERKS)[]).every(k => (setup.perks[k] ?? NO_PERKS[k]) === NO_PERKS[k]);
 }

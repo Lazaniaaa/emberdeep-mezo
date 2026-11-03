@@ -9,7 +9,7 @@
 //   node attest.mjs                    serve (configured by the environment, see CONFIG below)
 //
 // Built into one file by `npm run server:build` (server-dist/attest.mjs).
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { dirname } from "node:path";
@@ -23,8 +23,10 @@ import { isPrizeSetup } from "@/game/prize";
 import { ReplayError, replayRun } from "@/game/replay";
 import { DESCENT_TYPES, fromWire, hallDomain, toWire, type Attestation, type SignedDescent } from "@/chain/hall-typed";
 import { RUN_RECORD_TYPES, potDomain, runFromWire, runToWire, type PotAttestation, type RunRecord } from "@/chain/pot-typed";
+import { DROP_TYPES, dropFromWire, dropToWire, itemsDomain, type DropAttestation, type SignedDrop } from "@/chain/items-typed";
 import { RELAY_LOGIN_SECONDS, relayMessage } from "@/chain/relay-auth";
-import { MEZO_NETWORK, MEZO_POT, mezoHallAddress } from "@/chain/mezo-config";
+import { MEZO_NETWORK, MEZO_POT, itemsAddress, mezoHallAddress } from "@/chain/mezo-config";
+import { rollChest, type Item } from "@/game/items";
 import { startAutoPayout } from "./payout";
 import { waitForReceipt } from "@/chain/receipt";
 
@@ -42,6 +44,13 @@ const RELAY_HALL_ABI = parseAbi([
   "function record(Descent d, bytes signature)",
 ]);
 const RELAY_POT_ABI = parseAbi(["function recordRun(address player, bytes32 runId, uint256 gold, uint256 deadline, bytes signature)"]);
+const ITEMS_ABI = parseAbi([
+  "struct Drop { address player; bytes32 runId; uint16 kind; uint8 rarity; uint64 seed; uint64 deadline; }",
+  "struct Item { uint16 kind; uint8 rarity; uint64 seed; }",
+  "function claimDrop(Drop d, bytes signature) returns (uint256)",
+  "function itemOf(uint256 id) view returns (Item)",
+  "function ownerOf(uint256 id) view returns (address)",
+]);
 
 /** A Hall of Descents on some chain. */
 export type HallTarget = { address: Address; chainId: number };
@@ -49,8 +58,19 @@ export type HallTarget = { address: Address; chainId: number };
 /** The Ember Pot: its round clock and gold cap are immutable on chain and repeated here. */
 export type PotTarget = { address: Address; chainId: number; launchTime: number; roundSeconds: number; maxGold: number };
 
+/**
+ * EmberItems on Mezo: the chest a descent earns by slaying Cerberus, and the found weapons a descent may carry.
+ * `secret` keys the roll of what a chest holds; `readItem` reads an item and its holder from the chain.
+ */
+export type ItemsTarget = {
+  address: Address;
+  chainId: number;
+  secret: string;
+  readItem: (id: number) => Promise<{ owner: Address; item: Item }>;
+};
+
 /** What a request asks to be signed for. Requests without a target are for the Hall on Arc, as before. */
-export type TargetId = "arc" | "mezo" | "pot";
+export type TargetId = "arc" | "mezo" | "pot" | "drop";
 
 export type AttestConfig = {
   account: PrivateKeyAccount;
@@ -61,6 +81,8 @@ export type AttestConfig = {
   mezoHall?: HallTarget;
   /** The Ember Pot on Mezo. */
   pot?: PotTarget;
+  /** EmberItems on Mezo. Without it chests are not opened and descents cannot carry found weapons. */
+  items?: ItemsTarget;
   /** The relayer for Mezo Testnet. Without it /api/relay answers 404 and players send records themselves. */
   relay?: Relay;
   /** How long a signature stays valid. The player has this long to send the record. */
@@ -119,18 +141,33 @@ export function runIdOf(player: Address, setup: unknown, moves: readonly string[
   ));
 }
 
+/**
+ * A chest is tied to the player and the dungeon seed, not to the moves: the same Cerberus run sent again with a changed
+ * setup or an extra step would otherwise roll a new chest. One chest per seed per player.
+ */
+export function dropIdOf(player: Address, seed: number): Hex {
+  return keccak256(encodeAbiParameters([{ type: "address" }, { type: "uint256" }, { type: "string" }], [player, BigInt(seed), "chest"]));
+}
+
+/** What a chest holds: an HMAC of its drop id under the server's secret, so nobody can work it out in advance. */
+export const chestRoll = (secret: string, dropId: Hex): Hex => `0x${createHmac("sha256", secret).update(dropId).digest("hex")}`;
+
+/** A Cerberus chest that turned out empty (only when the chest chance is below 100%). */
+export type EmptyChest = { empty: true; dropId: Hex };
+
 /** A pot signature never outlives its round: the contract checks it against the round it is sent in. */
 const POT_ROUND_MARGIN = 120;
 
-export async function attest(config: AttestConfig, body: unknown): Promise<Attestation | PotAttestation> {
+export async function attest(config: AttestConfig, body: unknown): Promise<Attestation | PotAttestation | DropAttestation | EmptyChest> {
   const b = (body ?? {}) as Record<string, unknown>;
   if (typeof b.player !== "string" || !isAddress(b.player)) throw new HttpError(400, "player must be an address");
   const player = getAddress(b.player);
   const target = (b.target ?? "arc") as TargetId;
-  if (target !== "arc" && target !== "mezo" && target !== "pot") throw new HttpError(400, "target must be arc, mezo or pot");
+  if (target !== "arc" && target !== "mezo" && target !== "pot" && target !== "drop") throw new HttpError(400, "target must be arc, mezo, pot or drop");
   if (target === "arc" && !config.hall) throw new HttpError(404, "The Hall on Arc is not set up on this server");
   if (target === "mezo" && !config.mezoHall) throw new HttpError(404, "The Hall on Mezo is not set up on this server");
   if (target === "pot" && !config.pot) throw new HttpError(404, "The Ember Pot is not set up on this server");
+  if (target === "drop" && !config.items) throw new HttpError(404, "Chests are not set up on this server");
 
   let result;
   try {
@@ -143,6 +180,32 @@ export async function attest(config: AttestConfig, body: unknown): Promise<Attes
 
   const now = Math.floor((config.now ?? Date.now)() / 1000);
   const runId = runIdOf(player, result.setup, b.moves as string[]);
+
+  // A found weapon counts only if the player holds that very item on chain.
+  const carried = result.setup.item;
+  if (carried) {
+    if (!config.items) throw new HttpError(422, "Found weapons are not set up on this server");
+    const held = await config.items.readItem(carried.id).catch(() => null);
+    const same = held && held.owner.toLowerCase() === player.toLowerCase() && held.item.kind === carried.kind
+      && held.item.rarity === carried.rarity && held.item.seed === BigInt(carried.seed);
+    if (!same) throw new HttpError(422, "This descent carried a weapon its player does not hold");
+  }
+
+  if (target === "drop") {
+    const items = config.items!;
+    if (!result.bossSlain) throw new HttpError(422, "Only slaying Cerberus earns a chest");
+    if (!result.home) throw new HttpError(422, "The chest counts only if you carry it home");
+    const dropId = dropIdOf(player, result.setup.seed);
+    const item = rollChest(chestRoll(items.secret, dropId));
+    if (!item) return { empty: true, dropId };
+    const drop: SignedDrop = {
+      player, runId: dropId, kind: item.kind, rarity: item.rarity, seed: item.seed, deadline: BigInt(now + config.ttlSeconds),
+    };
+    const signature = await config.account.signTypedData({
+      domain: itemsDomain(items.chainId, items.address), types: DROP_TYPES, primaryType: "Drop", message: drop,
+    });
+    return { drop: dropToWire(drop), signature };
+  }
 
   if (target === "pot") {
     const pot = config.pot!;
@@ -186,6 +249,7 @@ function relayRefusal(e: unknown): HttpError | null {
   for (const [pattern, message] of [
     [/No key/, "You have no Ember Pot key on Mezo. Buy one, then record again."],
     [/Run already recorded|AlreadyRecorded/, "This descent is recorded already."],
+    [/AlreadyDropped/, "This chest is opened already."],
     [/Expired/, "The signature ran out. Record it again."],
     [/Bad signature|BadSignature/, "The contract did not accept the server's signature. Record it again."],
     [/insufficient funds|exceeds the balance/i, "The game's relayer is out of testnet BTC for gas. Record it with your own wallet for now."],
@@ -204,19 +268,22 @@ export async function checkLogin(player: Address, b: Record<string, unknown>, no
 }
 
 /** Replays, signs and sends a descent to the Hall on Mezo or the Ember Pot, paid by the relayer. */
-export async function relay(config: AttestConfig, body: unknown): Promise<{ hash: Hex; attestation: Attestation | PotAttestation }> {
+export async function relay(config: AttestConfig, body: unknown): Promise<{ hash: Hex | null; attestation: Attestation | PotAttestation | DropAttestation | EmptyChest }> {
   if (!config.relay) throw new HttpError(404, "This server does not relay");
   const b = (body ?? {}) as Record<string, unknown>;
-  if (b.target !== "mezo" && b.target !== "pot") throw new HttpError(400, "Only Mezo records are relayed (target mezo or pot)");
+  if (b.target !== "mezo" && b.target !== "pot" && b.target !== "drop") throw new HttpError(400, "Only Mezo records are relayed (target mezo, pot or drop)");
   if (typeof b.player !== "string" || !isAddress(b.player)) throw new HttpError(400, "player must be an address");
   await checkLogin(getAddress(b.player), b, Math.floor((config.now ?? Date.now)() / 1000));
   const attestation = await attest(config, body);
+  if ("empty" in attestation) return { hash: null, attestation };
   const call: RelayCall = "run" in attestation
     ? (() => {
       const r = runFromWire(attestation.run);
       return { address: config.pot!.address, abi: RELAY_POT_ABI, functionName: "recordRun", args: [r.player, r.runId, r.gold, r.deadline, attestation.signature] };
     })()
-    : { address: config.mezoHall!.address, abi: RELAY_HALL_ABI, functionName: "record", args: [fromWire(attestation.descent), attestation.signature] };
+    : "drop" in attestation
+      ? { address: config.items!.address, abi: ITEMS_ABI, functionName: "claimDrop", args: [dropFromWire(attestation.drop), attestation.signature] }
+      : { address: config.mezoHall!.address, abi: RELAY_HALL_ABI, functionName: "record", args: [fromWire(attestation.descent), attestation.signature] };
   try {
     return { hash: await config.relay.send(call), attestation };
   } catch (e) {
@@ -246,6 +313,15 @@ export function createRelay(account: PrivateKeyAccount, chainId: number, rpc: st
   };
 }
 
+/** One log line for what was signed. */
+function describe(a: Attestation | PotAttestation | DropAttestation | EmptyChest) {
+  if ("empty" in a) return `empty chest ${a.dropId.slice(0, 10)}`;
+  if ("run" in a) return `pot ${a.run.player} round ${a.run.roundId} gold ${a.run.gold} run ${a.run.runId.slice(0, 10)}`;
+  if ("drop" in a) return `chest ${a.drop.player} kind ${a.drop.kind} rarity ${a.drop.rarity}`;
+  const d = a.descent;
+  return `${d.player} depth ${d.depth} gold ${d.gold} ${d.home ? "home" : "lost"} run ${d.runId.slice(0, 10)}`;
+}
+
 export function createAttestServer(config: AttestConfig): Server {
   const limit = config.rateLimit ?? { max: 20, windowMs: 10 * 60_000 };
   const hits = new Map<string, { count: number; reset: number }>();
@@ -257,7 +333,7 @@ export function createAttestServer(config: AttestConfig): Server {
       if (req.method === "GET" && url.pathname === "/api/health") {
         send(res, 200, {
           ok: true, signer: config.account.address, hall: config.hall, chainId: config.chainId,
-          mezoHall: config.mezoHall?.address ?? null, pot: config.pot?.address ?? null,
+          mezoHall: config.mezoHall?.address ?? null, pot: config.pot?.address ?? null, items: config.items?.address ?? null,
           ...(config.relay ? { relayer: config.relay.address } : {}),
         });
         return;
@@ -277,18 +353,12 @@ export function createAttestServer(config: AttestConfig): Server {
       try { body = JSON.parse(await readBody(req)); } catch (e) { throw e instanceof HttpError ? e : new HttpError(400, "The body is not JSON"); }
       if (url.pathname === "/api/relay") {
         const { hash, attestation } = await relay(config, body);
-        log(`relayed ${"run" in attestation ? `pot ${attestation.run.player} gold ${attestation.run.gold}` : `hall ${attestation.descent.player} depth ${attestation.descent.depth}`} tx ${hash}`);
+        log(`relayed ${describe(attestation)} tx ${hash ?? "none"}`);
         send(res, 200, { hash, ...attestation });
         return;
       }
       const attestation = await attest(config, body);
-      if ("run" in attestation) {
-        const r = attestation.run;
-        log(`signed pot ${r.player} round ${r.roundId} gold ${r.gold} run ${r.runId.slice(0, 10)}`);
-      } else {
-        const d = attestation.descent;
-        log(`signed ${d.player} depth ${d.depth} gold ${d.gold} ${d.home ? "home" : "lost"} run ${d.runId.slice(0, 10)}`);
-      }
+      log(`signed ${describe(attestation)}`);
       send(res, 200, attestation);
     } catch (e) {
       if (e instanceof HttpError) { send(res, e.status, { error: e.message }); return; }
@@ -301,6 +371,32 @@ export function createAttestServer(config: AttestConfig): Server {
 // ── running it ─────────────────────────────────────────────────────────────────────────────────────────
 
 const DEFAULT_KEY_FILE = "/etc/emberdeep/signer.key";
+const DEFAULT_SECRET_FILE = "/etc/emberdeep/chest.secret";
+
+/** The chest secret: made once on first start, then kept. Losing it only changes what future chests roll. */
+function loadSecret(file: string): string {
+  if (!existsSync(file)) {
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, `${randomBytes(32).toString("hex")}\n`, { mode: 0o600 });
+    chmodSync(file, 0o600);
+  }
+  return readFileSync(file, "utf8").trim();
+}
+
+/** EmberItems on Mezo, read through the public RPC. */
+function createItems(address: Address, chainId: number, rpc: string, secret: string): ItemsTarget {
+  const reader = createPublicClient({ transport: http(rpc) });
+  return {
+    address, chainId, secret,
+    readItem: async id => {
+      const [owner, item] = await Promise.all([
+        reader.readContract({ address, abi: ITEMS_ABI, functionName: "ownerOf", args: [BigInt(id)] }),
+        reader.readContract({ address, abi: ITEMS_ABI, functionName: "itemOf", args: [BigInt(id)] }),
+      ]);
+      return { owner, item: { kind: item.kind, rarity: item.rarity, seed: item.seed } };
+    },
+  };
+}
 
 /**
  * A fresh secp256k1 key from Node's own CSPRNG. (viem's generatePrivateKey needs the global Web Crypto object, which
@@ -355,6 +451,8 @@ function main(argv: string[]) {
   const mezoHallEnv = optional("MEZO_HALL_ADDRESS");
   const mezoHall = mezoHallEnv ?? (mezoHallAddress() ? getAddress(mezoHallAddress()!) : null);
   const pot = optional("MEZO_POT_ADDRESS") ?? getAddress(MEZO_POT.address);
+  const itemsEnv = optional("MEZO_ITEMS_ADDRESS") ?? (itemsAddress() ? getAddress(itemsAddress()!) : null);
+  const mezoRpc = process.env.MEZO_RPC ?? MEZO_NETWORK.rpcs[0];
   const config: AttestConfig = {
     account: loadKey(file),
     hall,
@@ -369,6 +467,7 @@ function main(argv: string[]) {
       },
     } : {}),
     ...(relayer ? { relay: relayer } : {}),
+    ...(itemsEnv ? { items: createItems(itemsEnv, mezoChainId, mezoRpc, loadSecret(process.env.CHEST_SECRET_FILE ?? DEFAULT_SECRET_FILE)) } : {}),
     ttlSeconds: Number(process.env.SIGN_TTL_SECONDS ?? 3600),
   };
   if (relayer && relayer.address === config.account.address) throw new Error("The relayer must have its own key, never the signing key");
@@ -380,6 +479,7 @@ function main(argv: string[]) {
     if (config.mezoHall) console.log(`  Hall on Mezo ${config.mezoHall.address} (chain ${config.mezoHall.chainId})`);
     if (config.pot) console.log(`  Ember Pot ${config.pot.address} (chain ${config.pot.chainId})`);
     if (config.relay) console.log(`  Relayer ${config.relay.address} pays the gas on Mezo Testnet`);
+    if (config.items) console.log(`  Items ${config.items.address}: opens Cerberus chests`);
   });
   // When a pot week ends, the relayer pays everyone out; anyone else could too, so this never holds the pot back.
   if (config.relay && config.pot && process.env.AUTO_PAYOUT !== "off") {

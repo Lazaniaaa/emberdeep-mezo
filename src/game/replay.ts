@@ -7,8 +7,9 @@ import {
   type Perks, type PotionId,
 } from "./catalog";
 import { LOCK_MAX, MAX_FLASKS, PASSES, STAKE_GOLD_CAP, TICKET_DROP_CHANCE } from "./config";
-import { applyAction, startRun, type PotionBag, type RunAction, type RunSetup, type RunState } from "./run";
+import { applyAction, startRun, type PotionBag, type RunAction, type RunSetup, type RunState, type SetupItem } from "./run";
 import {isLevelPerk} from './level-perks';
+import { isItem, itemStats } from "./items";
 
 /**
  * A five-flask descent with the strongest loadout is about 2,000 moves and replays in half a second. Ten times that is
@@ -95,7 +96,8 @@ export function validateSetup(raw: unknown): RunSetup {
   const fail = (what: string) => { throw new ReplayError(`Setup: ${what}`); };
   if (!Number.isSafeInteger(s.seed) || (s.seed as number) < 0 || (s.seed as number) > 0xffff_ffff) fail("seed");
   if (!Number.isSafeInteger(s.flasks) || (s.flasks as number) < 1 || (s.flasks as number) > MAX_FLASKS) fail("flasks");
-  if (!WEAPON_DAMAGE.has(s.weaponDamage as number)) fail("weapon");
+  const item = s.item === undefined ? undefined : validateItem(s.item, fail);
+  if (item ? s.weaponDamage !== itemStats({ ...item, seed: BigInt(item.seed) }).damage : !WEAPON_DAMAGE.has(s.weaponDamage as number)) fail("weapon");
   if (s.ticketChance !== undefined && !TICKET_CHANCES.has(s.ticketChance as number)) fail("ticket chance");
 
   const rawBag = record(s.bag);
@@ -125,7 +127,18 @@ export function validateSetup(raw: unknown): RunSetup {
   return {
     seed: s.seed as number, flasks: s.flasks as number, perks, weaponDamage: s.weaponDamage as number, bag,
     ...(s.ticketChance !== undefined ? { ticketChance: s.ticketChance as number } : {}),
+    ...(item ? { item } : {}),
   };
+}
+
+/** A found weapon in a setup: its token id and what it is. Whether the player holds it is checked on chain by the server. */
+function validateItem(raw: unknown, fail: (what: string) => never): SetupItem {
+  const i = record(raw);
+  if (!Number.isSafeInteger(i.id) || (i.id as number) < 1) fail("item id");
+  if (typeof i.seed !== "string" || !/^\d{1,20}$/.test(i.seed)) fail("item seed");
+  const item = { id: i.id as number, kind: i.kind as number, rarity: i.rarity as number, seed: i.seed as string };
+  if (!isItem({ ...item, seed: BigInt(item.seed) })) fail("item");
+  return item;
 }
 
 // ── replay ─────────────────────────────────────────────────────────────────────────────────────────────

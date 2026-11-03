@@ -137,7 +137,7 @@ describe("attestation server", () => {
 
   it("reports what it signs for", async () => {
     const health = await (await fetch(`${base}/api/health`)).json() as Record<string, unknown>;
-    expect(health).toEqual({ ok: true, signer: signer.address, hall: hall.address, chainId: EVM_CHAIN_ID, mezoHall: null, pot: null });
+    expect(health).toEqual({ ok: true, signer: signer.address, hall: hall.address, chainId: EVM_CHAIN_ID, mezoHall: null, pot: null, items: null });
   });
 
   it("signs for the Hall on Mezo with its own domain, and only when it is set up", async () => {

@@ -119,6 +119,17 @@ describe("EmberItems", () => {
     expect(String(await items.read("owner")).toLowerCase()).toBe(STRANGER);
   });
 
+  it("lists the items a player holds, page by page", async () => {
+    const total = await items.read("totalMinted") as bigint;
+    const [ids, found] = await items.read("itemsOwnedBy", [PLAYER, 1n, total]) as [bigint[], { kind: number }[]];
+    for (const id of ids) expect(await owner(id)).toBe(PLAYER);
+    expect(found.length).toBe(ids.length);
+    const all = [];
+    for (let from = 1n; from <= total; from += 2n) all.push(...(await items.read("itemsOwnedBy", [PLAYER, from, 2n]) as [bigint[]])[0]);
+    expect(all).toEqual(ids);
+    expect(await items.read("itemsOwnedBy", [PLAYER, total + 5n, 10n])).toEqual([[], []]);
+  });
+
   it("answers only for minted ids", async () => {
     expect(await items.send(PLAYER, "tokenURI", [999n])).toMatchObject({ ok: false, error: "TokenDoesNotExist" });
     expect(await items.send(PLAYER, "itemOf", [999n])).toMatchObject({ ok: false, error: "TokenDoesNotExist" });

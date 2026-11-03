@@ -141,6 +141,30 @@ contract EmberItems is ERC721, EIP712 {
         return _items[id];
     }
 
+    /// @notice The items `account` holds among token ids `fromId` to `fromId + count - 1`, so the game can show a
+    ///         player's weapons with plain calls instead of log history. Page through `totalMinted` in steps.
+    function itemsOwnedBy(address account, uint256 fromId, uint256 count)
+        external
+        view
+        returns (uint256[] memory ids, Item[] memory found)
+    {
+        uint256 end = totalMinted + 1;
+        if (fromId == 0) fromId = 1;
+        if (fromId > end) fromId = end;
+        if (count < end - fromId) end = fromId + count;
+        uint256 n;
+        for (uint256 id = fromId; id < end; ++id) if (_ownerOf(id) == account) ++n;
+        ids = new uint256[](n);
+        found = new Item[](n);
+        n = 0;
+        for (uint256 id = fromId; id < end; ++id) {
+            if (_ownerOf(id) == account) {
+                ids[n] = id;
+                found[n++] = _items[id];
+            }
+        }
+    }
+
     /// @notice The EIP-712 digest the signer signs for a drop, for off-chain checks.
     function digest(Drop calldata d) external view returns (bytes32) {
         return _hashTypedData(_structHash(d));

@@ -55,8 +55,15 @@ const MEZO_HALL: Address | null = "0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6";
 /** EmberKeyRouter (contracts/EmberKeyRouter.sol): keys for BTC or MEZO, for the pot above. Deployed 2026-10-26. */
 const KEY_ROUTER: Address | null = "0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d";
 
+/** EmberItems (contracts/EmberItems.sol): weapons found in the deep, as NFTs. Not deployed yet. */
+const ITEMS: Address | null = null;
+/** EmberMarket (contracts/EmberMarket.sol): items for MUSD, BTC or MEZO, its fee into the Ember Pot. Not deployed yet. */
+const MARKET: Address | null = null;
+
 export const mezoHallAddress = (): Address | null => env("VITE_MEZO_HALL_ADDRESS") ?? MEZO_HALL;
 export const keyRouterAddress = (): Address | null => env("VITE_MEZO_KEY_ROUTER") ?? KEY_ROUTER;
+export const itemsAddress = (): Address | null => env("VITE_MEZO_ITEMS") ?? ITEMS;
+export const marketAddress = (): Address | null => env("VITE_MEZO_MARKET") ?? MARKET;
 
 /** The pot round running at `nowSeconds`, and when it ends, as the contract computes them. */
 export function potRound(nowSeconds: number) {

@@ -11,6 +11,7 @@ import { enemyDef, enemyName } from "./enemies";
 import { BOSS_XP, CHEST_XP, HOARD_XP, LEVEL_DAMAGE, LEVEL_LIGHT, MAX_LEVEL, VAULT_XP, killXp, levelDamage, xpToNext } from "./levels";
 import { GEAR, GEAR_DUPLICATE_XP, GEAR_IDS, gearDamage, lanternFullness, lootWeights, propDef, type GearId, type LootKind } from "./props";
 import { noteLight, tuning } from "./tuning";
+import { itemStats } from "./items";
 import { chance, createRng, int, weighted, type Rng } from "./rng";
 
 export type RunEvent =
@@ -98,10 +99,20 @@ export type RunSetup = {
   ticketChance?: number;
   /** Ties this descent to the payment that started it, so its result can only be settled once. */
   runId?: string;
+  /**
+   * A weapon found in the deep (an EmberItems NFT), carried instead of a camp weapon. Its damage, perks and the
+   * sword's level perk come from the item itself; `weaponDamage` must equal its damage. The seed is a decimal string so
+   * the setup stays plain JSON.
+   */
+  item?: SetupItem;
 };
+
+export type SetupItem = { id: number; kind: number; rarity: number; seed: string };
 
 export function startRun(setup: RunSetup): RunState {
   const rng = createRng(setup.seed);
+  const item = setup.item ? itemStats({ ...setup.item, seed: BigInt(setup.item.seed) }) : null;
+  const perks = item ? mergePerks(setup.perks, item.perks) : setup.perks;
   const floor = generateFloor(rng, 1, { findPct: setup.perks.findPct });
   const light = setup.flasks * FLASK_LIGHT + setup.perks.startLight;
   const state: RunState = {
@@ -110,11 +121,11 @@ export function startRun(setup: RunSetup): RunState {
     light, startLight: light, maxLight: light, steps: 0, kills: 0, gold: 0, crystals: 0, sigils: 0,
     tickets: 0, ticketChance: setup.ticketChance ?? TICKET_DROP_CHANCE,
     bag: { ...setup.bag }, used: emptyBag(), found: emptyBag(),
-    nightVision: 0, ward: 0, perks: setup.perks, weaponDamage: setup.weaponDamage,
+    nightVision: 0, ward: 0, perks, weaponDamage: item?.damage ?? setup.weaponDamage,
     status: "playing", messages: ["Your lantern flickers to life. The deep is waiting."],
     events: [], deepest: 1, bossSlain: false, rage: 0, regen: 0, runId: setup.runId,
     xp: 0, level: 1, gear: [], smashed: 0,
-    levelPerks:[],perkChoice:null,perkQueue:[],flickersUsed:0,interruptsUsed:0,stoneWardUsed:0,
+    levelPerks:item?.perk?[item.perk]:[],perkChoice:null,perkQueue:[],flickersUsed:0,interruptsUsed:0,stoneWardUsed:0,
     riposteReady:false,momentumSteps:0,breathWaits:0,
   };
   reveal(state);
