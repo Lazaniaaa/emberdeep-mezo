@@ -277,6 +277,7 @@ export const CURB_HEIGHT = { "curb-h": 8, "curb-v": 32, "curb-outer": 32, "curb-
 
 const KINDS = {
   perks:{raw:'art/perks/raw/',out:'public/perks/'},
+  items:{raw:'art/items/raw/',out:'public/items/'},
   tiles: { raw: "art/tiles/raw/", out: "public/tiles/" },
   // Cerberus: down/left/right/up, idle/step/wind-up/attack, retaining the source eyes at 2x density.
   bosses: { raw: "art/bosses/raw/", out: "public/bosses/", cols: 4, rows: 4, cellW: 128, cellH: 112, footX: 64, footY: 104, main: true, height: () => 72, textureScale: 2, fixes: {} },
@@ -339,27 +340,71 @@ export function nearestMobColor(rgb, colors) {
   return colors.reduce((best, color) => labDistance(lab, rgbToOklab(color)) < labDistance(lab, rgbToOklab(best)) ? color : best);
 }
 
-/** One owner-made 5x3 sheet; exact 32px cells, shared mob palette, transparent clean matte. */
-export async function writePerks(input='art/perks/raw/perks.webp',output='public/perks/perks.png'){
-  const {data,info}=await sharp(input).ensureAlpha().raw().toBuffer({resolveWithObject:true}),w=info.width,h=info.height;
-  const palette=JSON.parse(readFileSync('art/palette/mobs.json','utf8')).colors.map(fromHex),atlas=Buffer.alloc(160*96*4);
+/** Cuts an owner-made cols x rows icon sheet into icons of at most 30x30 in the shared mob palette, row by row. */
+async function iconCells(input,cols,rows,what,{trimWhite=false,extraColors=[]}={}){
+  // Some generated sheets come on a white canvas around the magenta one; trimWhite cuts that away first, then a few more
+  // pixels, as the blended white-to-magenta seam would otherwise count as part of every icon.
+  let image=sharp(input);
+  if(trimWhite){
+    const full=await sharp(input).metadata(),cut=await sharp(input).trim({background:'#ffffff',threshold:40}).toBuffer({resolveWithObject:true});
+    const seam=cut.info.width<full.width||cut.info.height<full.height?4:0;
+    image=sharp(cut.data).extract({left:seam,top:seam,width:cut.info.width-2*seam,height:cut.info.height-2*seam});
+  }
+  const {data,info}=await image.ensureAlpha().raw().toBuffer({resolveWithObject:true}),w=info.width,h=info.height;
+  const palette=[...JSON.parse(readFileSync('art/palette/mobs.json','utf8')).colors,...extraColors].map(fromHex),cells=[];
   const bg=(x,y)=>x<0||y<0||x>=w||y>=h||!data[(y*w+x)*4+3]||isBg(...data.subarray((y*w+x)*4,(y*w+x)*4+3));
-  for(let row=0;row<3;row++)for(let col=0;col<5;col++){
-    const x0=Math.floor(col*w/5),x1=Math.floor((col+1)*w/5),y0=Math.floor(row*h/3),y1=Math.floor((row+1)*h/3);
+  for(let row=0;row<rows;row++)for(let col=0;col<cols;col++){
+    const x0=Math.floor(col*w/cols),x1=Math.floor((col+1)*w/cols),y0=Math.floor(row*h/rows),y1=Math.floor((row+1)*h/rows);
     let left=x1,right=x0,top=y1,bottom=y0;
     for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)if(!bg(x,y)){left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);}
-    if(right<left||bottom<top)throw new Error(`Empty perk icon at ${col+1},${row+1}`);
+    if(right<left||bottom<top)throw new Error(`Empty ${what} icon at ${col+1},${row+1}`);
     const cw=right-left+1,ch=bottom-top+1,clean=Buffer.alloc(cw*ch*4);
     for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++){
       if(bg(x,y))continue;const p=(y*w+x)*4,edge=[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>bg(x+dx,y+dy));let rgb=[data[p],data[p+1],data[p+2]];
       if(edge){const neighbours=[];for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)if(!bg(x+dx,y+dy)){const n=((y+dy)*w+x+dx)*4;neighbours.push([...data.subarray(n,n+3)]);}rgb=cleanMobFringe(rgb,neighbours);}
       if(!rgb)continue;const q=nearestMobColor(rgb,palette),at=((y-top)*cw+x-left)*4;clean[at]=q[0];clean[at+1]=q[1];clean[at+2]=q[2];clean[at+3]=255;
     }
-    const resized=await sharp(clean,{raw:{width:cw,height:ch,channels:4}}).resize(30,30,{fit:'inside',kernel:'nearest'}).raw().toBuffer({resolveWithObject:true});
-    const ox=col*32+Math.floor((32-resized.info.width)/2),oy=row*32+Math.floor((32-resized.info.height)/2);
-    for(let y=0;y<resized.info.height;y++)for(let x=0;x<resized.info.width;x++)resized.data.copy(atlas,((oy+y)*160+ox+x)*4,(y*resized.info.width+x)*4,(y*resized.info.width+x+1)*4);
+    cells.push(await sharp(clean,{raw:{width:cw,height:ch,channels:4}}).resize(30,30,{fit:'inside',kernel:'nearest'}).raw().toBuffer({resolveWithObject:true}));
   }
+  return cells;
+}
+
+/** Centres an icon from iconCells in the 32px cell (col,row) of an atlas `width` pixels wide. */
+function placeIcon(atlas,width,col,row,icon){
+  const ox=col*32+Math.floor((32-icon.info.width)/2),oy=row*32+Math.floor((32-icon.info.height)/2);
+  for(let y=0;y<icon.info.height;y++)for(let x=0;x<icon.info.width;x++)icon.data.copy(atlas,((oy+y)*width+ox+x)*4,(y*icon.info.width+x)*4,(y*icon.info.width+x+1)*4);
+}
+
+/** One owner-made 5x3 sheet; exact 32px cells, shared mob palette, transparent clean matte. */
+export async function writePerks(input='art/perks/raw/perks.webp',output='public/perks/perks.png'){
+  const atlas=Buffer.alloc(160*96*4);
+  (await iconCells(input,5,3,'perk')).forEach((icon,i)=>placeIcon(atlas,160,i%5,Math.floor(i/5),icon));
   await sharp(atlas,{raw:{width:160,height:96,channels:4}}).png().toFile(output);return{width:160,height:96,icons:15};
+}
+
+/** Found weapons by rarity, in the chain's order: one row each in public/items/items.png. */
+export const ITEM_RARITY_ROWS=['common','rare','epic','legendary'];
+/** The shared palette has pale yellow and tan but no true gold, so the legendary gilding came out beige: three golds
+ * for the found weapons alone, light to dark. */
+export const ITEM_GOLDS=['#f2c230','#c48a1c','#8a5a14'];
+
+/** The found-weapon icon to use for a rarity row: art/items/raw/items-<rarity>.webp or .png, or null if not drawn yet. */
+export function itemSheetFor(raw,rarity){
+  for(const ext of ['webp','png'])if(existsSync(`${raw}items-${rarity}.${ext}`))return`${raw}items-${rarity}.${ext}`;
+  return null;
+}
+
+/** Owner-made 4x1 sheets, pickaxe/axe/sword/spear, one per rarity, into a 128x128 atlas (rows = rarities). A rarity
+ * not drawn yet reuses the common row, so the game can ship with the common icons alone. */
+export async function writeItems(raw='art/items/raw/',output='public/items/items.png'){
+  const common=itemSheetFor(raw,'common');
+  if(!common)throw new Error(`No ${raw}items-common.webp yet`);
+  const atlas=Buffer.alloc(128*128*4),drawn=[];
+  for(const [row,rarity] of ITEM_RARITY_ROWS.entries()){
+    const sheet=itemSheetFor(raw,rarity)??common;if(sheet!==common||rarity==='common')drawn.push(rarity);
+    (await iconCells(sheet,4,1,`${rarity} item`,{trimWhite:true,extraColors:ITEM_GOLDS})).forEach((icon,col)=>placeIcon(atlas,128,col,row,icon));
+  }
+  await sharp(atlas,{raw:{width:128,height:128,channels:4}}).png().toFile(output);return{width:128,height:128,drawn};
 }
 
 /** Derive a frozen palette from existing artwork, retaining small semantic accents before weighted clustering. */
@@ -735,6 +780,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     if(id==='perks'){
       if(existsSync(k.raw+'perks.webp')){mkdirSync(k.out,{recursive:true});await writePerks(k.raw+'perks.webp',k.out+'perks.png');}
       else if(kind==='perks')console.log('No art/perks/raw/perks.webp yet; the game uses its temporary distinct perk icons.');
+      continue;
+    }
+    if(id==='items'){
+      if(itemSheetFor(k.raw,'common')){mkdirSync(k.out,{recursive:true});const{drawn}=await writeItems(k.raw,k.out+'items.png');console.log(`Found weapons: ${drawn.join(', ')} drawn; the rest reuse common.`);}
+      else if(kind==='items')console.log('No art/items/raw/items-common.webp yet; the game draws its code icons.');
       continue;
     }
     if (!existsSync(k.raw)) continue;

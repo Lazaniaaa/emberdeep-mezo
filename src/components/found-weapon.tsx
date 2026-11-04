@@ -1,6 +1,6 @@
 // How a found weapon (an EmberItems NFT) looks everywhere it appears: its icon on a backdrop in its finish and rarity
 // colours, its name, and what it does in a descent.
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { RARITY_INFO } from "@/game/catalog";
 import { ITEM_KIND_INFO, finishOf, itemName, itemStats, kindOf, rarityOf, type Item } from "@/game/items";
 import { LEVEL_PERKS, rankLabel } from "@/game/level-perks";
@@ -8,14 +8,25 @@ import { FOUND_ART } from "@/render/item-art";
 import { spriteToDataUrl } from "@/render/pixel-art";
 import { cn } from "@/lib/utils";
 
-export function ItemIcon({ item, px = 3, className }: { item: Item; px?: number; className?: string }) {
-  const src = useMemo(() => spriteToDataUrl(FOUND_ART[item.kind]!, px), [item.kind, px]);
+/** The drawn icons: public/items/items.png, 32px cells, a column per kind and a row per rarity. */
+const ITEM_ATLAS = `${import.meta.env.BASE_URL}items/items.png`;
+
+/** A found weapon's icon at `scale` times its 32px art. If the atlas fails to load, the code icon stands in. */
+export function ItemIcon({ item, scale = 2, className }: { item: Item; scale?: number; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  const fallback = useMemo(() => (failed ? spriteToDataUrl(FOUND_ART[item.kind]!, scale * 2) : null), [failed, item.kind, scale]);
   const color = RARITY_INFO[rarityOf(item)].color;
   const tint = finishOf(item).tint;
+  const size = 32 * scale;
   return (
-    <div className={cn("grid shrink-0 place-items-center rounded-lg", className)}
+    <div className={cn("grid shrink-0 place-items-center rounded-lg p-0.5", className)}
       style={{ border: `2px solid ${color}`, background: `radial-gradient(circle at 50% 40%, ${tint}66, #120c1f 75%)`, boxShadow: rarityOf(item) === "legendary" ? `0 0 12px ${color}88` : undefined }}>
-      <img src={src} alt="" aria-hidden className="pixelated block p-1" draggable={false} />
+      {fallback ? <img src={fallback} alt="" aria-hidden className="pixelated block" width={size} height={size} draggable={false} /> : (
+        <span aria-hidden className="relative block overflow-hidden" style={{ width: size, height: size }}>
+          <img src={ITEM_ATLAS} alt="" width={128 * scale} height={128 * scale} draggable={false} onError={() => setFailed(true)}
+            className="pixelated absolute max-w-none" style={{ left: -item.kind * size, top: -item.rarity * size }} />
+        </span>
+      )}
     </div>
   );
 }

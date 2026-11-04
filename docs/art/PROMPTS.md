@@ -699,5 +699,40 @@ per item, so no coloured metal and no glow. Use only the shared palette from `ar
 3. **Sword:** a straight one-handed sword with a simple cross guard and a leather-wrapped grip; the finest of the four.
 4. **Spear:** a long spear with a leaf-shaped steel head and a thin wooden shaft; it fills the cell corner to corner.
 
-Save as `art/items/raw/items.webp`. The importer (`node scripts/sprite-sheets.mjs items`) turns it into a transparent
-128×32 atlas (4 cells of 32×32) at `public/items/items.png`. Until then the game draws simple code icons.
+Saved (2026-11-04) as `art/items/raw/items-common.png`: the Common row. The importer
+(`node scripts/sprite-sheets.mjs items`) turns it into a transparent 128×128 atlas at `public/items/items.png`: 32×32
+cells, a column per kind (pickaxe, axe, sword, spear) and a row per rarity (common, rare, epic, legendary). A rarity
+without its own sheet reuses the Common row.
+
+### I-items-rarity — Rare, Epic and Legendary rows (2026-11-04)
+
+Three images, one per rarity, each the same 4×1 layout as the Common sheet. Attach `art/items/raw/items-common.png`
+as the reference for every one of them: same weapons, same pose and angle, same size in the cell, same outline and
+pixel size; only the materials and decorations change, so a weapon reads as "the same pickaxe, but finer". Save them
+as `art/items/raw/items-rare.webp`, `items-epic.webp` and `items-legendary.webp`, then run the importer.
+
+Shared text for all three (put the rarity block after it):
+
+Redraw the attached pixel-art icon sheet as its **[RARITY]** version for Emberdeep, an original cave roguelike.
+Exactly **4 columns × 1 row**, the same four weapons in the same order (pickaxe, axe, sword, spear), each in the same
+pose, diagonal angle, size and position inside its square cell as in the attached sheet. Canvas 4:1 (1280×320). All
+background and gutters perfect flat **#FF00FF**; at least 10% empty margin around each icon. Keep the same crisp
+single-width dark outline #0a0b16, the same large pixel size and at most three shades per material, so each icon
+stays readable at **32×32**. No words, letters, numbers, frames, gradients, antialiasing, soft shadows, glow halos,
+sparkles floating outside the weapon, or scenery. Never use magenta or pink anywhere on the weapons.
+
+- **Rare:** cleaner, sharper steel with a cold blue sheen (#3a9bff accents on the edges), dark-blue leather wraps
+  instead of brown ones, small steel rivets. Same shapes, slightly more polished.
+- **Epic — Norse (owner's call, 2026-11-04: epics from another era, legendaries Roman):** Viking-age weapons. Dark
+  hammered iron with bronze fittings (#e2a857, #614834), blades etched with violet-blue knotwork bands (#5b4fa0,
+  #8a7fd0, not pink; patterns only, never letters or runes that read as text), handles wrapped in braided dark leather
+  with a bone bead (#f9f3de). Pickaxe: a heavy iron miner's pick with bronze bands. Axe: a bearded Dane axe, the blade
+  hooked down below the head. Sword: a broad Viking sword with a short straight guard and a lobed bronze pommel.
+  Spear: a winged spear, two small lugs below a long iron head. Each keeps its pose and size from the Common sheet.
+- **Legendary — Roman:** ceremonial weapons of an imperial legion. Polished gold and bright steel (#ffee8b, #e2a857,
+  #bdbaab), deep red leather and cloth (#ff1e1b, #a8382f). Pickaxe: a legionary dolabra, an axe blade on one side and a
+  pick on the other, gilded. Axe: a lictor's axe with a crescent blade and a bundle of rods bound to the haft with red
+  cord. Sword: a gladius, short and wide with a parallel-edged blade, a round gold pommel and a gold eagle-wing guard.
+  **Spear:** a royal hasta, a long leaf-shaped steel head with a gold collar and two or three short **red cloth
+  ribbons** tied just below the head, fluttering to one side; a gold butt cap at the other end. It still fills its cell
+  corner to corner.
