@@ -65,6 +65,10 @@ export function ReportDialog() {
 
         {cause && <p className="text-sm text-orange-200" aria-label="Last cause">{cause}</p>}
 
+        {/* What the player does next comes first: claim the gold, then open Cerberus's chest. */}
+        {extracted && <ClaimPanel report={report} />}
+        {earnedChest(report) && itemsLive() && <ChestPanel />}
+
         <LootSummary report={report} />
 
         {!report.prize && campMode.crystals && (
@@ -107,8 +111,6 @@ export function ReportDialog() {
           </div>
         )}
 
-        {extracted && <ClaimPanel report={report} />}
-        {earnedChest(report) && itemsLive() && <ChestPanel report={report} />}
         {extracted && !report.prize && <ArcRecord report={report} />}
 
         <pre className="rounded-lg border border-white/10 bg-black p-3 text-xs whitespace-pre-wrap text-muted-foreground select-all">{share}</pre>

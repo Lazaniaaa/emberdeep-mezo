@@ -32,7 +32,7 @@ export function ItemIcon({ item, scale = 2, className }: { item: Item; scale?: n
 }
 
 /** What the item adds to a descent, as short phrases. */
-export function itemEffects(item: Item): string[] {
+function itemEffects(item: Item): string[] {
   const s = itemStats(item);
   const out = [`${s.damage} dmg`];
   if (s.perks.lightOnKill) out.push(`+${s.perks.lightOnKill} light per kill`);
@@ -47,7 +47,7 @@ export function FoundWeaponRow({ item, children, note }: { item: Item & { id: nu
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-black/40 p-3">
       <ItemIcon item={item} />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[9rem] flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-pixel text-sm">{itemName(item)}</span>
           <span className="rounded-full border px-1.5 py-0.5 text-[10px] uppercase" style={{ color: rarity.color, borderColor: `${rarity.color}66` }}>{rarity.label}</span>

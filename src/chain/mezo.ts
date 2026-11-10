@@ -368,5 +368,6 @@ export function explainMezoError(error: unknown): string {
     return "Not enough on Mezo for this (or for the BTC gas). Top up from the Mezo testnet faucet.";
   }
   if (/INSUFFICIENT_OUTPUT|Underfilled|Swap underfilled/i.test(text)) return "The Tigris price moved. Try again.";
+  if (/returned no data|is not a contract|HTTP request failed|fetch failed|timed? ?out/i.test(text)) return "Mezo did not answer. Try again in a minute.";
   return text.trim().split("\n")[0] || "Something went wrong on Mezo.";
 }

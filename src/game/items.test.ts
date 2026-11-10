@@ -3,7 +3,7 @@ import { HP_SCALE } from "./config";
 import { ITEM_KINDS, itemName, itemStats, rollChest, type Item } from "./items";
 import { isPrizeSetup, prizeSetup } from "./prize";
 import { ReplayError, replayRun, validateSetup } from "./replay";
-import { emptyBag } from "./run";
+import { emptyBag, startRun } from "./run";
 import { NO_PERKS } from "./catalog";
 
 /** A 32-byte roll whose first four words are the given fractions of 2^32, then a fixed seed. */
@@ -60,10 +60,34 @@ describe("a descent with a found weapon", () => {
     expect(() => validateSetup(setup({ item: { id: 4, kind: 2, rarity: 2, seed: "-1" } }))).toThrow(ReplayError);
   });
 
-  it("is never a prize descent", () => {
-    const prize = prizeSetup(7);
-    expect(isPrizeSetup(prize)).toBe(true);
-    expect(isPrizeSetup({ ...prize, item: { id: 1, kind: 0, rarity: 0, seed: "0" } })).toBe(false);
+  it("can be a prize descent, in place of the dagger", () => {
+    const pickaxe = { id: 1, kind: 0, rarity: 0, seed: "0" };
+    expect(isPrizeSetup(prizeSetup(7))).toBe(true);
+    expect(isPrizeSetup(validateSetup(prizeSetup(7, pickaxe)))).toBe(true);
+    // The dagger's damage with an item, or extra flasks, is not the prize loadout.
+    expect(isPrizeSetup({ ...prizeSetup(7), item: pickaxe })).toBe(false);
+    expect(isPrizeSetup({ ...prizeSetup(7, pickaxe), flasks: 5 })).toBe(false);
+  });
+
+  it("starts a sword's perk at its rank, with what taking it gives", () => {
+    const swordWith = (id: string, rarity: number) => {
+      for (let i = 0n; i < 64n; i++) {
+        const item = { kind: 2, rarity, seed: i << 8n };
+        if (itemStats(item).perk!.id === id) return { id: 4, kind: 2, rarity, seed: item.seed.toString() };
+      }
+      throw new Error(`No sword with ${id}`);
+    };
+    const start = (id: string, rarity = 3) => startRun(validateSetup(prizeSetup(7, swordWith(id, rarity))));
+    const plain = startRun(prizeSetup(7));
+    expect(start("ember-heart").maxLight).toBe(plain.maxLight + 45);
+    expect(start("ember-heart").light).toBe(plain.light + 45);
+    expect(start("ember-heart", 0).maxLight).toBe(plain.maxLight + 15);
+    expect(start("wide-glass").perks.radius).toBe(plain.perks.radius + 3);
+    expect(start("heavy-blow").perks.damage).toBe(plain.perks.damage + 9);
+    expect(start("oil-thief").perks.lightOnKill).toBe(plain.perks.lightOnKill + itemStats({ kind: 2, rarity: 3, seed: 0n }).perks.lightOnKill! + 3);
+    expect(start("steady-wick").perks.stepDiscount).toBeCloseTo(plain.perks.stepDiscount + 0.24);
+    expect(start("thick-coat").perks.drainReduce).toBeCloseTo(plain.perks.drainReduce + 0.3);
+    expect(start("riposte").levelPerks).toEqual([{ id: "riposte", rank: 3 }]);
   });
 
   it("leaves descents without an item exactly as before", () => {

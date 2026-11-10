@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Check, Gem, Loader2, Shield, Sparkles, Swords, Wallet } from "lucide-react";
+import { Check, Gem, Gift, Loader2, Shield, Sparkles, Swords, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,10 +17,11 @@ import { Price } from "./camp-ui";
 const affordable = (balance: number, crystals: number, cents: number, extraCrystals: number) =>
   campMode.crystals ? crystals >= crystalsFor(cents) + extraCrystals : balance >= cents && crystals >= extraCrystals;
 import { InsufficientFunds, useGame } from "@/state/store";
-import { carriedItem, itemsLive, useItems } from "@/state/items";
+import { carriedItem, chestsOf, itemsLive, useItems } from "@/state/items";
 import { useWallet } from "@/state/wallet";
 import { ItemArt } from "./art";
 import { FoundWeaponRow } from "./found-weapon";
+import { ChestOpener } from "./chest-panel";
 
 /** The sword is found only in the deep now; the camp still lists it for whoever forged one before. */
 const SHOP_WEAPON = (id: WeaponId, owned: readonly WeaponId[]) => id !== "sword" || owned.includes(id);
@@ -30,6 +31,8 @@ function FoundWeapons() {
   const { owned, loading, error, refresh, equip } = useItems();
   const wallet = useWallet();
   const carried = useItems(s => s.equipped && carriedItem());
+  const allChests = useItems(s => s.chests);
+  const chests = chestsOf(allChests, wallet.account);
   useEffect(() => { if (wallet.account) void useItems.getState().refresh(); }, [wallet.account]);
 
   return (
@@ -37,11 +40,17 @@ function FoundWeapons() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-pixel"><Sparkles className="size-4" /> Found in the deep</CardTitle>
         <CardDescription>
-          Slay Cerberus and come home to open its chest: a pickaxe, axe, sword or spear, from Common to Legendary, minted to your
-          wallet on Mezo. Carry one into practice descents instead of a camp weapon, or sell it at the Market.
+          Slay Cerberus on a prize descent, come home and claim it: its chest holds a pickaxe, axe, sword or spear, from Common to
+          Legendary, minted to your wallet on Mezo. Carry one into any descent instead of your weapon, or sell it at the Market.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
+        {chests.map(c => (
+          <div key={c.setup.seed} className="space-y-2 rounded-lg border border-sigil/50 bg-sigil/[0.07] p-3">
+            <p className="flex items-center gap-1.5 font-pixel text-sm text-sigil"><Gift className="size-4" aria-hidden /> An unopened Cerberus chest</p>
+            <ChestOpener pending={c} seed={c.setup.seed} />
+          </div>
+        ))}
         {!wallet.account ? (
           <Button variant="outline" onClick={() => void wallet.connect()} disabled={wallet.status === "connecting"}>
             <Wallet data-icon="inline-start" /> Connect a wallet to see yours

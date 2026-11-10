@@ -128,6 +128,8 @@ export function startRun(setup: RunSetup): RunState {
     levelPerks:item?.perk?[item.perk]:[],perkChoice:null,perkQueue:[],flickersUsed:0,interruptsUsed:0,stoneWardUsed:0,
     riposteReady:false,momentumSteps:0,breathWaits:0,
   };
+  // A sword's perk starts at its rank, as if taken that many times.
+  for (let r = 0; r < (item?.perk?.rank ?? 0); r++) gainPerkRank(state, item!.perk!.id);
   reveal(state);
   return state;
 }
@@ -288,6 +290,13 @@ function choosePerk(state:RunState,id:LevelPerkId){
   const old=rankOf(state,id),rank=(old+1) as PerkRank;
   const previous=state.levelPerks??[];
   state.levelPerks=old?previous.map(p=>p.id===id?{id,rank}:p):[...previous,{id,rank}];
+  gainPerkRank(state,id);
+  state.perkChoice=null;openPerkChoice(state);reveal(state);
+  say(state,`Perk chosen: ${LEVEL_PERKS[id].name} ${rankLabel(rank)}.`);
+}
+
+/** What one rank of a level perk adds the moment it is taken; perks that act later read their rank instead. */
+function gainPerkRank(state:RunState,id:LevelPerkId){
   const bonus:Partial<Perks>={};
   if(id==='oil-thief')bonus.lightOnKill=1;
   // 8/16/24%, measured adjustment: 10/20/30% broke the unchanged fog/omniscient guard (54.17%).
@@ -298,8 +307,6 @@ function choosePerk(state:RunState,id:LevelPerkId){
   if(id==='thick-coat')bonus.drainReduce=.1;
   state.perks=mergePerks(state.perks,bonus);
   if(id==='ember-heart'){state.maxLight=maxLightOf(state)+15;addLight(state,15,'perks');}
-  state.perkChoice=null;openPerkChoice(state);reveal(state);
-  say(state,`Perk chosen: ${LEVEL_PERKS[id].name} ${rankLabel(rank)}.`);
 }
 
 /**

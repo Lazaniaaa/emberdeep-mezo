@@ -5,6 +5,7 @@ import { ATTEST_URL } from "@/chain/arc-config";
 import { mezoHallAddress, type PayToken } from "@/chain/mezo-config";
 import type { BuyStep, PotSnapshot } from "@/chain/mezo";
 import { BOSS_DEPTH } from "@/game/config";
+import { earnedChest, useItems } from "./items";
 import { useRun } from "./run-store";
 import type { RunReport } from "./store";
 import { useWallet } from "./wallet";
@@ -59,6 +60,13 @@ function descentFor(report: RunReport) {
   if (!descent) throw new Error("The moves of this descent were not kept (it was played in another tab or before an update), so it cannot be signed.");
   return { descent, matches: (depth: number, gold: number, home: boolean) =>
     depth === Math.min(BOSS_DEPTH, report.depth) && gold === report.gold && home === (report.outcome === "extracted") };
+}
+
+/** A prize descent that slew Cerberus earns its chest once it is in the pot: kept until it is opened. */
+function keepChest(report: RunReport) {
+  const descent = useRun.getState().lastDescent;
+  const player = useWallet.getState().account;
+  if (earnedChest(report) && descent && player) useItems.getState().addChest({ player, setup: descent.setup, moves: descent.moves });
 }
 
 let request = 0;
@@ -146,6 +154,7 @@ export const useMezo = create<MezoState>()((set, get) => ({
       const relayed = await viaRelay("pot", report, pot => set({ pot }));
       if (relayed) {
         set({ pot: { status: "done", txHash: relayed, error: null } });
+        keepChest(report);
         void get().refresh();
         return;
       }
@@ -158,6 +167,7 @@ export const useMezo = create<MezoState>()((set, get) => ({
       }
       const hash = await mezo.recordInPot(provider, account, attestation, status => set({ pot: { status, txHash: null, error: null } }));
       set({ pot: { status: "done", txHash: hash, error: null } });
+      keepChest(report);
       void get().refresh();
     } catch (e) {
       set({ pot: { status: "error", txHash: null, error: mezo.explainMezoError(e) } });

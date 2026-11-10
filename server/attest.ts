@@ -44,6 +44,7 @@ const RELAY_HALL_ABI = parseAbi([
   "function record(Descent d, bytes signature)",
 ]);
 const RELAY_POT_ABI = parseAbi(["function recordRun(address player, bytes32 runId, uint256 gold, uint256 deadline, bytes signature)"]);
+const POT_READ_ABI = parseAbi(["function runRecorded(bytes32 runId) view returns (bool)"]);
 const ITEMS_ABI = parseAbi([
   "struct Drop { address player; bytes32 runId; uint16 kind; uint8 rarity; uint64 seed; uint64 deadline; }",
   "struct Item { uint16 kind; uint8 rarity; uint64 seed; }",
@@ -55,8 +56,14 @@ const ITEMS_ABI = parseAbi([
 /** A Hall of Descents on some chain. */
 export type HallTarget = { address: Address; chainId: number };
 
-/** The Ember Pot: its round clock and gold cap are immutable on chain and repeated here. */
-export type PotTarget = { address: Address; chainId: number; launchTime: number; roundSeconds: number; maxGold: number };
+/**
+ * The Ember Pot: its round clock and gold cap are immutable on chain and repeated here. `runRecorded` reads whether a
+ * descent is in the pot already, which a Cerberus chest needs.
+ */
+export type PotTarget = {
+  address: Address; chainId: number; launchTime: number; roundSeconds: number; maxGold: number;
+  runRecorded?: (runId: Hex) => Promise<boolean>;
+};
 
 /**
  * EmberItems on Mezo: the chest a descent earns by slaying Cerberus, and the found weapons a descent may carry.
@@ -141,14 +148,6 @@ export function runIdOf(player: Address, setup: unknown, moves: readonly string[
   ));
 }
 
-/**
- * A chest is tied to the player and the dungeon seed, not to the moves: the same Cerberus run sent again with a changed
- * setup or an extra step would otherwise roll a new chest. One chest per seed per player.
- */
-export function dropIdOf(player: Address, seed: number): Hex {
-  return keccak256(encodeAbiParameters([{ type: "address" }, { type: "uint256" }, { type: "string" }], [player, BigInt(seed), "chest"]));
-}
-
 /** What a chest holds: an HMAC of its drop id under the server's secret, so nobody can work it out in advance. */
 export const chestRoll = (secret: string, dropId: Hex): Hex => `0x${createHmac("sha256", secret).update(dropId).digest("hex")}`;
 
@@ -185,17 +184,28 @@ export async function attest(config: AttestConfig, body: unknown): Promise<Attes
   const carried = result.setup.item;
   if (carried) {
     if (!config.items) throw new HttpError(422, "Found weapons are not set up on this server");
-    const held = await config.items.readItem(carried.id).catch(() => null);
+    let held;
+    try { held = await config.items.readItem(carried.id); } catch (e) {
+      // An item that was never minted reverts; anything else is Mezo not answering, which is not the player's fault.
+      if (!/revert|nonexistent|TokenDoesNotExist/i.test(e instanceof Error ? e.message : String(e))) throw new HttpError(503, "Could not read your weapon on Mezo. Try again in a minute.");
+      held = null;
+    }
     const same = held && held.owner.toLowerCase() === player.toLowerCase() && held.item.kind === carried.kind
       && held.item.rarity === carried.rarity && held.item.seed === BigInt(carried.seed);
     if (!same) throw new HttpError(422, "This descent carried a weapon its player does not hold");
   }
 
   if (target === "drop") {
+    // A chest is the prize of a prize descent that is already in the Ember Pot: each one costs a key, and it belongs to
+    // that one record, so sending the same moves again (under any player) rolls nothing new.
     const items = config.items!;
     if (!result.bossSlain) throw new HttpError(422, "Only slaying Cerberus earns a chest");
     if (!result.home) throw new HttpError(422, "The chest counts only if you carry it home");
-    const dropId = dropIdOf(player, result.setup.seed);
+    if (!isPrizeSetup(result.setup)) throw new HttpError(422, "Only a prize descent earns a chest");
+    if (!config.pot?.runRecorded) throw new HttpError(404, "The Ember Pot is not set up on this server");
+    const recorded = await config.pot.runRecorded(runId).catch(() => { throw new HttpError(503, "Could not read the Ember Pot on Mezo. Try again in a minute."); });
+    if (!recorded) throw new HttpError(409, "Claim this descent into the Ember Pot first. Its chest opens after that.");
+    const dropId = runId;
     const item = rollChest(chestRoll(items.secret, dropId));
     if (!item) return { empty: true, dropId };
     const drop: SignedDrop = {
@@ -453,6 +463,7 @@ function main(argv: string[]) {
   const pot = optional("MEZO_POT_ADDRESS") ?? getAddress(MEZO_POT.address);
   const itemsEnv = optional("MEZO_ITEMS_ADDRESS") ?? (itemsAddress() ? getAddress(itemsAddress()!) : null);
   const mezoRpc = process.env.MEZO_RPC ?? MEZO_NETWORK.rpcs[0];
+  const potReader = createPublicClient({ transport: http(mezoRpc) });
   const config: AttestConfig = {
     account: loadKey(file),
     hall,
@@ -464,6 +475,7 @@ function main(argv: string[]) {
         launchTime: Number(process.env.MEZO_POT_LAUNCH ?? MEZO_POT.launchTime),
         roundSeconds: Number(process.env.MEZO_POT_ROUND_SECONDS ?? MEZO_POT.roundSeconds),
         maxGold: Number(process.env.MEZO_POT_MAX_GOLD ?? MEZO_POT.maxGoldPerRun),
+        runRecorded: runId => potReader.readContract({ address: pot, abi: POT_READ_ABI, functionName: "runRecorded", args: [runId] }),
       },
     } : {}),
     ...(relayer ? { relay: relayer } : {}),

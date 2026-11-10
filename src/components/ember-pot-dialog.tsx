@@ -9,6 +9,8 @@ import { BTC_ROUTER, MEZO_POT, keyRouterAddress, mezoAddressUrl, mezoTxUrl, type
 import { PRIZE_FLASKS, PRIZE_WEAPON, prizeSetup } from "@/game/prize";
 import { randomSeed } from "@/game/rng";
 import { shortAddress, tokens } from "@/lib/format";
+import { itemName, itemStats } from "@/game/items";
+import { carriedItem, itemsLive, useItems } from "@/state/items";
 import { useMezo } from "@/state/mezo";
 import { foreignRunActive } from "@/state/run-lock";
 import { useRun } from "@/state/run-store";
@@ -34,11 +36,13 @@ export function EmberPotDialog() {
   const [quantity, setQuantity] = useState(1);
   const router = keyRouterAddress();
   const me = snapshot?.me ?? null;
+  const found = useItems(s => s.equipped && carriedItem());
 
   const startPrize = () => {
     if (foreignRunActive()) { toast.error("A descent is already running in another tab. Finish it there first."); return; }
     if (!me || me.keys < 1) { toast.error("You need an Ember Pot key on Mezo first."); return; }
-    useRun.getState().start(prizeSetup(randomSeed()), true);
+    // A found weapon the wallet holds replaces the dagger; the server checks it is still the player's.
+    useRun.getState().start(prizeSetup(randomSeed(), carriedItem()), true);
     setOpen(false);
   };
 
@@ -109,7 +113,9 @@ export function EmberPotDialog() {
             <p className="text-sm text-foreground/80">
               Everyone starts equal: {PRIZE_FLASKS} flasks, the {PRIZE_WEAPON.name}, no Delver perks, no potions. Level perks are earned in the deep.
               Come home and press <b>Claim</b>: the game checks every move, records your gold and pays the gas. One key per claim.
+              {itemsLive() && <> Slay Cerberus too and its chest holds a weapon NFT; a found weapon you carry replaces the {PRIZE_WEAPON.name}.</>}
             </p>
+            {found && <p className="text-xs" style={{ color: ACCENT.market }}>Carrying {itemName({ ...found, seed: BigInt(found.seed) })} ({itemStats({ ...found, seed: BigInt(found.seed) }).damage} dmg). Change it in the Armory.</p>}
             <Button className="w-full font-pixel" onClick={startPrize} disabled={!me || me.keys < 1}>
               <Flame data-icon="inline-start" /> Start a prize descent
             </Button>

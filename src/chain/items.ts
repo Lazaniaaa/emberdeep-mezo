@@ -5,7 +5,7 @@ import { dropFromWire, type DropAttestation } from "./items-typed";
 import { MEZO_TOKENS, itemsAddress, marketAddress, type PayToken } from "./mezo-config";
 import { confirm, ensureAllowance, loginKey, mezoClient, quoteIn, switchToMezo, wallet, type BuyStep } from "./mezo";
 import type { Eip1193 } from "./wallet";
-import type { OwnedItem } from "@/game/items";
+import { isItem, type OwnedItem } from "@/game/items";
 
 export const ITEMS_ABI = parseAbi([
   "struct Drop { address player; bytes32 runId; uint16 kind; uint8 rarity; uint64 seed; uint64 deadline; }",
@@ -56,7 +56,8 @@ export async function readOwnedItems(account: Address): Promise<OwnedItem[]> {
     const [ids, found] = await mezoClient.readContract({ address, abi: ITEMS_ABI, functionName: "itemsOwnedBy", args: [account, from, PAGE] });
     ids.forEach((id, i) => out.push(toItem(id, found[i]!)));
   }
-  return out;
+  // The contract takes any numbers from a minter; this game shows only the kinds and rarities it knows.
+  return out.filter(isItem);
 }
 
 // ── the chest ──────────────────────────────────────────────────────────────────────────────────────────
@@ -130,7 +131,7 @@ export async function readMarket(): Promise<{ listings: MarketListing[]; feeBps:
   }
   const ours = raw.filter(l => l.collection.toLowerCase() === items);
   const details = await Promise.all(ours.map(l => mezoClient.readContract({ address: itemsOrThrow(), abi: ITEMS_ABI, functionName: "itemOf", args: [l.tokenId] })));
-  const listings = ours.map((l, i) => ({ seller: l.seller, price: l.price, item: toItem(l.tokenId, details[i]!) }));
+  const listings = ours.map((l, i) => ({ seller: l.seller, price: l.price, item: toItem(l.tokenId, details[i]!) })).filter(l => isItem(l.item));
   return { listings: listings.sort((a, b) => (a.price < b.price ? -1 : a.price > b.price ? 1 : 0)), feeBps: Number(feeBps) };
 }
 
