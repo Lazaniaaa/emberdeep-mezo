@@ -50,6 +50,8 @@ contract EmberPotV3 is Ownable, EIP712, ReentrancyGuard {
     mapping(uint256 => uint256) public roundPot;
     mapping(uint256 => uint256) public totalGold;
     mapping(uint256 => uint256) public totalDistributed;
+    /// MUSD added to each round by fund() (the Market's sale fees), so the game can show it without scanning logs.
+    mapping(uint256 => uint256) public fundedIn;
 
     mapping(uint256 => mapping(address => uint256)) public goldOf;
     mapping(address => uint256) public keyBalance;
@@ -205,6 +207,7 @@ contract EmberPotV3 is Ownable, EIP712, ReentrancyGuard {
         uint256 rid = currentRound();
         usdc.safeTransferFrom(msg.sender, address(this), amount);
         roundPot[rid] += amount;
+        fundedIn[rid] += amount;
         emit Funded(rid, msg.sender, amount);
     }
 

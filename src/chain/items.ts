@@ -135,6 +135,18 @@ export async function readMarket(): Promise<{ listings: MarketListing[]; feeBps:
   return { listings: listings.sort((a, b) => (a.price < b.price ? -1 : a.price > b.price ? 1 : 0)), feeBps: Number(feeBps) };
 }
 
+// Preview quotes are short-lived and shared by listings with the same price. Purchases always quote afresh.
+const marketQuotes = new Map<string, { until: number; value: Promise<bigint | null> }>();
+export function clearMarketQuotes() { marketQuotes.clear(); }
+export function quoteListing(token: "BTC" | "MEZO", price: bigint): Promise<bigint | null> {
+  const key = `${token}:${price}`, cached = marketQuotes.get(key);
+  if (cached && cached.until > Date.now()) return cached.value;
+  if (marketQuotes.size >= 100) marketQuotes.delete(marketQuotes.keys().next().value!);
+  const value = quoteIn(token, price).catch(() => null);
+  marketQuotes.set(key, { until: Date.now() + 60_000, value });
+  return value;
+}
+
 export type MarketStep = BuyStep;
 
 /** Lists an item at `price` MUSD (18 decimals). The market holds it until it sells or the seller takes it back. */

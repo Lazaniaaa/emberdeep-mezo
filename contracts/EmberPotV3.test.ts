@@ -79,5 +79,6 @@ describe("EmberPotV3", () => {
     await musd.send(BUYER, "approve", [pot.address, E18]);
     expect((await pot.send(BUYER, "fund", [E18])).ok).toBe(true);
     expect(await pot.read("roundPot", [1n])).toBe(E18);
+    expect(await pot.read("fundedIn", [1n])).toBe(E18);
   });
 });

@@ -7,7 +7,7 @@ import {
 import { HALL_ABI, readHall, requestAttestation, type HallBoard, type RecordStep } from "./arc";
 import { fromWire, type Attestation } from "./hall-typed";
 import {
-  BTC_ROUTER, MEZO_NETWORK, MEZO_POT, MEZO_TOKENS, TIGRIS, keyRouterAddress, mezoHallAddress, potRound, type PayToken,
+  BTC_ROUTER, MEZO_NETWORK, MEZO_POT, MEZO_TOKENS, TIGRIS, keyRouterAddress, marketAddress, mezoHallAddress, potRound, type PayToken,
 } from "./mezo-config";
 import { runFromWire, type PotAttestation } from "./pot-typed";
 import { waitForReceipt } from "./receipt";
@@ -26,6 +26,7 @@ export const MEZO = defineChain({
 export const mezoClient = createPublicClient({ chain: MEZO, transport: fallback(MEZO_NETWORK.rpcs.map(url => http(url))) });
 
 export const POT_ABI = parseAbi([
+  "function fundedIn(uint256) view returns (uint256)",
   "function keyPrice() view returns (uint256)",
   "function keyBalance(address) view returns (uint256)",
   "function currentRound() view returns (uint256)",
@@ -80,6 +81,8 @@ export type PotSnapshot = {
   round: number;
   endsAt: number;
   pot: bigint;
+  /** Optional on V2 or when the RPC cannot read funding logs. */
+  marketFunding?: bigint | null;
   totalGold: number;
   keyPrice: bigint;
   standings: PotStanding[];
@@ -113,12 +116,21 @@ export async function balancesOf(account: Address): Promise<Record<PayToken, big
   return { BTC: btc, MEZO: mezo, MUSD: musd };
 }
 
+/**
+ * MUSD the Market's sale fees added to a round: EmberPotV3 counts what fund() brings in. Null when no market is set or
+ * the pot is a V2 without the count. (Mezo's RPC serves logs over at most 10,000 blocks, too few for a week.)
+ */
+export async function readMarketFunding(round: bigint): Promise<bigint | null> {
+  if (!marketAddress()) return null;
+  return read<bigint>("fundedIn", [round]).catch(() => null);
+}
+
 /** Everything the pot panel shows, read straight from Mezo. Needs no wallet; `account` adds the player's own line. */
 export async function readPot(account: Address | null, nowSeconds = Math.floor(Date.now() / 1000)): Promise<PotSnapshot> {
   const { round, endsAt } = potRound(nowSeconds);
   const r = BigInt(round);
-  const [pot, totalGold, keyPrice, players] = await Promise.all([
-    read<bigint>("roundPot", [r]), read<bigint>("totalGold", [r]), read<bigint>("keyPrice"), roundPlayers(r),
+  const [pot, totalGold, keyPrice, players, marketFunding] = await Promise.all([
+    read<bigint>("roundPot", [r]), read<bigint>("totalGold", [r]), read<bigint>("keyPrice"), roundPlayers(r), readMarketFunding(r),
   ]);
   const golds = await Promise.all(players.map(p => read<bigint>("goldOf", [r, p])));
   const standings = players
@@ -141,7 +153,7 @@ export async function readPot(account: Address | null, nowSeconds = Math.floor(D
     const [keys, gold, balances] = await Promise.all([read<bigint>("keyBalance", [account]), read<bigint>("goldOf", [r, account]), balancesOf(account)]);
     me = { keys: Number(keys), gold: Number(gold), share: totalGold ? (pot * gold) / totalGold : 0n, balances };
   }
-  return { round, endsAt, pot, totalGold: Number(totalGold), keyPrice, standings, players: players.length, previous, me };
+  return { round, endsAt, pot, marketFunding, totalGold: Number(totalGold), keyPrice, standings, players: players.length, previous, me };
 }
 
 // ── buying keys ────────────────────────────────────────────────────────────────────────────────────────

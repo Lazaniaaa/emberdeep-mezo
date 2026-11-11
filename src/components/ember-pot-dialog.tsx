@@ -36,6 +36,7 @@ export function EmberPotDialog() {
   const [quantity, setQuantity] = useState(1);
   const router = keyRouterAddress();
   const me = snapshot?.me ?? null;
+  const marketFunding = snapshot?.marketFunding ?? 0n;
   const found = useItems(s => s.equipped && carriedItem());
 
   const startPrize = () => {
@@ -63,6 +64,10 @@ export function EmberPotDialog() {
           <Tile label="Players" value={snapshot ? snapshot.players : "…"} sub={snapshot ? `${snapshot.totalGold} gold in` : undefined} />
           <Tile label="Your keys" value={me ? me.keys : "—"} tone={ACCENT.gate} sub={me ? `${me.gold} gold · ~${tokens(me.share)} MUSD` : "Connect a wallet"} />
         </div>
+
+        {marketFunding > 0n && (
+          <p className="text-sm text-gold">From Market sales: {marketFunding < 10n ** 16n ? "<0.01" : tokens(marketFunding)} MUSD this week</p>
+        )}
 
         <div className="grid gap-3 md:grid-cols-2">
           <Section title="Buy prize keys" icon={KeyRound} tone={ACCENT.pot}>

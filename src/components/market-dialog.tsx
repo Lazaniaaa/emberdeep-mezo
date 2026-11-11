@@ -1,9 +1,9 @@
 // The Market on Mezo: found weapons for sale in MUSD, paid with MUSD, or with BTC or MEZO swapped on Tigris in the same
 // transaction. A share of every sale goes into this week's Ember Pot. Sellers list from their wallet and can take an
 // unsold item back at any time.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bitcoin, Coins, Flame, Loader2, RefreshCw, Store, Tag, Undo2, Wallet } from "lucide-react";
-import { parseUnits, type Address } from "viem";
+import { formatUnits, parseUnits, type Address } from "viem";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT, WINDOW_CLASS, windowStyle } from "@/lib/camp-style";
@@ -28,6 +28,13 @@ const same = (a: string | null | undefined, b: string | null | undefined) => !!a
 export function MarketDialog() {
   const { marketOpen, setMarketOpen, listings, feeBps, marketLoading, marketError, refreshMarket, owned, busy } = useItems();
   const wallet = useWallet();
+  const [quoteVersion, setQuoteVersion] = useState(0);
+  const refresh = async () => {
+    const { clearMarketQuotes } = await import("@/chain/items");
+    clearMarketQuotes();
+    setQuoteVersion(v => v + 1);
+    await refreshMarket();
+  };
   const mine = listings.filter(l => same(l.seller, wallet.account));
   const forSale = listings.filter(l => !same(l.seller, wallet.account));
 
@@ -43,12 +50,12 @@ export function MarketDialog() {
         {marketError && <p className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{marketError}</p>}
 
         <Section title={`For sale${forSale.length ? ` · ${forSale.length}` : ""}`} icon={Tag} tone={ACCENT.market}
-          action={<Button variant="ghost" size="icon-sm" aria-label="Refresh the market" onClick={() => void refreshMarket()} disabled={marketLoading}><RefreshCw className={marketLoading ? "animate-spin" : undefined} /></Button>}>
+          action={<Button variant="ghost" size="icon-sm" aria-label="Refresh the market" onClick={() => void refresh()} disabled={marketLoading}><RefreshCw className={marketLoading ? "animate-spin" : undefined} /></Button>}>
           {marketLoading && listings.length === 0 ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Reading the market on Mezo…</p>
           ) : forSale.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nothing for sale right now. Slay Cerberus, open its chest and be the first to list.</p>
-          ) : forSale.map(l => <ForSale key={l.item.id} listing={l} />)}
+          ) : forSale.map(l => <ForSale key={`${l.item.id}:${l.price}:${quoteVersion}`} listing={l} />)}
         </Section>
 
         {!wallet.account ? (
@@ -81,25 +88,49 @@ export function MarketDialog() {
 }
 
 function ForSale({ listing }: { listing: MarketListing }) {
+  const row = useRef<HTMLDivElement>(null);
+  const [quotes, setQuotes] = useState<Partial<Record<"BTC" | "MEZO", bigint | null>>>({});
+  useEffect(() => {
+    let active = true;
+    const observer = new IntersectionObserver(entries => {
+      if (!entries.some(e => e.isIntersecting)) return;
+      observer.disconnect();
+      void import("@/chain/items").then(({ quoteListing }) => {
+        if (!active) return;
+        for (const token of ["BTC", "MEZO"] as const) {
+          void quoteListing(token, listing.price).then(amount => {
+            if (active) setQuotes(q => ({ ...q, [token]: amount }));
+          });
+        }
+      }).catch(() => { /* Preview failures never prevent buying. */ });
+    });
+    if (row.current) observer.observe(row.current);
+    return () => { active = false; observer.disconnect(); };
+  }, [listing.price]);
   const wallet = useWallet();
   const busy = useItems(s => s.busy);
   const working = busy?.id === listing.item.id;
   return (
     <FoundWeaponRow item={listing.item} note={<>Sold by {shortAddress(listing.seller as Address)}</>}>
-      <div className="flex flex-col items-end gap-1.5">
+      <div ref={row} className="flex max-w-full flex-col items-end gap-1.5">
         <span className="font-pixel text-sm" style={{ color: ACCENT.market }}>{tokens(listing.price)} MUSD</span>
         {working ? (
           <span className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="size-3 animate-spin" /> {STEP_LABEL[busy.step]}</span>
         ) : (
-          <div className="flex gap-1">
-            {PAY.map(({ token, icon: Icon }) => (
-              <Button key={token} size="sm" variant={token === "MUSD" ? "default" : "outline"} disabled={!wallet.account || !!busy}
-                aria-label={`Buy with ${token}`} onClick={() => void useItems.getState().buy(listing, token)}>
-                <Icon data-icon="inline-start" /> {token}
-              </Button>
-            ))}
+          <div className="flex flex-wrap justify-end gap-1">
+            {PAY.map(({ token, icon: Icon }) => {
+              const amount = token === "MUSD" ? null : quotes[token];
+              const label = amount ? `≈${Number(formatUnits(amount, 18)).toLocaleString("en-US", { maximumSignificantDigits: 4 })} ${token}` : token;
+              return (
+                <Button key={token} size="sm" variant={token === "MUSD" ? "default" : "outline"} disabled={!wallet.account || !!busy}
+                  aria-label={`Buy with ${label}`} onClick={() => void useItems.getState().buy(listing, token)}>
+                  <Icon data-icon="inline-start" /> {label}
+                </Button>
+              );
+            })}
           </div>
         )}
+        <p className="max-w-64 text-right text-[11px] text-muted-foreground">After the swap, leftover funds return to you in MUSD.</p>
       </div>
     </FoundWeaponRow>
   );
