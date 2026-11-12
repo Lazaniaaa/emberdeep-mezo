@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deploy on Mezo</title>
+    <style>
+      :root { color-scheme: dark; --bg: #0d0a14; --panel: #17121f; --line: #2c2438; --text: #ece6f3; --muted: #a59bb3; --lime: #c6f15a; --red: #ff7a7a; }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+      main { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+      h1 { font-size: 22px; margin: 0 0 4px; color: var(--lime); }
+      section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 14px 0; }
+      h2 { font-size: 15px; margin: 0 0 8px; }
+      p, li { color: var(--muted); }
+      label { display: block; margin: 8px 0 4px; }
+      input { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: #0f0b16; color: var(--text); font: 14px ui-monospace, monospace; }
+      button { margin: 10px 8px 0 0; padding: 8px 14px; border-radius: 8px; border: 0; background: var(--lime); color: #111; font-weight: 600; cursor: pointer; }
+      button.quiet { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+      button:disabled { opacity: .45; cursor: default; }
+      code, .mono { font-family: ui-monospace, monospace; word-break: break-all; }
+      .ok { color: var(--lime); } .err { color: var(--red); }
+      ol#steps { padding-left: 20px; }
+      ol#steps li { margin: 6px 0; }
+      ol#steps li.done { color: var(--lime); }
+      ol#steps li.next { color: var(--text); font-weight: 600; }
+      #out, #config { white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Deploy Emberdeep on Mezo Testnet</h1>
+      <p>Development only: served by <code>npm run dev</code>, not part of the site. It deploys the Wave 2 contracts from
+        your own browser wallet, one transaction at a time; no key ever passes through this page. Progress is kept in
+        this browser, so a closed tab carries on where it stopped.</p>
+
+      <section>
+        <h2>1. Wallet</h2>
+        <p>The wallet that deploys owns every contract (and receives the pot's 20% treasury share). It needs a little
+          Mezo testnet BTC for gas.</p>
+        <button id="connect">Connect wallet and switch to Mezo Testnet</button>
+        <p id="wallet" class="mono"></p>
+      </section>
+
+      <section>
+        <h2>2. Settings</h2>
+        <label for="signer">Signer: the game server's signing key (deploy/attest.sh prints it)</label>
+        <input id="signer" autocomplete="off" spellcheck="false" />
+        <label for="baseuri">Item metadata base URI (optional; the owner can set it later with setBaseURI)</label>
+        <input id="baseuri" placeholder="https://…/api/item/" autocomplete="off" spellcheck="false" />
+        <p>Market fee: <b id="fee"></b> of every sale, sent into the new Ember Pot's current round.</p>
+      </section>
+
+      <section>
+        <h2>3. Deploy</h2>
+        <ol id="steps"></ol>
+        <button id="next" disabled>Run the next step</button>
+        <button id="reset" class="quiet">Start over</button>
+        <p id="out"></p>
+      </section>
+
+      <section>
+        <h2>4. Wire it in</h2>
+        <p>When every step is done, these are the addresses for <code>src/chain/mezo-config.ts</code>, and the constructor
+          arguments for verifying each contract on the explorer ("Solidity (Standard JSON input)", the matching
+          <code>contracts/out/*.standard-input.json</code>).</p>
+        <p id="config" class="mono"></p>
+      </section>
+    </main>
+    <script type="module" src="/src/tools/deploy-mezo.ts"></script>
+  </body>
+</html>

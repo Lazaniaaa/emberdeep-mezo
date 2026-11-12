@@ -52,4 +52,31 @@ describe("automatic pot payouts", () => {
     sent.length = 0;
     expect(await payOutEndedRounds(reader as never, relay, { address: A(7), launchTime: launch, roundSeconds: week }, launch + week + 30, () => {})).toBe(0);
   });
+
+  it("pays a retired pot's rounds with gold but never rolls an empty one into a round nobody plays", async () => {
+    const week = 604_800, launch = 1_000_000;
+    const reader = {
+      readContract: async ({ functionName, args }: { functionName: string; args: readonly unknown[] }) => {
+        const r = Number(args[0]);
+        switch (functionName) {
+          case "roundPot": return 8n;
+          case "totalGold": return r === 0 ? 100n : 0n;
+          case "zeroGoldRolledOver": case "swept": case "paid": return false;
+          case "playerCount": return r === 0 ? 1n : 0n;
+          case "playersOf": return r === 0 ? [A(1)] : [];
+          case "goldOf": return 100n;
+          default: throw new Error(functionName);
+        }
+      },
+    };
+    const sent: RelayCall[] = [];
+    const relay: Relay = { address: A(9), send: async call => { sent.push(call); return "0x01"; } };
+    const pot = { address: A(7), launchTime: launch, roundSeconds: week };
+    // Round 0 had gold; round 1 was empty. A live pot rolls round 1 over; a retired one leaves it.
+    expect(await payOutEndedRounds(reader as never, relay, { ...pot, retired: true }, launch + 2 * week + 100, () => {})).toBe(1);
+    expect(sent.map(c => c.args)).toEqual([[0n, [A(1)]]]);
+    sent.length = 0;
+    expect(await payOutEndedRounds(reader as never, relay, pot, launch + 2 * week + 100, () => {})).toBe(2);
+    expect(sent.map(c => c.args)).toEqual([[0n, [A(1)]], [1n, []]]);
+  });
 });

@@ -114,7 +114,8 @@ describe("Cerberus four-direction sheet", () => {
       expect(x%256>0&&x%256<255&&y%224>0&&y%224<223,`clipped at ${x},${y}`).toBe(true);
       expect(data[i]>80&&data[i+2]>80&&data[i+1]<0.45*Math.min(data[i],data[i+2]),`magenta ${x},${y}`).toBe(false);
     }
-  });
+  // Two checks for each of the sheet's ~900,000 pixels: near five seconds when the whole suite runs at once.
+  }, 20_000);
 });
 
 // The props and the loot have no art until the owner generates it (docs/art/PROMPTS.md, П1-П3); the game draws the code

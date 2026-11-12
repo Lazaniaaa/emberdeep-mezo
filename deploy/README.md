@@ -55,3 +55,20 @@ deployment in between: [docs/arc/README.md](../docs/arc/README.md#deploying-in-o
 On the server: `systemctl status emberdeep-attest`, `journalctl -u emberdeep-attest -n 50`,
 `curl -s localhost:8787/api/health`. The Caddyfile from before the `/api` route is kept as
 `/etc/caddy/Caddyfile.before-attest`.
+
+## Wave 2 on Mezo: the new pot, items and market
+
+In this order:
+
+1. **Server.** `bash deploy/attest.sh <IP>` (Git Bash). A server keeps the keys it has; this run adds the chest secret
+   (`/etc/emberdeep/chest.secret`, made on the server, never copied). On a **new** server, bring the saved keys so
+   the contracts keep trusting the same signer: `KEYS_DIR=~/emberdeep-keys bash deploy/attest.sh <IP>`.
+2. **Contracts.** `npm run dev`, open `http://localhost:5741/deploy-mezo.html`, connect the wallet that will own them
+   (it needs a little Mezo testnet BTC), check the signer, then press **Run the next step** five times: EmberPotV3,
+   EmberKeyRouter, EmberItems, EmberMarket, and `setCollection`. Progress is kept if the tab closes. At the end the
+   page prints the addresses and the constructor arguments for verifying each contract on the explorer.
+3. **Wire them in.** Put the pot address and launch time, the router, items and market into
+   `src/chain/mezo-config.ts`, then build and publish both: `bash deploy/attest.sh <IP>` (the server reads the items
+   address from the build) and `deploy.ps1` (the site). Move the old pot's entry into `MEZO_RETIRED_POTS` at the same
+   time: the server keeps paying out its ended rounds (the week running at the switch included) but never rolls an
+   empty one over. Keys bought in the old pot stay in it.

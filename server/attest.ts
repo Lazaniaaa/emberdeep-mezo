@@ -25,7 +25,7 @@ import { DESCENT_TYPES, fromWire, hallDomain, toWire, type Attestation, type Sig
 import { RUN_RECORD_TYPES, potDomain, runFromWire, runToWire, type PotAttestation, type RunRecord } from "@/chain/pot-typed";
 import { DROP_TYPES, dropFromWire, dropToWire, itemsDomain, type DropAttestation, type SignedDrop } from "@/chain/items-typed";
 import { RELAY_LOGIN_SECONDS, relayMessage } from "@/chain/relay-auth";
-import { MEZO_NETWORK, MEZO_POT, itemsAddress, mezoHallAddress } from "@/chain/mezo-config";
+import { MEZO_NETWORK, MEZO_POT, MEZO_RETIRED_POTS, itemsAddress, mezoHallAddress } from "@/chain/mezo-config";
 import { rollChest, type Item } from "@/game/items";
 import { startAutoPayout } from "./payout";
 import { waitForReceipt } from "@/chain/receipt";
@@ -383,14 +383,15 @@ export function createAttestServer(config: AttestConfig): Server {
 const DEFAULT_KEY_FILE = "/etc/emberdeep/signer.key";
 const DEFAULT_SECRET_FILE = "/etc/emberdeep/chest.secret";
 
-/** The chest secret: made once on first start, then kept. Losing it only changes what future chests roll. */
+/**
+ * The chest secret, made once by deploy/attest-setup.sh (the service's filesystem is read-only, so it cannot make it
+ * itself). Losing it only changes what future chests roll.
+ */
 function loadSecret(file: string): string {
-  if (!existsSync(file)) {
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, `${randomBytes(32).toString("hex")}\n`, { mode: 0o600 });
-    chmodSync(file, 0o600);
-  }
-  return readFileSync(file, "utf8").trim();
+  if (!existsSync(file)) throw new Error(`No chest secret in ${file}: run deploy/attest.sh again, which makes it`);
+  const secret = readFileSync(file, "utf8").trim();
+  if (secret.length < 32) throw new Error(`${file} does not hold a chest secret`);
+  return secret;
 }
 
 /** EmberItems on Mezo, read through the public RPC. */
@@ -498,7 +499,10 @@ function main(argv: string[]) {
     const rpc = process.env.MEZO_RPC ?? MEZO_NETWORK.rpcs[0];
     const reader = createPublicClient({ transport: http(rpc) });
     startAutoPayout(reader, config.relay, { address: config.pot.address, launchTime: config.pot.launchTime, roundSeconds: config.pot.roundSeconds }, line => console.log(line));
-    console.log("  Pays out each ended pot week automatically");
+    for (const old of MEZO_RETIRED_POTS) {
+      startAutoPayout(reader, config.relay, { ...old, address: getAddress(old.address), retired: true }, line => console.log(`[retired pot] ${line}`));
+    }
+    console.log(`  Pays out each ended pot week automatically${MEZO_RETIRED_POTS.length ? `, and the last weeks of ${MEZO_RETIRED_POTS.length} retired pot(s)` : ""}`);
   }
 }
 

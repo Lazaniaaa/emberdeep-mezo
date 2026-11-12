@@ -1,7 +1,7 @@
 #!/bin/bash
 # Runs ON THE SERVER, as root, uploaded and started by deploy/attest.sh (or attest.ps1). Safe to run again.
-# Installs Node, the attestation server as a locked-down systemd service under its own user, its signing key (made
-# here, never copied anywhere), and the /api route in Caddy.
+# Installs Node, the attestation server as a locked-down systemd service under its own user, its signing and relayer
+# keys (made here, or the ones saved from an earlier server), the chest secret, and the /api route in Caddy.
 #   bash attest-setup.sh [HALL_ADDRESS] [MEZO_HALL_ADDRESS]
 set -euo pipefail
 HALL_ADDRESS="${1:-}"
@@ -30,6 +30,20 @@ install -d -m 755 /opt/emberdeep-attest
 install -m 644 /tmp/emberdeep-attest.mjs /opt/emberdeep-attest/attest.mjs
 install -d -m 750 -o root -g emberdeep-attest /etc/emberdeep
 
+# Keys saved from an earlier server (attest.sh with KEYS_DIR uploads them to /tmp) are moved in, so a new server signs
+# with the same address the contracts already trust. A key the server has already is never replaced.
+for name in signer relayer; do
+	if [ -f "/tmp/emberdeep-${name}.key" ]; then
+		if [ -f "/etc/emberdeep/${name}.key" ]; then
+			echo "Kept the ${name} key already on this server; the uploaded one is ignored."
+		else
+			install -m 400 -o emberdeep-attest -g emberdeep-attest "/tmp/emberdeep-${name}.key" "/etc/emberdeep/${name}.key"
+			echo "Installed the saved ${name} key."
+		fi
+		shred -u "/tmp/emberdeep-${name}.key" 2>/dev/null || rm -f "/tmp/emberdeep-${name}.key"
+	fi
+done
+
 # The signing key is made once, on this server, readable only by the service user.
 if [ ! -f /etc/emberdeep/signer.key ]; then
 	SIGNER_KEY_FILE=/etc/emberdeep/signer.key node /opt/emberdeep-attest/attest.mjs keygen /etc/emberdeep/signer.key >/dev/null
@@ -46,6 +60,14 @@ if [ ! -f /etc/emberdeep/relayer.key ]; then
 	chmod 400 /etc/emberdeep/relayer.key
 fi
 RELAYER="$(runuser -u emberdeep-attest -- node /opt/emberdeep-attest/attest.mjs address /etc/emberdeep/relayer.key)"
+
+# The secret that rolls what Cerberus chests hold: made once, here, and never leaves this server. The service only
+# reads it (its filesystem is read-only), so it must exist before the service starts.
+if [ ! -f /etc/emberdeep/chest.secret ]; then
+	node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))' > /etc/emberdeep/chest.secret
+	chown emberdeep-attest:emberdeep-attest /etc/emberdeep/chest.secret
+	chmod 400 /etc/emberdeep/chest.secret
+fi
 
 # Settings. The Hall address is kept from an earlier run unless a new one is given. Without any, the server signs for
 # Mezo only (its contracts come with the build).
@@ -76,6 +98,9 @@ if [ -f /etc/emberdeep/attest.env ]; then
 	sed -i '/^MEZO_POT_ADDRESS=/d' /etc/emberdeep/attest.env
 	if ! grep -q '^RELAYER_KEY_FILE=' /etc/emberdeep/attest.env; then
 		echo "RELAYER_KEY_FILE=/etc/emberdeep/relayer.key" >> /etc/emberdeep/attest.env
+	fi
+	if ! grep -q '^CHEST_SECRET_FILE=' /etc/emberdeep/attest.env; then
+		echo "CHEST_SECRET_FILE=/etc/emberdeep/chest.secret" >> /etc/emberdeep/attest.env
 	fi
 	if [ -n "$MEZO_HALL_ADDRESS" ]; then
 		if ! [[ "$MEZO_HALL_ADDRESS" =~ ^0x[0-9a-fA-F]{40}$ ]]; then echo "Not an address: $MEZO_HALL_ADDRESS" >&2; exit 1; fi

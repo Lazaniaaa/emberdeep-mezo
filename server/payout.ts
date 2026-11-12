@@ -63,7 +63,11 @@ export async function readRound(reader: Reader, pot: Address, round: number): Pr
   return { round, pot: potAmount, totalGold, rolledOver, swept, unpaid };
 }
 
-export type PotClock = { address: Address; launchTime: number; roundSeconds: number };
+/**
+ * A pot and its round clock. A `retired` pot (replaced by a newer one, so nobody plays it now) still gets its ended
+ * rounds paid, but an empty round is left alone: rolling it over would only move the MUSD into a round nobody plays.
+ */
+export type PotClock = { address: Address; launchTime: number; roundSeconds: number; retired?: boolean };
 
 /** Settles every recently ended round that still has MUSD to pay. Returns how many payout transactions were sent. */
 export async function payOutEndedRounds(reader: Reader, relay: Relay, pot: PotClock, nowSeconds: number, log: (line: string) => void): Promise<number> {
@@ -75,6 +79,7 @@ export async function payOutEndedRounds(reader: Reader, relay: Relay, pot: PotCl
     if (nowSeconds <= pot.launchTime + (round + 1) * pot.roundSeconds + 60) continue;
     const state = await readRound(reader, pot.address, round);
     for (const players of payoutCalls(state)) {
+      if (pot.retired && players.length === 0) continue;
       try {
         const hash = await relay.send({ address: pot.address, abi: POT_ABI as Abi, functionName: "distribute", args: [BigInt(round), players] });
         sent++;
