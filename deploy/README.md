@@ -62,13 +62,32 @@ In this order:
 
 1. **Server.** `bash deploy/attest.sh <IP>` (Git Bash). A server keeps the keys it has; this run adds the chest secret
    (`/etc/emberdeep/chest.secret`, made on the server, never copied). On a **new** server, bring the saved keys so
-   the contracts keep trusting the same signer: `KEYS_DIR=~/emberdeep-keys bash deploy/attest.sh <IP>`.
+   the contracts keep trusting the same signer: `KEYS_DIR=~/emberdeep-keys bash deploy/attest.sh <IP>`. The keys go
+   into a folder only root can read and are removed from it when the setup ends, whether it worked or not. When it
+   finishes, the script prints the signer, the relayer and the **item metadata base URI**
+   (`https://<your site>/api/item/`): keep that line for the next step.
 2. **Contracts.** `npm run dev`, open `http://localhost:5741/deploy-mezo.html`, connect the wallet that will own them
-   (it needs a little Mezo testnet BTC), check the signer, then press **Run the next step** five times: EmberPotV3,
-   EmberKeyRouter, EmberItems, EmberMarket, and `setCollection`. Progress is kept if the tab closes. At the end the
-   page prints the addresses and the constructor arguments for verifying each contract on the explorer.
+   (it needs a little Mezo testnet BTC), check the signer, and paste the **item metadata base URI** from step 1. It is
+   the published site's address followed by `/api/item/`, for example `https://203-0-113-5.sslip.io/api/item/`; it
+   must start with `https://` and end with a slash, because EmberItems answers `tokenURI(id)` with it followed by
+   the token id. Then press **Run the next step** five times: EmberPotV3, EmberKeyRouter, EmberItems, EmberMarket, and
+   `setCollection`. Progress is kept if the tab closes, and so is a transaction that was sent but had not landed yet:
+   the next press waits for that one instead of sending a second. At the end the page prints the addresses and the
+   constructor arguments for verifying each contract on the explorer.
 3. **Wire them in.** Put the pot address and launch time, the router, items and market into
    `src/chain/mezo-config.ts`, then build and publish both: `bash deploy/attest.sh <IP>` (the server reads the items
    address from the build) and `deploy.ps1` (the site). Move the old pot's entry into `MEZO_RETIRED_POTS` at the same
-   time: the server keeps paying out its ended rounds (the week running at the switch included) but never rolls an
-   empty one over. Keys bought in the old pot stay in it.
+   time (the deploy page prints that line too): the server keeps paying out its ended rounds (the week running at the
+   switch included) but never rolls an empty one over. Keys bought in the old pot stay in it.
+4. **Check the item metadata.** Wallets and the Mezo explorer show a found weapon from what
+   `https://<your site>/api/item/<id>` answers: its name, picture and stats, read from the chain by the game's server.
+   After the first chest is opened, `curl https://<your site>/api/item/1` must answer JSON whose `image` opens in a
+   browser (the pictures are `items/nft/<kind>-<rarity>.png` in the site, made by
+   `node scripts/sprite-sheets.mjs items`). The explorer reads metadata when an item is minted; if an item shows
+   without a picture, use its "Refresh metadata" on the item's page.
+
+**If the site moves** (a new server, IP or domain), the old metadata address stops answering. Publish the site and the
+server at the new address, then open `deploy-mezo.html` with the owner's wallet, enter the new
+`https://<new site>/api/item/` and press **Set the base URI on EmberItems** (one transaction, `setBaseURI`).
+The server learns its own address from the first line of the Caddyfile every time `attest.sh` runs (`SITE_URL` in
+`/etc/emberdeep/attest.env`); with your own domain there, the picture links use it.

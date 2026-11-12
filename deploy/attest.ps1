@@ -28,11 +28,15 @@ if ($LASTEXITCODE -ne 0) { throw "Upload failed" }
 if ($KeysDir) {
   foreach ($name in "signer", "relayer") {
     if (-not (Test-Path "$KeysDir\$name.key")) { throw "No $name.key in $KeysDir" }
-    scp "$KeysDir\$name.key" "${target}:/tmp/emberdeep-$name.key"
-    if ($LASTEXITCODE -ne 0) { throw "Upload failed" }
   }
+  # The keys travel into a folder only root can read, never through /tmp; the setup script empties it when it ends.
+  ssh $target "rm -rf /root/emberdeep-keys-upload; install -d -m 700 /root/emberdeep-keys-upload"
+  if ($LASTEXITCODE -ne 0) { throw "Could not make the upload folder on the server" }
+  scp "$KeysDir\signer.key" "$KeysDir\relayer.key" "${target}:/root/emberdeep-keys-upload/"
+  if ($LASTEXITCODE -ne 0) { throw "Upload failed" }
 }
 scp deploy/attest-setup.sh "${target}:/tmp/emberdeep-attest-setup.sh"
 if ($LASTEXITCODE -ne 0) { throw "Upload failed" }
-ssh $target "sed -i 's/\r$//' /tmp/emberdeep-attest-setup.sh; bash /tmp/emberdeep-attest-setup.sh '$Hall' '$MezoHall'; rm -f /tmp/emberdeep-attest-setup.sh /tmp/emberdeep-attest.mjs"
+# The setup's own result is what ssh ends with, so a failed setup is not reported as done.
+ssh $target "sed -i 's/\r$//' /tmp/emberdeep-attest-setup.sh; bash /tmp/emberdeep-attest-setup.sh '$Hall' '$MezoHall'; rc=`$?; rm -f /tmp/emberdeep-attest-setup.sh /tmp/emberdeep-attest.mjs; exit `$rc"
 if ($LASTEXITCODE -ne 0) { throw "Setup on the server failed" }

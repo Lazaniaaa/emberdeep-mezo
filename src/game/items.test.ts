@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HP_SCALE } from "./config";
+import { idx } from "./dungeon";
 import { ITEM_KINDS, itemName, itemStats, rollChest, type Item } from "./items";
 import { isPrizeSetup, prizeSetup } from "./prize";
 import { ReplayError, replayRun, validateSetup } from "./replay";
@@ -88,6 +89,11 @@ describe("a descent with a found weapon", () => {
     expect(start("steady-wick").perks.stepDiscount).toBeCloseTo(plain.perks.stepDiscount + 0.24);
     expect(start("thick-coat").perks.drainReduce).toBeCloseTo(plain.perks.drainReduce + 0.3);
     expect(start("riposte").levelPerks).toEqual([{ id: "riposte", rank: 3 }]);
+    // Rift Sense shows a floor's landmarks on entering it, and the first floor is entered too.
+    const seenStairs = (s: ReturnType<typeof startRun>) => s.floor.seen[idx(s.floor, s.floor.stairs.x, s.floor.stairs.y)];
+    expect(seenStairs(plain)).toBe(0);
+    expect(seenStairs(start("rift-sense", 2))).toBe(1);
+    expect(seenStairs(start("rift-sense", 0))).toBe(0);
   });
 
   it("leaves descents without an item exactly as before", () => {

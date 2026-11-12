@@ -5,9 +5,10 @@ import {
   http, parseAbi, toHex, type Address, type Hash, type Hex,
 } from "viem";
 import { HALL_ABI, readHall, requestAttestation, type HallBoard, type RecordStep } from "./arc";
+import { fallbackTerms, type BorrowTerms } from "./borrow";
 import { fromWire, type Attestation } from "./hall-typed";
 import {
-  BTC_ROUTER, MEZO_NETWORK, MEZO_POT, MEZO_TOKENS, TIGRIS, keyRouterAddress, marketAddress, mezoHallAddress, potRound, type PayToken,
+  BTC_ROUTER, MEZO_BORROW, MEZO_NETWORK, MEZO_POT, MEZO_TOKENS, TIGRIS, keyRouterAddress, marketAddress, mezoHallAddress, potRound, type PayToken,
 } from "./mezo-config";
 import { runFromWire, type PotAttestation } from "./pot-typed";
 import { waitForReceipt } from "./receipt";
@@ -180,12 +181,45 @@ export async function quoteIn(token: "BTC" | "MEZO", musdOut: bigint): Promise<b
   return (amountIn * (10_000n + SLIPPAGE_BPS)) / 10_000n;
 }
 
-/** The price of one BTC in MUSD (18 decimals) on Tigris, from a small swap's worth, so a borrow can be sized. */
+/** The price of one BTC in MUSD (18 decimals) on Tigris, from a small swap's worth. */
 export async function btcPrice(): Promise<bigint> {
   const probe = 10n ** 15n;
   const out = await mezoClient.readContract({ address: TIGRIS.pools.BTC, abi: POOL_ABI, functionName: "getAmountOut", args: [probe, MEZO_TOKENS.BTC.address] });
   if (out === 0n) throw new Error("The BTC/MUSD pool on Tigris has no liquidity right now.");
   return out * 1000n;
+}
+
+const BORROW_ABI = parseAbi([
+  "function minNetDebt() view returns (uint256)",
+  "function MUSD_GAS_COMPENSATION() view returns (uint256)",
+  "function borrowingRate() view returns (uint256)",
+  "function priceFeed() view returns (address)",
+  "function fetchPrice() view returns (uint256)",
+]);
+
+/**
+ * What a loan on Mezo costs right now, read from Mezo's own BorrowerOperations and its price feed, so a borrow is sized
+ * the way Mezo will judge it. (The Tigris pool can sit several percent off the feed, which would promise a safer loan
+ * than the player gets.) Whatever cannot be read falls back to mezo-config.ts, and the price to the pool's.
+ */
+export async function borrowTerms(): Promise<BorrowTerms> {
+  const address = MEZO_BORROW.borrowerOperations as Address;
+  const ask = (functionName: "minNetDebt" | "MUSD_GAS_COMPENSATION" | "borrowingRate") =>
+    mezoClient.readContract({ address, abi: BORROW_ABI, functionName }).catch(() => null);
+  const feedPrice = async () => {
+    const feed = await mezoClient.readContract({ address, abi: BORROW_ABI, functionName: "priceFeed" });
+    const price = await mezoClient.readContract({ address: feed, abi: BORROW_ABI, functionName: "fetchPrice" });
+    if (price === 0n) throw new Error("Mezo's price feed answered zero.");
+    return price;
+  };
+  const [price, minDebt, gasCompensation, feeRate] = await Promise.all([
+    feedPrice().catch(() => btcPrice()), ask("minNetDebt"), ask("MUSD_GAS_COMPENSATION"), ask("borrowingRate"),
+  ]);
+  const kept = fallbackTerms(price);
+  return {
+    price, minDebt: minDebt ?? kept.minDebt, gasCompensation: gasCompensation ?? kept.gasCompensation,
+    feeRate: feeRate ?? kept.feeRate,
+  };
 }
 
 export type BuyStep = "switching" | "approving" | "buying" | "confirming";

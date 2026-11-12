@@ -3,6 +3,8 @@
 // Ember Pot on Mezo (a real MUSD prize pool, which takes only the equal prize loadout). It never holds funds. On Arc the
 // player submits the signed record from their own wallet. On Mezo Testnet it can also relay: a separate relayer key,
 // funded with a little testnet BTC, sends the record and pays the gas, for a player who signed one login message.
+// It also answers GET /api/item/<id>, the metadata EmberItems' tokenURI points to, so wallets and the Mezo explorer can
+// show a found weapon: read from the chain, worded by the game (src/game/item-metadata.ts).
 //
 //   node attest.mjs keygen [keyfile]   create a key (once: the signing key, or the relayer key) and print its address
 //   node attest.mjs address [keyfile]  print the address of an existing key
@@ -27,6 +29,7 @@ import { DROP_TYPES, dropFromWire, dropToWire, itemsDomain, type DropAttestation
 import { RELAY_LOGIN_SECONDS, relayMessage } from "@/chain/relay-auth";
 import { MEZO_NETWORK, MEZO_POT, MEZO_RETIRED_POTS, itemsAddress, mezoHallAddress } from "@/chain/mezo-config";
 import { rollChest, type Item } from "@/game/items";
+import { itemMetadata } from "@/game/item-metadata";
 import { startAutoPayout } from "./payout";
 import { waitForReceipt } from "@/chain/receipt";
 
@@ -97,6 +100,13 @@ export type AttestConfig = {
   now?: () => number;
   /** Requests one address may make per window. */
   rateLimit?: { max: number; windowMs: number };
+  /**
+   * The published site's address, without a trailing slash, for the picture links in item metadata. Without it the
+   * address the request came to is used.
+   */
+  siteUrl?: string;
+  /** Item metadata requests one address may make per window: wallets and explorers ask more often than players sign. */
+  itemLimit?: { max: number; windowMs: number };
   log?: (line: string) => void;
 };
 
@@ -128,9 +138,33 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-function send(res: ServerResponse, status: number, body: unknown) {
-  res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
+function send(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
+  res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store", ...headers });
   res.end(JSON.stringify(body));
+}
+
+type Hits = Map<string, { count: number; reset: number }>;
+
+/** Counts a request against its address's allowance for the window. False when the address is over it. */
+function allowed(hits: Hits, who: string, limit: { max: number; windowMs: number }, now: number): boolean {
+  const hit = hits.get(who);
+  if (!hit || hit.reset <= now) hits.set(who, { count: 1, reset: now + limit.windowMs });
+  else if (++hit.count > limit.max) return false;
+  if (hits.size > 10_000) for (const [k, v] of hits) if (v.reset <= now) hits.delete(k);
+  return true;
+}
+
+/** An item that was never minted reverts when read; anything else is Mezo not answering. */
+const isMissingItem = (e: unknown) => /revert|nonexistent|TokenDoesNotExist/i.test(e instanceof Error ? e.message : String(e));
+
+/** The site's own address, for the links in item metadata: the configured one, or the one this request came to. */
+function siteOf(config: AttestConfig, req: IncomingMessage): string | null {
+  if (config.siteUrl) return config.siteUrl;
+  const host = req.headers.host ?? "";
+  if (!/^[A-Za-z0-9.-]+(:\d{1,5})?$/.test(host)) return null;
+  // Caddy tells the service how the visitor reached it; a request straight to the service (local testing) is plain http.
+  const https = String(req.headers["x-forwarded-proto"] ?? "").split(",")[0]!.trim() === "https";
+  return `${https ? "https" : "http"}://${host}`;
 }
 
 /** The address a request came from. The server listens on localhost behind Caddy, which sets X-Forwarded-For. */
@@ -180,14 +214,16 @@ export async function attest(config: AttestConfig, body: unknown): Promise<Attes
   const now = Math.floor((config.now ?? Date.now)() / 1000);
   const runId = runIdOf(player, result.setup, b.moves as string[]);
 
-  // A found weapon counts only if the player holds that very item on chain.
+  // A found weapon counts only if the player holds that very item on chain. A chest is the exception: it opens only
+  // for a descent the pot holds already, and that record was signed with this same check, so a weapon sold or sent on
+  // since the Claim must not lock its chest.
   const carried = result.setup.item;
-  if (carried) {
+  if (carried && target !== "drop") {
     if (!config.items) throw new HttpError(422, "Found weapons are not set up on this server");
     let held;
     try { held = await config.items.readItem(carried.id); } catch (e) {
-      // An item that was never minted reverts; anything else is Mezo not answering, which is not the player's fault.
-      if (!/revert|nonexistent|TokenDoesNotExist/i.test(e instanceof Error ? e.message : String(e))) throw new HttpError(503, "Could not read your weapon on Mezo. Try again in a minute.");
+      // Mezo not answering is not the player's fault.
+      if (!isMissingItem(e)) throw new HttpError(503, "Could not read your weapon on Mezo. Try again in a minute.");
       held = null;
     }
     const same = held && held.owner.toLowerCase() === player.toLowerCase() && held.item.kind === carried.kind
@@ -197,7 +233,8 @@ export async function attest(config: AttestConfig, body: unknown): Promise<Attes
 
   if (target === "drop") {
     // A chest is the prize of a prize descent that is already in the Ember Pot: each one costs a key, and it belongs to
-    // that one record, so sending the same moves again (under any player) rolls nothing new.
+    // that one record (the runId covers the player, the setup and every move), so sending the same moves again rolls
+    // nothing new unless they are claimed into the pot again, with another key.
     const items = config.items!;
     if (!result.bossSlain) throw new HttpError(422, "Only slaying Cerberus earns a chest");
     if (!result.home) throw new HttpError(422, "The chest counts only if you carry it home");
@@ -332,10 +369,35 @@ function describe(a: Attestation | PotAttestation | DropAttestation | EmptyChest
   return `${d.player} depth ${d.depth} gold ${d.gold} ${d.home ? "home" : "lost"} run ${d.runId.slice(0, 10)}`;
 }
 
+/** An id nobody has minted yet is read again after this long. A minted item never changes, so it is kept. */
+const MISSING_ITEM_MS = 30_000;
+const ITEM_CACHE_MAX = 5_000;
+/** Metadata is public and the same for everyone: browsers and explorers may keep it for an hour. */
+const ITEM_HEADERS = { "cache-control": "public, max-age=3600", "access-control-allow-origin": "*" };
+
 export function createAttestServer(config: AttestConfig): Server {
   const limit = config.rateLimit ?? { max: 20, windowMs: 10 * 60_000 };
-  const hits = new Map<string, { count: number; reset: number }>();
+  const itemLimit = config.itemLimit ?? { max: 300, windowMs: 10 * 60_000 };
+  const hits: Hits = new Map();
+  const itemHits: Hits = new Map();
   const log = config.log ?? (line => console.log(line));
+
+  /** What item `id` is, from the chain once and from memory after that. Null for an id that is not minted. */
+  const items = new Map<number, { item: Item | null; until: number }>();
+  const itemOf = async (id: number, now: number): Promise<Item | null> => {
+    const kept = items.get(id);
+    if (kept && kept.until > now) return kept.item;
+    let item: Item | null;
+    try { item = (await config.items!.readItem(id)).item; } catch (e) {
+      // Not kept: the next request asks Mezo again.
+      if (!isMissingItem(e)) throw new HttpError(503, "Could not read the item on Mezo. Try again in a minute.");
+      item = null;
+    }
+    items.delete(id);
+    if (items.size >= ITEM_CACHE_MAX) items.delete(items.keys().next().value!);
+    items.set(id, { item, until: item ? Infinity : now + MISSING_ITEM_MS });
+    return item;
+  };
 
   return createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -348,16 +410,28 @@ export function createAttestServer(config: AttestConfig): Server {
         });
         return;
       }
+      const now = (config.now ?? Date.now)();
+
+      // Item metadata, where EmberItems' tokenURI points: /api/item/<token id>.
+      const itemPath = /^\/api\/item\/([1-9]\d{0,14})$/.exec(url.pathname);
+      if (itemPath) {
+        if (req.method !== "GET" && req.method !== "HEAD") throw new HttpError(405, "Use GET");
+        if (!config.items) throw new HttpError(404, "Found weapons are not set up on this server");
+        if (!allowed(itemHits, clientAddress(req), itemLimit, now)) throw new HttpError(429, "Too many requests. Wait a few minutes.");
+        const id = Number(itemPath[1]);
+        const item = await itemOf(id, now);
+        if (!item) throw new HttpError(404, "No such item");
+        const site = siteOf(config, req);
+        if (!site) throw new HttpError(400, "The Host header is not a site address");
+        send(res, 200, itemMetadata(id, item, site), ITEM_HEADERS);
+        return;
+      }
+
       if (url.pathname !== "/api/attest" && url.pathname !== "/api/relay") throw new HttpError(404, "Not found");
       if (req.method !== "POST") throw new HttpError(405, "Use POST");
       if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) throw new HttpError(415, "Send JSON");
 
-      const now = (config.now ?? Date.now)();
-      const who = clientAddress(req);
-      const hit = hits.get(who);
-      if (!hit || hit.reset <= now) hits.set(who, { count: 1, reset: now + limit.windowMs });
-      else if (++hit.count > limit.max) throw new HttpError(429, "Too many requests. Wait a few minutes.");
-      if (hits.size > 10_000) for (const [k, v] of hits) if (v.reset <= now) hits.delete(k);
+      if (!allowed(hits, clientAddress(req), limit, now)) throw new HttpError(429, "Too many requests. Wait a few minutes.");
 
       let body: unknown;
       try { body = JSON.parse(await readBody(req)); } catch (e) { throw e instanceof HttpError ? e : new HttpError(400, "The body is not JSON"); }
@@ -464,6 +538,9 @@ function main(argv: string[]) {
   const pot = optional("MEZO_POT_ADDRESS") ?? getAddress(MEZO_POT.address);
   const itemsEnv = optional("MEZO_ITEMS_ADDRESS") ?? (itemsAddress() ? getAddress(itemsAddress()!) : null);
   const mezoRpc = process.env.MEZO_RPC ?? MEZO_NETWORK.rpcs[0];
+  // The published site, for the picture links in item metadata. deploy/attest-setup.sh sets it from the Caddyfile.
+  const siteUrl = process.env.SITE_URL?.trim().replace(/\/+$/, "");
+  if (siteUrl && !/^https?:\/\/[A-Za-z0-9.-]+(:\d{1,5})?$/.test(siteUrl)) throw new Error("SITE_URL is not a site address like https://example.com");
   const potReader = createPublicClient({ transport: http(mezoRpc) });
   const config: AttestConfig = {
     account: loadKey(file),
@@ -481,6 +558,7 @@ function main(argv: string[]) {
     } : {}),
     ...(relayer ? { relay: relayer } : {}),
     ...(itemsEnv ? { items: createItems(itemsEnv, mezoChainId, mezoRpc, loadSecret(process.env.CHEST_SECRET_FILE ?? DEFAULT_SECRET_FILE)) } : {}),
+    ...(siteUrl ? { siteUrl } : {}),
     ttlSeconds: Number(process.env.SIGN_TTL_SECONDS ?? 3600),
   };
   if (relayer && relayer.address === config.account.address) throw new Error("The relayer must have its own key, never the signing key");
@@ -492,7 +570,7 @@ function main(argv: string[]) {
     if (config.mezoHall) console.log(`  Hall on Mezo ${config.mezoHall.address} (chain ${config.mezoHall.chainId})`);
     if (config.pot) console.log(`  Ember Pot ${config.pot.address} (chain ${config.pot.chainId})`);
     if (config.relay) console.log(`  Relayer ${config.relay.address} pays the gas on Mezo Testnet`);
-    if (config.items) console.log(`  Items ${config.items.address}: opens Cerberus chests`);
+    if (config.items) console.log(`  Items ${config.items.address}: opens Cerberus chests, and answers their metadata at ${config.siteUrl ?? "(this site)"}/api/item/<id>`);
   });
   // When a pot week ends, the relayer pays everyone out; anyone else could too, so this never holds the pot back.
   if (config.relay && config.pot && process.env.AUTO_PAYOUT !== "off") {

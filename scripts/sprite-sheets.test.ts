@@ -1,5 +1,7 @@
 // The game sheets as scripts/sprite-sheets.mjs writes them: one per animal in public/heroes, one per creature in public/mobs.
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { ANIMALS } from "../src/game/animals";
@@ -12,7 +14,10 @@ import { PROPS } from "../src/game/props";
 import { CAMP_CELL_H, CAMP_CELL_W, CAMP_FOOT_X, CAMP_FOOT_Y, CAMP_SHEETS, CAMP_SPRITE_HEIGHT, CAMP_OBJECTS, CAMP_PAVING, footOf } from "../src/game/camp-art";
 import {
   BENCH_HEIGHT, BENCH_ORDER, BUILDING_HEIGHT, BUILDING_ORDER, CURB_HEIGHT, CURB_ORDER, DECOR_HEIGHT, DECOR_ORDER, FURNITURE_HEIGHT, FURNITURE_ORDER, VAULT_HEIGHT, VAULT_ORDER, LOOT_HEIGHT, LOOT_ORDER as SCRIPT_LOOT_ORDER, PROP_HEIGHT,
+  ITEM_CARD_BACK, ITEM_CARD_FRAMES, ITEM_CARD_SIZE, ITEM_KIND_COLS, ITEM_RARITY_ROWS, writeItemCards,
 } from "./sprite-sheets.mjs";
+import { RARITIES, RARITY_INFO } from "../src/game/catalog";
+import { ITEM_KINDS } from "../src/game/items";
 
 async function frames(file: string, cols: number, rows: number, cellW: number, cellH: number) {
   expect(existsSync(file), file).toBe(true);
@@ -215,6 +220,53 @@ describe("camp sheets", () => {
       expect(right-left+1,CURB_ORDER[cell]).toBe(cell===1||cell===5?8:32);
       expect(bottom-top+1,CURB_ORDER[cell]).toBe(CURB_HEIGHT[CURB_ORDER[cell]]);
       if(cell===2||cell===3)expect(data[((top+20)*info.width+cell*CAMP_CELL_W+left+20)*4+3]).toBe(0);
+    }
+  });
+});
+
+describe("found-weapon pictures for NFT metadata", () => {
+  it("follows the game's kinds, rarities and rarity colours", () => {
+    expect(ITEM_KIND_COLS).toEqual([...ITEM_KINDS]);
+    expect(ITEM_RARITY_ROWS).toEqual([...RARITIES]);
+    expect(ITEM_CARD_FRAMES).toEqual(Object.fromEntries(RARITIES.map(r => [r, RARITY_INFO[r].color])));
+  });
+
+  it("has one 256px picture per kind and rarity: the atlas icon enlarged seven times with no smoothing, framed in the rarity's colour", async () => {
+    const atlas = await sharp("public/items/items.png").ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const rgb = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+    for (const [row, rarity] of RARITIES.entries()) for (const [col, kind] of ITEM_KINDS.entries()) {
+      const file = `public/items/nft/${kind}-${rarity}.png`;
+      expect(existsSync(file), file).toBe(true);
+      const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      expect([info.width, info.height], file).toEqual([ITEM_CARD_SIZE, ITEM_CARD_SIZE]);
+      const at = (x: number, y: number) => [...data.subarray((y * info.width + x) * 4, (y * info.width + x) * 4 + 4)];
+      expect(at(0, 0), `${file} frame`).toEqual([...rgb(RARITY_INFO[rarity].color), 255]);
+      expect(at(12, 12), `${file} backdrop`).toEqual([...rgb(ITEM_CARD_BACK), 255]);
+      // Every opaque atlas pixel is a 7x7 block of exactly its colour; nothing is transparent.
+      let checked = 0;
+      for (let sy = 0; sy < 32; sy++) for (let sx = 0; sx < 32; sx++) {
+        const i = ((row * 32 + sy) * atlas.info.width + col * 32 + sx) * 4;
+        if (atlas.data[i + 3] !== 255) continue;
+        const want = [atlas.data[i], atlas.data[i + 1], atlas.data[i + 2], 255];
+        for (const [dx, dy] of [[0, 0], [6, 6], [3, 3]]) expect(at(16 + sx * 7 + dx, 16 + sy * 7 + dy), `${file} pixel ${sx},${sy}`).toEqual(want);
+        checked++;
+      }
+      expect(checked, `${file} has an icon`).toBeGreaterThan(60);
+    }
+  });
+
+  it("is what the import writes from the atlas, so the pictures are never stale", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "emberdeep-items-"));
+    try {
+      const files: string[] = await writeItemCards("public/items/items.png", `${dir}/`);
+      expect(files).toHaveLength(ITEM_KINDS.length * RARITIES.length);
+      for (const file of files) {
+        const name = file.slice(dir.length + 1);
+        const [fresh, kept] = await Promise.all([file, `public/items/nft/${name}`].map(f => sharp(f).ensureAlpha().raw().toBuffer()));
+        expect(fresh.equals(kept), `${name} (run: node scripts/sprite-sheets.mjs items)`).toBe(true);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });

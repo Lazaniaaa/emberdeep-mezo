@@ -130,6 +130,8 @@ export function startRun(setup: RunSetup): RunState {
   };
   // A sword's perk starts at its rank, as if taken that many times.
   for (let r = 0; r < (item?.perk?.rank ?? 0); r++) gainPerkRank(state, item!.perk!.id);
+  // The first floor is entered too: a sword with Rift Sense shows its landmarks from the start.
+  revealLandmarks(state);
   reveal(state);
   return state;
 }

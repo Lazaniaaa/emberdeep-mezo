@@ -52,7 +52,17 @@ export const MEZO_RETIRED_POTS: readonly { address: Address; launchTime: number;
  * The game suggests at most 65% loan-to-value (a collateral ratio near 154%): Mezo allows more, but in its recovery mode
  * any loan under 150% can be liquidated. Checked 2026-11-12.
  */
-export const MEZO_BORROW = { url: "https://testnet.mezo.org/borrow", faucet: "https://faucet.test.mezo.org", maxLtv: 0.65 } as const;
+export const MEZO_BORROW = {
+  url: "https://testnet.mezo.org/borrow", faucet: "https://faucet.test.mezo.org", maxLtv: 0.65,
+  /**
+   * Mezo's BorrowerOperations on testnet. The game reads the loan terms from it (and from its price feed), because
+   * Mezo does not lend small change: the smallest loan is `minDebt` MUSD, and every loan also carries a refundable
+   * `gasCompensation` and a one-time fee of `feeBps`. The numbers here are what the chain said on 2026-11-12; they are
+   * used only when the chain cannot be read.
+   */
+  borrowerOperations: "0xCdF7028ceAB81fA0C6971208e83fa7872994beE5",
+  minDebt: 1800, gasCompensation: 200, feeBps: 10,
+} as const satisfies Record<string, string | number>;
 
 /** The first router: BTC only, owner-less, bound to the 2026-10-23 pot. Used only if KEY_ROUTER is ever unset. */
 export const BTC_ROUTER: Address = "0xd261fc219ef4f48dde9a9ff0ede3a133c78c114e";

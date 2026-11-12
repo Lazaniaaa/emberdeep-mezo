@@ -20,8 +20,11 @@ scp server-dist/attest.mjs "$HOST:/tmp/emberdeep-attest.mjs"
 if [ -n "${KEYS_DIR:-}" ]; then
 	for name in signer relayer; do
 		test -f "$KEYS_DIR/$name.key" || { echo "No $name.key in $KEYS_DIR" >&2; exit 1; }
-		scp "$KEYS_DIR/$name.key" "$HOST:/tmp/emberdeep-$name.key"
 	done
+	# The keys travel into a folder only root can read, never through /tmp; the setup script empties it when it ends.
+	ssh "$HOST" "rm -rf /root/emberdeep-keys-upload; install -d -m 700 /root/emberdeep-keys-upload"
+	scp "$KEYS_DIR/signer.key" "$KEYS_DIR/relayer.key" "$HOST:/root/emberdeep-keys-upload/"
 fi
 scp deploy/attest-setup.sh "$HOST:/tmp/emberdeep-attest-setup.sh"
-ssh "$HOST" "sed -i 's/\r$//' /tmp/emberdeep-attest-setup.sh; bash /tmp/emberdeep-attest-setup.sh '$HALL' '$MEZO_HALL'; rm -f /tmp/emberdeep-attest-setup.sh /tmp/emberdeep-attest.mjs"
+# The setup's own result is what this script ends with, so a failed setup is not reported as done.
+ssh "$HOST" "sed -i 's/\r$//' /tmp/emberdeep-attest-setup.sh; bash /tmp/emberdeep-attest-setup.sh '$HALL' '$MEZO_HALL'; rc=\$?; rm -f /tmp/emberdeep-attest-setup.sh /tmp/emberdeep-attest.mjs; exit \$rc"

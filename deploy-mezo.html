@@ -45,8 +45,14 @@
         <h2>2. Settings</h2>
         <label for="signer">Signer: the game server's signing key (deploy/attest.sh prints it)</label>
         <input id="signer" autocomplete="off" spellcheck="false" />
-        <label for="baseuri">Item metadata base URI (optional; the owner can set it later with setBaseURI)</label>
-        <input id="baseuri" placeholder="https://…/api/item/" autocomplete="off" spellcheck="false" />
+        <label for="baseuri">Item metadata base URI: your site's address followed by <code>/api/item/</code></label>
+        <input id="baseuri" placeholder="https://203-0-113-5.sslip.io/api/item/" autocomplete="off" spellcheck="false" />
+        <p id="urihint">EmberItems answers <code>tokenURI(id)</code> with this text followed by the token id, and the game's
+          server answers that address with the item's name, picture and stats, which is how wallets and the Mezo explorer
+          show a found weapon. So it must be the published site's own address, start with <code>https://</code> and end
+          with a slash; <code>deploy/attest.sh</code> prints it when it finishes. Leave it empty if the site has no
+          address yet, and set it afterwards with the button below (also after moving to a new server or domain).</p>
+        <button id="seturi" class="quiet" hidden>Set the base URI on EmberItems</button>
         <p>Market fee: <b id="fee"></b> of every sale, sent into the new Ember Pot's current round.</p>
       </section>
 
@@ -54,6 +60,7 @@
         <h2>3. Deploy</h2>
         <ol id="steps"></ol>
         <button id="next" disabled>Run the next step</button>
+        <button id="forget" class="quiet" hidden>Forget the sent transaction</button>
         <button id="reset" class="quiet">Start over</button>
         <p id="out"></p>
       </section>

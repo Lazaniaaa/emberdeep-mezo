@@ -170,7 +170,11 @@ export const useMezo = create<MezoState>()((set, get) => ({
       keepChest(report);
       void get().refresh();
     } catch (e) {
-      set({ pot: { status: "error", txHash: null, error: mezo.explainMezoError(e) } });
+      const error = mezo.explainMezoError(e);
+      // A Claim that landed although its answer was lost (a slow RPC, a closed tab) comes back as "already": the
+      // descent is in the pot, so its chest is earned all the same. The server checks the record before it opens one.
+      if (/recorded already|in the Ember Pot already/.test(error)) keepChest(report);
+      set({ pot: { status: "error", txHash: null, error } });
     }
   },
 

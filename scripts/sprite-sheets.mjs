@@ -407,6 +407,45 @@ export async function writeItems(raw='art/items/raw/',output='public/items/items
   await sharp(atlas,{raw:{width:128,height:128,channels:4}}).png().toFile(output);return{width:128,height:128,drawn};
 }
 
+/** Found weapons by kind, in the chain's order: one column each in public/items/items.png (src/game/items.ts ITEM_KINDS). */
+export const ITEM_KIND_COLS=['pickaxe','axe','sword','spear'];
+/** The frame of a found weapon's picture, by rarity: the game's rarity colours (src/game/catalog.ts RARITY_INFO). */
+export const ITEM_CARD_FRAMES={common:'#d4d4d4',rare:'#5cc8ff',epic:'#c77dff',legendary:'#ffb800'};
+/** The backdrop the game shows a found weapon on. */
+export const ITEM_CARD_BACK='#120c1f';
+export const ITEM_CARD_SIZE=256;
+
+/**
+ * One picture per kind and rarity for the items' NFT metadata (wallets and explorers show `image` on any background, so
+ * the icon cannot stay transparent): the 32px icon from the atlas, enlarged 7 times with no smoothing, on the game's
+ * dark backdrop inside a frame in the rarity's colour. 256x256, named <kind>-<rarity>.png. The signing server links
+ * them from /api/item/<id> (src/game/item-metadata.ts).
+ */
+export async function writeItemCards(atlas='public/items/items.png',outDir='public/items/nft/'){
+  const {data,info}=await sharp(atlas).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  if(info.width!==128||info.height!==128)throw new Error(`${atlas} is not the 128x128 item atlas`);
+  const S=ITEM_CARD_SIZE,scale=7,frame=8,off=(S-32*scale)/2,rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)),back=rgb(ITEM_CARD_BACK);
+  mkdirSync(outDir,{recursive:true});
+  const files=[];
+  for(const [row,rarity] of ITEM_RARITY_ROWS.entries())for(const [col,kind] of ITEM_KIND_COLS.entries()){
+    const card=Buffer.alloc(S*S*4),edge=rgb(ITEM_CARD_FRAMES[rarity]);
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+      const border=x<frame||y<frame||x>=S-frame||y>=S-frame;
+      let c=border?edge:back;
+      const sx=Math.floor((x-off)/scale),sy=Math.floor((y-off)/scale);
+      if(!border&&sx>=0&&sx<32&&sy>=0&&sy<32){
+        const i=((row*32+sy)*128+col*32+sx)*4,a=data[i+3]/255;
+        if(a>0)c=[0,1,2].map(k=>Math.round(data[i+k]*a+back[k]*(1-a)));
+      }
+      card.set([c[0],c[1],c[2],255],(y*S+x)*4);
+    }
+    const file=`${outDir}${kind}-${rarity}.png`;
+    await sharp(card,{raw:{width:S,height:S,channels:4}}).png({compressionLevel:9,palette:true,colours:64,dither:0}).toFile(file);
+    files.push(file);
+  }
+  return files;
+}
+
 /** Derive a frozen palette from existing artwork, retaining small semantic accents before weighted clustering. */
 export async function deriveMobPalette(mobDir = 'public/mobs') {
   const histogram = new Map();
@@ -783,7 +822,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       continue;
     }
     if(id==='items'){
-      if(itemSheetFor(k.raw,'common')){mkdirSync(k.out,{recursive:true});const{drawn}=await writeItems(k.raw,k.out+'items.png');console.log(`Found weapons: ${drawn.join(', ')} drawn; the rest reuse common.`);}
+      if(itemSheetFor(k.raw,'common')){
+        mkdirSync(k.out,{recursive:true});const{drawn}=await writeItems(k.raw,k.out+'items.png');console.log(`Found weapons: ${drawn.join(', ')} drawn; the rest reuse common.`);
+        const cards=await writeItemCards(k.out+'items.png',k.out+'nft/');console.log(`Found weapon pictures for NFT metadata: ${cards.length} in ${k.out}nft/.`);
+      }
       else if(kind==='items')console.log('No art/items/raw/items-common.webp yet; the game draws its code icons.');
       continue;
     }

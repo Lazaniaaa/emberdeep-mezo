@@ -132,18 +132,34 @@ describe("Cerberus chests", () => {
     expect((await bare(ask(prizeSetup(15)))).status).toBe(404);
   });
 
-  it("lets a prize descent carry a found weapon only when its player holds that item", async () => {
+  it("lets a prize descent into the pot with a found weapon only when its player holds that item", async () => {
     const post = await start();
     const axe: Item = { kind: 1, rarity: 2, seed: 99n };
     const carrying = prizeSetup(16, { id: 7, kind: 1, rarity: 2, seed: "99" });
-    claimed(carrying);
-    expect((await post(ask(carrying))).status).toBe(422); // not minted
+    const claim = { ...ask(carrying), target: "pot" };
+    expect((await post(claim)).status).toBe(422); // not minted
     held.set(7, { owner: OTHER, item: axe });
-    expect((await post(ask(carrying))).status).toBe(422); // someone else's
+    expect((await post(claim)).status).toBe(422); // someone else's
     held.set(7, { owner: PLAYER, item: { ...axe, rarity: 3 } });
-    expect((await post(ask(carrying))).status).toBe(422); // not that item
+    expect((await post(claim)).status).toBe(422); // not that item
     held.set(7, { owner: PLAYER, item: axe });
-    expect((await post(ask(carrying))).status).toBe(200);
+    expect((await post(claim)).status).toBe(200);
+  });
+
+  it("still opens the chest of a claimed descent after its weapon was sold", async () => {
+    const post = await start();
+    const carrying = prizeSetup(18, { id: 9, kind: 3, rarity: 1, seed: "5" });
+    // Never in the pot: no chest, whoever holds the weapon.
+    held.set(9, { owner: PLAYER, item: { kind: 3, rarity: 1, seed: 5n } });
+    expect((await post(ask(carrying))).status).toBe(409);
+    // Claimed while the player held it, then sold: the pot's record is what the chest answers to.
+    const runId = claimed(carrying);
+    held.set(9, { owner: OTHER, item: { kind: 3, rarity: 1, seed: 5n } });
+    const res = await post(ask(carrying));
+    expect(res.status).toBe(200);
+    expect((await res.json() as DropAttestation).drop).toMatchObject({ player: PLAYER, runId });
+    // The buyer cannot open it: under their address the same moves are another record, which the pot does not hold.
+    expect((await post(ask(carrying, OTHER))).status).toBe(409);
   });
 
   it("tells Mezo not answering apart from a weapon the player does not hold", async () => {
@@ -151,7 +167,6 @@ describe("Cerberus chests", () => {
       items: { address: items.address as Address, chainId: EVM_CHAIN_ID, secret: SECRET, readItem: async () => { throw new Error("fetch failed"); } },
     });
     const carrying = prizeSetup(17, { id: 8, kind: 1, rarity: 2, seed: "99" });
-    claimed(carrying);
-    expect((await post(ask(carrying))).status).toBe(503);
+    expect((await post({ ...ask(carrying), target: "pot" })).status).toBe(503);
   });
 });

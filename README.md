@@ -2,8 +2,9 @@
 
 A pixel roguelike where skill wins, with a **real weekly MUSD prize pool on [Mezo](https://mezo.org)**.
 You descend with a lantern, light is your only resource, and you bring gold home through the rift. Prize descents
-start equal for everyone; the gold you carry home takes its share of the week's **Ember Pot**. Slay Cerberus on a
-prize descent and its chest holds a **weapon NFT** you can carry, or sell at the **Market** for MUSD.
+start with the same loadout for everyone, except a found weapon you hold; the gold you carry home takes its share of
+the week's **Ember Pot**. Slay Cerberus on a prize descent and its chest holds a **weapon NFT** you can carry, or sell
+at the **Market** for MUSD.
 
 **Mezo Buildathon, Wave 2** &nbsp;·&nbsp; **Play:** the Wave 2 build goes live on Mezo Testnet before 15 November
 (the Wave 1 server was retired).
@@ -36,16 +37,22 @@ buy a key (MUSD, or BTC / MEZO swapped on Tigris; or borrow MUSD against BTC on 
 - **Cerberus chests, paid by a key.** A chest opens only for a prize descent that slew Cerberus, came home and is
   already claimed into the Ember Pot, so every chest costs a key and 80% of it is in the pot. The server rolls the
   chest from a secret (an HMAC of the pot record), signs it, and its relayer mints it, paying the gas. One chest per
-  record: the same moves sent again, under any player, roll nothing new. 100% on testnet; 20% planned for mainnet.
-  An unopened chest is kept in the browser and listed in the Armory until it is opened.
+  record: the same moves sent again roll nothing new unless they are claimed into the pot again, with another key.
+  100% on testnet; 20% planned for mainnet. An unopened chest is kept in the browser and listed in the Armory until
+  it is opened, and it stays yours to open even if you sell the weapon you carried.
 - **Weapons in prize descents.** A found weapon replaces the equal loadout's dagger; the server checks on chain that
-  the player holds that very item before it signs.
+  the player holds that very item when it signs the claim. (It is checked at the claim, not at the start: see
+  "How a record is checked".)
+- **Item metadata.** `tokenURI` points at the game's server, `/api/item/<id>`, which reads the item from the chain
+  and answers standard ERC-721 metadata: name, description, a 256px picture for its kind and rarity, and its kind,
+  rarity, finish, damage and perks as attributes. So found weapons show up in wallets and on the Mezo explorer.
 - **The Market.** `EmberMarket`: escrow listings priced in MUSD; buy with MUSD, or with BTC or MEZO swapped on Tigris in
   the same transaction (the buttons show the quote; leftover MUSD comes back). A seller can take an unsold item back
   at any time. 5% of every sale goes into the current week of the Ember Pot.
 - **EmberPotV3.** The pot with `fund()`, through which the Market pays its fee, and `fundedIn`, which the pot window
   shows as "From Market sales". Everything else is unchanged from V2.
-- **Borrow MUSD against BTC.** Short of MUSD for keys or a weapon? The game works out the BTC to lock at a safe 65%
+- **Borrow MUSD against BTC.** Short of MUSD for keys or a weapon? The game reads Mezo's own loan terms (its BTC price
+  feed, its smallest loan of 1,800 MUSD, its fee and gas compensation), works out the BTC to lock at a safe 65%
   loan-to-value and sends you to Mezo's own borrow app. 65% keeps the loan above the 150% collateral ratio Mezo needs
   in recovery mode.
 - **A one-page deploy** (`deploy-mezo.html`) for the four contracts and the market's collection, and a server setup
@@ -88,8 +95,9 @@ runs on crystals you find in the deep and is kept in your browser.
 
 1. Open the **Ember Pot** (the gold coin in the header) and connect a wallet on Mezo Testnet.
 2. Buy a key with **MUSD, BTC or MEZO**. 80% of it lands in this week's pot.
-3. **Start a prize descent.** Everyone gets the same loadout: 3 lantern flasks, the Rusty Dagger (or a found weapon
-   you hold), no Delver perks, no potions. Level perks are earned in the deep, the same for everyone.
+3. **Start a prize descent.** Everyone gets the same loadout: 3 lantern flasks, the Rusty Dagger, no Delver perks, no
+   potions. The one thing that differs is a found weapon you hold, which replaces the dagger. Level perks are earned in
+   the deep, the same for everyone.
 4. Collect gold, survive, and walk back to the rift. Lose the light and the gold is lost with it.
 5. The report shows everything you carried home and one button: **Claim N gold**. The server replays the descent,
    signs it and records it in the pot (it spends one key) and on the Hall of Descents. You pay no gas.
@@ -167,8 +175,8 @@ descents. **Crystals** you bring home are the camp's currency:
 **Delvers** are characters with a class perk (Prospector gold, Crystal Seer crystals, Lamplighter light, Pathfinder
 cheaper steps, Duelist damage, Scavenger chests) and a fixed supply: 999 Common, 111 Rare, 69 Epic, 11 Legendary.
 They also come free from a Soul Sigil (a Sealed Vault holds one 30% of the time) or from the **weekly draw**, which
-mints three Delvers for draw tickets found in the deep. Delver perks apply to practice descents only; prize descents
-start equal.
+mints three Delvers for draw tickets found in the deep. Delver perks apply to practice descents only; a prize descent
+takes none of the camp's gear, only a found weapon.
 
 ## How a record is checked
 
@@ -179,8 +187,9 @@ contracts take no record without that signature, credit it only to the player it
 A chest is checked the same way, and only against a record the pot already holds.
 
 What it proves: the gold and depth came from real play under the game's rules. What it does not yet prove: the seed
-is chosen by the browser, so a player could look for a good map before playing (a server-issued seed is the next
-step).
+is chosen by the browser, so a player could look for a good map before playing, and a found weapon is checked when the
+descent is claimed, not when it starts, so two wallets could pass one weapon between them. A server-issued start (the
+seed and the weapon fixed before the first move) is the next step and closes both.
 
 ## Run locally
 
@@ -195,7 +204,7 @@ npx vite --mode production --port 5743   # the Mezo build, as published (VITE_AR
 Other scripts:
 
 ```sh
-npm test             # 605 tests: game rules, replay, balance sims, the contracts in an in-memory EVM, the server and relayer
+npm test             # 623 tests: game rules, replay, balance sims, the contracts in an in-memory EVM, the server and relayer
 npm run typecheck
 npm run lint
 npm run build        # static site in dist/ (the Mezo build)
@@ -230,8 +239,7 @@ Node.
 
 ## Next
 
-- Item metadata and images, so found weapons show up in wallets and on the explorer.
-- Server-issued seeds for prize descents.
+- A server-issued start for prize descents: the seed and the carried weapon fixed before the first move.
 - Delvers as NFTs too, listed on the same Market.
 - Mezo mainnet, after the testnet weeks run cleanly: a 20% chest chance and a daily mint cap.
 

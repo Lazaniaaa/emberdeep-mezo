@@ -33,6 +33,8 @@ function FoundWeapons() {
   const carried = useItems(s => s.equipped && carriedItem());
   const allChests = useItems(s => s.chests);
   const chests = chestsOf(allChests, wallet.account);
+  // The chest opened last leaves the list above the moment it opens; what it held stays here to be seen and carried.
+  const opened = useItems(s => (s.chest.status === "done" || s.chest.status === "empty" ? s.chestFor : null));
   useEffect(() => { if (wallet.account) void useItems.getState().refresh(); }, [wallet.account]);
 
   return (
@@ -51,6 +53,12 @@ function FoundWeapons() {
             <ChestOpener pending={c} seed={c.setup.seed} />
           </div>
         ))}
+        {wallet.account && opened !== null && !chests.some(c => c.setup.seed === opened) && (
+          <div className="space-y-2 rounded-lg border border-sigil/50 bg-sigil/[0.07] p-3">
+            <p className="flex items-center gap-1.5 font-pixel text-sm text-sigil"><Gift className="size-4" aria-hidden /> The chest you opened</p>
+            <ChestOpener pending={null} seed={opened} />
+          </div>
+        )}
         {!wallet.account ? (
           <Button variant="outline" onClick={() => void wallet.connect()} disabled={wallet.status === "connecting"}>
             <Wallet data-icon="inline-start" /> Connect a wallet to see yours

@@ -8,6 +8,17 @@ HALL_ADDRESS="${1:-}"
 MEZO_HALL_ADDRESS="${2:-}"
 export DEBIAN_FRONTEND=noninteractive
 
+# Saved keys arrive in a folder only root can read (attest.sh with KEYS_DIR makes it). Whatever happens below, even an
+# early exit, they never stay there: a private key left in an upload folder is a key waiting to be read.
+UPLOAD=/root/emberdeep-keys-upload
+cleanup() {
+	if [ -d "$UPLOAD" ]; then
+		find "$UPLOAD" -type f -exec shred -u {} \; 2>/dev/null || true
+		rm -rf "$UPLOAD"
+	fi
+}
+trap cleanup EXIT
+
 # A fresh server is still running server-setup.sh (cloud-init) for a few minutes: wait for it, so apt is free and
 # Caddy is installed before the /api route is added.
 if command -v cloud-init >/dev/null 2>&1; then
@@ -30,17 +41,20 @@ install -d -m 755 /opt/emberdeep-attest
 install -m 644 /tmp/emberdeep-attest.mjs /opt/emberdeep-attest/attest.mjs
 install -d -m 750 -o root -g emberdeep-attest /etc/emberdeep
 
-# Keys saved from an earlier server (attest.sh with KEYS_DIR uploads them to /tmp) are moved in, so a new server signs
-# with the same address the contracts already trust. A key the server has already is never replaced.
+# Keys saved from an earlier server (attest.sh with KEYS_DIR uploads them) are moved in, so a new server signs with the
+# same address the contracts already trust. A key the server has already is never replaced, and a file that is not a
+# private key is refused before it can take a key's place.
 for name in signer relayer; do
-	if [ -f "/tmp/emberdeep-${name}.key" ]; then
+	if [ -f "$UPLOAD/${name}.key" ]; then
 		if [ -f "/etc/emberdeep/${name}.key" ]; then
 			echo "Kept the ${name} key already on this server; the uploaded one is ignored."
+		elif ! node /opt/emberdeep-attest/attest.mjs address "$UPLOAD/${name}.key" >/dev/null 2>&1; then
+			echo "The uploaded ${name}.key is not a private key (0x and 64 hex digits). Nothing was installed." >&2
+			exit 1
 		else
-			install -m 400 -o emberdeep-attest -g emberdeep-attest "/tmp/emberdeep-${name}.key" "/etc/emberdeep/${name}.key"
+			install -m 400 -o emberdeep-attest -g emberdeep-attest "$UPLOAD/${name}.key" "/etc/emberdeep/${name}.key"
 			echo "Installed the saved ${name} key."
 		fi
-		shred -u "/tmp/emberdeep-${name}.key" 2>/dev/null || rm -f "/tmp/emberdeep-${name}.key"
 	fi
 done
 
@@ -64,7 +78,7 @@ RELAYER="$(runuser -u emberdeep-attest -- node /opt/emberdeep-attest/attest.mjs 
 # The secret that rolls what Cerberus chests hold: made once, here, and never leaves this server. The service only
 # reads it (its filesystem is read-only), so it must exist before the service starts.
 if [ ! -f /etc/emberdeep/chest.secret ]; then
-	node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))' > /etc/emberdeep/chest.secret
+	(umask 077; node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))' > /etc/emberdeep/chest.secret)
 	chown emberdeep-attest:emberdeep-attest /etc/emberdeep/chest.secret
 	chmod 400 /etc/emberdeep/chest.secret
 fi
@@ -101,6 +115,13 @@ if [ -f /etc/emberdeep/attest.env ]; then
 	fi
 	if ! grep -q '^CHEST_SECRET_FILE=' /etc/emberdeep/attest.env; then
 		echo "CHEST_SECRET_FILE=/etc/emberdeep/chest.secret" >> /etc/emberdeep/attest.env
+	fi
+	# The site's own address, for the image links in item metadata (/api/item/<id>): the name Caddy serves, which is the
+	# first word of its Caddyfile. Set again on every run, so a new domain there is picked up.
+	SITE="$(awk 'NF && $1 !~ /^#/ { print $1; exit }' /etc/caddy/Caddyfile)"
+	sed -i '/^SITE_URL=/d' /etc/emberdeep/attest.env
+	if [[ "$SITE" =~ ^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+		echo "SITE_URL=https://${SITE}" >> /etc/emberdeep/attest.env
 	fi
 	if [ -n "$MEZO_HALL_ADDRESS" ]; then
 		if ! [[ "$MEZO_HALL_ADDRESS" =~ ^0x[0-9a-fA-F]{40}$ ]]; then echo "Not an address: $MEZO_HALL_ADDRESS" >&2; exit 1; fi
@@ -170,10 +191,17 @@ echo "Relayer address (send it a little Mezo testnet BTC for gas): ${RELAYER}"
 if [ -f /etc/emberdeep/attest.env ]; then
 	systemctl enable emberdeep-attest >/dev/null 2>&1
 	systemctl restart emberdeep-attest
-	sleep 1
+	# Node takes a moment to load on a small server: ask for up to 20 seconds before calling it a failure.
+	for _ in $(seq 1 20); do
+		sleep 1
+		if curl -fsS -o /dev/null http://127.0.0.1:8787/api/health 2>/dev/null; then break; fi
+	done
 	if curl -fsS http://127.0.0.1:8787/api/health; then
 		echo
 		echo "The attestation server is running."
+		if grep -q '^SITE_URL=' /etc/emberdeep/attest.env; then
+			echo "Item metadata base URI (for EmberItems): $(grep '^SITE_URL=' /etc/emberdeep/attest.env | cut -d= -f2)/api/item/"
+		fi
 	else
 		echo "The service did not answer. See: journalctl -u emberdeep-attest -n 50" >&2
 		exit 1
