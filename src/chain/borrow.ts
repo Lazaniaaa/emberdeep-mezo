@@ -39,6 +39,33 @@ export function collateralFor(musd: bigint, btcPrice: bigint): bigint {
 export function borrowPlan(missing: bigint, terms: BorrowTerms): { loan: bigint; debt: bigint; collateral: bigint } {
   if (missing <= 0n) return { loan: 0n, debt: 0n, collateral: 0n };
   const loan = missing > terms.minDebt ? missing : terms.minDebt;
-  const debt = loan + (loan * terms.feeRate + UNIT - 1n) / UNIT + terms.gasCompensation;
+  const debt = loan + feeOf(loan, terms) + terms.gasCompensation;
   return { loan, debt, collateral: collateralFor(debt, terms.price) };
+}
+
+const feeOf = (loan: bigint, terms: BorrowTerms) => (loan * terms.feeRate + UNIT - 1n) / UNIT;
+
+/** Mezo sorts troves by collateral over principal, scaled by 1e20 (LiquityMath._computeNominalCR). */
+export const nominalRatio = (coll: bigint, principal: bigint) => (principal > 0n ? (coll * 10n ** 20n) / principal : 2n ** 256n - 1n);
+
+/** A trove the player has already, as TroveManager.getEntireDebtAndColl reads it (pending redistributions included). */
+export type Trove = { coll: bigint; principal: bigint; interest: bigint };
+
+/**
+ * What to send to Mezo's BorrowerOperations for `missing` MUSD: open a trove (at least Mezo's smallest loan), or, for a
+ * player who has one, borrow just what is missing from it, adding the BTC that keeps the whole trove at the safe
+ * loan-to-value. `send` is the BTC to attach, `nicr` the trove's sorting key afterwards (for the list hints).
+ */
+export type TroveAction = { kind: "open" | "adjust"; borrow: bigint; send: bigint; nicr: bigint };
+
+export function troveAction(missing: bigint, terms: BorrowTerms, trove: Trove | null): TroveAction | null {
+  if (missing <= 0n) return null;
+  if (!trove) {
+    const plan = borrowPlan(missing, terms);
+    return { kind: "open", borrow: plan.loan, send: plan.collateral, nicr: nominalRatio(plan.collateral, plan.debt) };
+  }
+  const fee = feeOf(missing, terms);
+  const need = collateralFor(trove.principal + trove.interest + missing + fee, terms.price);
+  const send = need > trove.coll ? need - trove.coll : 0n;
+  return { kind: "adjust", borrow: missing, send, nicr: nominalRatio(trove.coll + send, trove.principal + missing + fee) };
 }

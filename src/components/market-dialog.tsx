@@ -40,12 +40,13 @@ export function MarketDialog() {
   const forSale = listings.filter(l => !same(l.seller, wallet.account));
   // What the wallet holds, for the borrow hint when the cheapest weapon costs more MUSD than that.
   const [balances, setBalances] = useState<Record<PayToken, bigint> | null>(null);
+  const [borrowed, setBorrowed] = useState(0);
   useEffect(() => {
     if (!marketOpen || !wallet.account) return;
     let active = true;
     void import("@/chain/mezo").then(m => m.balancesOf(wallet.account as Address)).then(b => { if (active) setBalances(b); }).catch(() => { /* no hint then */ });
     return () => { active = false; };
-  }, [marketOpen, wallet.account, listings]);
+  }, [marketOpen, wallet.account, listings, borrowed]);
   const cheapest = forSale.reduce<bigint | null>((min, l) => (min === null || l.price < min ? l.price : min), null);
 
   return (
@@ -68,7 +69,7 @@ export function MarketDialog() {
           ) : forSale.map(l => <ForSale key={`${l.item.id}:${l.price}:${quoteVersion}`} listing={l} />)}
         </Section>
 
-        {balances && wallet.account && cheapest !== null && <BorrowMusd need={cheapest} have={balances.MUSD} btc={balances.BTC} />}
+        {balances && wallet.account && cheapest !== null && <BorrowMusd need={cheapest} have={balances.MUSD} btc={balances.BTC} onBorrowed={() => setBorrowed(n => n + 1)} />}
 
         {!wallet.account ? (
           <Button variant="outline" onClick={() => void wallet.connect()} disabled={wallet.status === "connecting"}>

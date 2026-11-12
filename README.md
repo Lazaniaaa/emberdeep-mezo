@@ -20,7 +20,7 @@ at the **Market** for MUSD.
 ## The loop on Mezo
 
 ```
-buy a key (MUSD, or BTC / MEZO swapped on Tigris; or borrow MUSD against BTC on Mezo)
+buy a key (MUSD, or BTC / MEZO swapped on Tigris; or open a Mezo trove from the game: BTC in, MUSD out)
   → prize descent → Claim: the gold goes into this week's Ember Pot (1 key spent)
   → slew Cerberus? open its chest: a weapon NFT (EmberItems)
   → carry it into the next descent, or list it at the Market
@@ -51,10 +51,12 @@ buy a key (MUSD, or BTC / MEZO swapped on Tigris; or borrow MUSD against BTC on 
   at any time. 5% of every sale goes into the current week of the Ember Pot.
 - **EmberPotV3.** The pot with `fund()`, through which the Market pays its fee, and `fundedIn`, which the pot window
   shows as "From Market sales". Everything else is unchanged from V2.
-- **Borrow MUSD against BTC.** Short of MUSD for keys or a weapon? The game reads Mezo's own loan terms (its BTC price
-  feed, its smallest loan of 1,800 MUSD, its fee and gas compensation), works out the BTC to lock at a safe 65%
-  loan-to-value and sends you to Mezo's own borrow app. 65% keeps the loan above the 150% collateral ratio Mezo needs
-  in recovery mode.
+- **Borrow MUSD against BTC, from the game.** Short of MUSD for keys or a weapon? One button opens a trove on Mezo's
+  own `BorrowerOperations` (`openTrove`, the BTC sent as collateral), or borrows more from the player's trove
+  (`adjustTrove`, adding BTC when needed). The game reads Mezo's terms first (its price feed, its smallest loan of
+  1,800 MUSD, its fee and gas compensation) and sizes the BTC for a safe 65% loan-to-value, which keeps the loan above
+  the 150% collateral ratio Mezo needs in recovery mode; the list hints come from `SortedTroves.findInsertPosition`.
+  The trove is the player's own, to repay or close in Mezo's app.
 - **A one-page deploy** (`deploy-mezo.html`) for the four contracts and the market's collection, and a server setup
   that reuses saved keys, so the contracts keep trusting the same signer across servers.
 

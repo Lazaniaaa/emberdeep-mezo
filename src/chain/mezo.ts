@@ -5,7 +5,7 @@ import {
   http, parseAbi, toHex, type Address, type Hash, type Hex,
 } from "viem";
 import { HALL_ABI, readHall, requestAttestation, type HallBoard, type RecordStep } from "./arc";
-import { fallbackTerms, type BorrowTerms } from "./borrow";
+import { fallbackTerms, troveAction, type BorrowTerms, type Trove, type TroveAction } from "./borrow";
 import { fromWire, type Attestation } from "./hall-typed";
 import {
   BTC_ROUTER, MEZO_BORROW, MEZO_NETWORK, MEZO_POT, MEZO_TOKENS, TIGRIS, keyRouterAddress, marketAddress, mezoHallAddress, potRound, type PayToken,
@@ -222,6 +222,67 @@ export async function borrowTerms(): Promise<BorrowTerms> {
   };
 }
 
+const TROVE_ABI = parseAbi([
+  "function sortedTroves() view returns (address)",
+  "function troveManager() view returns (address)",
+  "function findInsertPosition(uint256 NICR, address prevId, address nextId) view returns (address, address)",
+  "function getTroveStatus(address borrower) view returns (uint8)",
+  "function getEntireDebtAndColl(address borrower) view returns (uint256 coll, uint256 principal, uint256 interest, uint256 pendingCollateral, uint256 pendingPrincipal, uint256 pendingInterest)",
+  "function openTrove(uint256 debtAmount, address upperHint, address lowerHint) payable",
+  "function adjustTrove(uint256 collWithdrawal, uint256 debtChange, bool isDebtIncrease, address upperHint, address lowerHint) payable",
+]);
+/** TroveManager's Status: 1 is an open trove. */
+const TROVE_ACTIVE = 1;
+
+/** The player's open trove on Mezo, or null when they have none. */
+export async function readTrove(account: Address): Promise<Trove | null> {
+  const bo = MEZO_BORROW.borrowerOperations as Address;
+  const manager = await mezoClient.readContract({ address: bo, abi: TROVE_ABI, functionName: "troveManager" });
+  const status = await mezoClient.readContract({ address: manager, abi: TROVE_ABI, functionName: "getTroveStatus", args: [account] });
+  if (status !== TROVE_ACTIVE) return null;
+  const [coll, principal, interest, pc, pp, pi] = await mezoClient.readContract({ address: manager, abi: TROVE_ABI, functionName: "getEntireDebtAndColl", args: [account] });
+  return { coll: coll + pc, principal: principal + pp, interest: interest + pi };
+}
+
+/** Everything the borrow button needs for `missing` MUSD: Mezo's terms, the player's trove and what to send. */
+export async function planBorrow(account: Address, missing: bigint) {
+  const [terms, trove] = await Promise.all([borrowTerms(), readTrove(account)]);
+  return { terms, trove, action: troveAction(missing, terms, trove) };
+}
+
+export type BorrowStep = "switching" | "signing" | "confirming";
+
+/**
+ * Borrows MUSD on Mezo for the connected wallet, straight from Mezo's own BorrowerOperations: opens a trove with the
+ * BTC as collateral, or borrows more from the one the player has, adding BTC to keep it at the safe loan-to-value. The
+ * MUSD lands in the player's wallet; the trove is theirs, to repay or close in Mezo's app.
+ */
+export async function borrowMusd(provider: Eip1193, account: Address, action: TroveAction, onStep: (s: BorrowStep) => void = () => {}): Promise<Hash> {
+  const bo = MEZO_BORROW.borrowerOperations as Address;
+  onStep("switching");
+  await switchToMezo(provider);
+  // The list hints: where the trove sits among the others, sorted by nominal ratio. A view walks the list for free,
+  // so the transaction itself only checks them.
+  const sorted = await mezoClient.readContract({ address: bo, abi: TROVE_ABI, functionName: "sortedTroves" });
+  const zero = "0x0000000000000000000000000000000000000000" as const;
+  const [upper, lower] = await mezoClient.readContract({ address: sorted, abi: TROVE_ABI, functionName: "findInsertPosition", args: [action.nicr, zero, zero] });
+  const w = wallet(provider, account);
+  let hash: Hash;
+  if (action.kind === "open") {
+    const call = { address: bo, abi: TROVE_ABI, functionName: "openTrove", args: [action.borrow, upper, lower], value: action.send } as const;
+    await mezoClient.simulateContract({ ...call, account });
+    onStep("signing");
+    hash = await w.writeContract(call);
+  } else {
+    const call = { address: bo, abi: TROVE_ABI, functionName: "adjustTrove", args: [0n, action.borrow, true, upper, lower], value: action.send } as const;
+    await mezoClient.simulateContract({ ...call, account });
+    onStep("signing");
+    hash = await w.writeContract(call);
+  }
+  onStep("confirming");
+  return confirm(hash);
+}
+
 export type BuyStep = "switching" | "approving" | "buying" | "confirming";
 
 export async function ensureAllowance(provider: Eip1193, account: Address, token: Address, spender: Address, amount: bigint, onStep: (s: BuyStep) => void) {
@@ -393,6 +454,12 @@ export async function recordOnMezoHall(provider: Eip1193, account: Address, atte
 // ── errors ─────────────────────────────────────────────────────────────────────────────────────────────
 
 const POT_REFUSALS: [RegExp, string][] = [
+  // Mezo's own lending (BorrowerOperations), for borrowing MUSD from the game.
+  [/exceeds maxBorrowingCapacity/, "Your Mezo loan cannot grow past the limit set when it opened. Borrow more in Mezo's app, or repay first."],
+  [/ICR < MCR|ICR >= CCR|Cannot decrease your Trove/, "Mezo would not accept that loan against this much BTC. Lock more BTC, or borrow less."],
+  [/TCR < CCR|not permitted during Recovery Mode/, "Mezo's lending is in recovery mode, so new loans are paused for now. Pay with BTC or MEZO instead."],
+  [/net debt must be greater than minimum/, "That is below Mezo's smallest loan."],
+  [/Trove is active/, "You already have a loan on Mezo. Reload the window to borrow more from it."],
   [/No key/, "You have no Ember Pot key on Mezo. Buy one, then record again."],
   [/Run already recorded/, "This descent is in the Ember Pot already."],
   [/Expired/, "The server's signature ran out. Record it again for a fresh one."],
