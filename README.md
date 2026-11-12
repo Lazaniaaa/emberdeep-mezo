@@ -2,9 +2,11 @@
 
 A pixel roguelike where skill wins, with a **real weekly MUSD prize pool on [Mezo](https://mezo.org)**.
 You descend with a lantern, light is your only resource, and you bring gold home through the rift. Prize descents
-start equal for everyone; the gold you carry home takes its share of the week's **Ember Pot**.
+start equal for everyone; the gold you carry home takes its share of the week's **Ember Pot**. Slay Cerberus on a
+prize descent and its chest holds a **weapon NFT** you can carry, or sell at the **Market** for MUSD.
 
-**Play:** https://45-63-99-54.sslip.io (Mezo Testnet) &nbsp;·&nbsp; **Mezo Buildathon, Wave 1**
+**Mezo Buildathon, Wave 2** &nbsp;·&nbsp; **Play:** the Wave 2 build goes live on Mezo Testnet before 15 November
+(the Wave 1 server was retired).
 
 <p align="center">
   <img src="docs/screenshots/mezo-descent.png" alt="A descent: a ginger cat with a lantern, a Waxling and a Cave Spider ahead; light, level and loot on the left, potions on the right, the Ember Pot in the header" width="720">
@@ -13,6 +15,41 @@ start equal for everyone; the gold you carry home takes its share of the week's 
   <img src="docs/screenshots/mezo-ember-pot.png" alt="The Ember Pot window: this week's pot in MUSD, time left, players, buying keys and starting a prize descent" width="480">
   <img src="docs/screenshots/mezo-camp-mobile.png" alt="The camp on a phone" width="170">
 </p>
+
+## The loop on Mezo
+
+```
+buy a key (MUSD, or BTC / MEZO swapped on Tigris; or borrow MUSD against BTC on Mezo)
+  → prize descent → Claim: the gold goes into this week's Ember Pot (1 key spent)
+  → slew Cerberus? open its chest: a weapon NFT (EmberItems)
+  → carry it into the next descent, or list it at the Market
+  → a buyer pays MUSD, BTC or MEZO (swapped on Tigris) → 5% of the sale goes into the Ember Pot
+  → the week ends: the pot is paid out by gold, automatically
+```
+
+## New in Wave 2
+
+- **Found weapons as NFTs.** `EmberItems` (ERC-721): a pickaxe, axe, sword or spear, each Common to Legendary
+  (70 / 22 / 6.5 / 1.5%), with eight finishes. They play differently: the pickaxe is weak but finds 15% more gold, the
+  axe hits hard, the sword carries a level perk at its rarity's rank, and the rare spear hits hardest and restores light
+  on every kill. Each rarity has its own drawn icon (Common, Rare, a Norse Epic and a Roman Legendary).
+- **Cerberus chests, paid by a key.** A chest opens only for a prize descent that slew Cerberus, came home and is
+  already claimed into the Ember Pot, so every chest costs a key and 80% of it is in the pot. The server rolls the
+  chest from a secret (an HMAC of the pot record), signs it, and its relayer mints it, paying the gas. One chest per
+  record: the same moves sent again, under any player, roll nothing new. 100% on testnet; 20% planned for mainnet.
+  An unopened chest is kept in the browser and listed in the Armory until it is opened.
+- **Weapons in prize descents.** A found weapon replaces the equal loadout's dagger; the server checks on chain that
+  the player holds that very item before it signs.
+- **The Market.** `EmberMarket`: escrow listings priced in MUSD; buy with MUSD, or with BTC or MEZO swapped on Tigris in
+  the same transaction (the buttons show the quote; leftover MUSD comes back). A seller can take an unsold item back
+  at any time. 5% of every sale goes into the current week of the Ember Pot.
+- **EmberPotV3.** The pot with `fund()`, through which the Market pays its fee, and `fundedIn`, which the pot window
+  shows as "From Market sales". Everything else is unchanged from V2.
+- **Borrow MUSD against BTC.** Short of MUSD for keys or a weapon? The game works out the BTC to lock at a safe 65%
+  loan-to-value and sends you to Mezo's own borrow app. 65% keeps the loan above the 150% collateral ratio Mezo needs
+  in recovery mode.
+- **A one-page deploy** (`deploy-mezo.html`) for the four contracts and the market's collection, and a server setup
+  that reuses saved keys, so the contracts keep trusting the same signer across servers.
 
 ## How it uses Mezo
 
@@ -30,10 +67,19 @@ start equal for everyone; the gold you carry home takes its share of the week's 
 
 | On Mezo Testnet (chain 31611) | Address | Source |
 | --- | --- | --- |
-| Ember Pot | [`0x7a3e5548a81456ae695d058a90aa73ca543b16eb`](https://explorer.test.mezo.org/address/0x7a3e5548a81456ae695d058a90aa73ca543b16eb) | [`contracts/ember-pot/`](contracts/ember-pot/) |
+| Ember Pot (V2, Wave 1) | [`0x7a3e5548a81456ae695d058a90aa73ca543b16eb`](https://explorer.test.mezo.org/address/0x7a3e5548a81456ae695d058a90aa73ca543b16eb) | [`contracts/ember-pot/`](contracts/ember-pot/) |
 | Key router (BTC or MEZO → keys) | [`0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d`](https://explorer.test.mezo.org/address/0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d) | [`contracts/EmberKeyRouter.sol`](contracts/EmberKeyRouter.sol) |
 | Hall of Descents | [`0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6`](https://explorer.test.mezo.org/address/0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6) | [`contracts/EmberdeepHall.sol`](contracts/EmberdeepHall.sol) |
 | MUSD · MEZO · BTC | `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` · `0x7b7c…0001` · `0x7b7c…0000` | Mezo |
+
+The Wave 2 contracts (`EmberPotV3`, its key router, `EmberItems`, `EmberMarket`) are deployed with the Wave 2 build;
+their addresses go here then. When V3 takes over, the server keeps paying out V2's last week.
+
+**What the owners can and cannot do.** Nobody can take MUSD out of the pot or a listed item out of the Market.
+The pot's owner can change the key price and the signer and pause key sales. The Market's owner can only choose which
+collections may be listed. The items' owner can change the signer, the metadata URI and who may mint, and pause
+minting; the server's signing key opens chests, so a stolen key could mint items until the owner replaces it.
+Those are testnet trade-offs; a daily mint cap comes before mainnet.
 
 **What is real and what is not.** Real money lives only in the Ember Pot. The camp around it (shop, altar, draw)
 runs on crystals you find in the deep and is kept in your browser.
@@ -42,15 +88,16 @@ runs on crystals you find in the deep and is kept in your browser.
 
 1. Open the **Ember Pot** (the gold coin in the header) and connect a wallet on Mezo Testnet.
 2. Buy a key with **MUSD, BTC or MEZO**. 80% of it lands in this week's pot.
-3. **Start a prize descent.** Everyone gets the same loadout: 3 lantern flasks, the Rusty Dagger, no Delver perks,
-   no potions. Level perks are earned in the deep, the same for everyone.
+3. **Start a prize descent.** Everyone gets the same loadout: 3 lantern flasks, the Rusty Dagger (or a found weapon
+   you hold), no Delver perks, no potions. Level perks are earned in the deep, the same for everyone.
 4. Collect gold, survive, and walk back to the rift. Lose the light and the gold is lost with it.
 5. The report shows everything you carried home and one button: **Claim N gold**. The server replays the descent,
    signs it and records it in the pot (it spends one key) and on the Hall of Descents. You pay no gas.
-6. When the week ends, the pot is paid out by gold, automatically.
+6. Slew Cerberus? Right under the claim, **Open the chest**: a weapon NFT is minted to your wallet, gas paid.
+7. When the week ends, the pot is paid out by gold, automatically.
 
-The server signs a pot record only for the prize loadout, only for a descent that came home, with gold capped at
-5,000 a run, and with a deadline inside the current round.
+The server signs a pot record only for the prize loadout (with the dagger, or a found weapon the player holds), only
+for a descent that came home, with gold capped at 5,000 a run, and with a deadline inside the current round.
 
 ## The game
 
@@ -65,7 +112,7 @@ buildings: press **E** next to one, tap it, or use the icon rail on the left.
 | --- | --- |
 | **Dungeon Gate** (big **PLAY** button) | Pick who descends and light the lantern; practice keys and oil are free; the way into a prize descent |
 | **Ember Altar** | Mint Delvers with crystals, send them on expeditions |
-| **Armory** | Weapons, armor and potions, paid with crystals |
+| **Armory** | Your found weapons and unopened chests; camp weapons, armor and potions, paid with crystals |
 | **Draw Board** | The weekly draw for free Delver mints, your tickets and the passes |
 | **Vault** | This week's Ember Pot, your keys and your camp |
 | **Welcome Board** | How a descent works, step by step |
@@ -110,7 +157,7 @@ descents. **Crystals** you bring home are the camp's currency:
 
 | Item | Crystals |
 | --- | --- |
-| Rusty Dagger · Iron Sword · Emberblade | 6 · 35 · 100 |
+| Rusty Dagger · Emberblade (swords are found in the deep now) | 6 · 100 |
 | Leather Vest · Chain Mail · Emberplate | 18 · 52 · 122 |
 | Potions (Night Vision, Oil Vial, Flare, Ward Charm, Rage, Regeneration) | 4 to 16 |
 | Delver mint: Common · Rare · Epic · Legendary | 10 · 25 · 60 · 150 |
@@ -129,6 +176,7 @@ The whole game is one pure function, `applyAction(state, action)` in `src/game/r
 and the loot all come from the seed. The game keeps every move. The signing server (`server/attest.ts`) replays the
 descent from its setup and moves; only if the replay ends exactly as claimed does it sign the result (EIP-712). The
 contracts take no record without that signature, credit it only to the player it was signed for, and only once.
+A chest is checked the same way, and only against a record the pot already holds.
 
 What it proves: the gold and depth came from real play under the game's rules. What it does not yet prove: the seed
 is chosen by the browser, so a player could look for a good map before playing (a server-issued seed is the next
@@ -147,11 +195,11 @@ npx vite --mode production --port 5743   # the Mezo build, as published (VITE_AR
 Other scripts:
 
 ```sh
-npm test             # game rules, replay, balance sims, the contracts in an in-memory EVM, the signing server and relayer
+npm test             # 605 tests: game rules, replay, balance sims, the contracts in an in-memory EVM, the server and relayer
 npm run typecheck
 npm run lint
 npm run build        # static site in dist/ (the Mezo build)
-npm run hall:compile # compile the Hall and the key router into contracts/out/
+npm run hall:compile # compile the Hall, key router, pot V3, items and market into contracts/out/
 npm run server:build # build the signing server into server-dist/attest.mjs
 ```
 
@@ -161,8 +209,9 @@ The Ember Pot has its own Foundry tests: see [contracts/ember-pot](contracts/emb
 
 The site in `dist/` is static. `deploy/README.md` walks through a small Vultr server with free HTTPS:
 `deploy/deploy.sh <IP>` uploads the site, `deploy/attest.sh <IP>` installs the signing server, its relayer key and the
-automatic payout. The contracts are deployed from the owner's wallet with the dev page `deploy-hall.html`
-(Mezo Testnet: the pot, the key router and the Hall).
+automatic payout. The contracts are deployed from the owner's wallet with the dev pages: `deploy-mezo.html` (Wave 2:
+the pot V3, its key router, the items and the market) and `deploy-hall.html` (the Hall). Order of steps:
+[deploy/README.md](deploy/README.md#wave-2-on-mezo-the-new-pot-items-and-market).
 
 ## Controls
 
@@ -175,14 +224,16 @@ automatic payout. The contracts are deployed from the owner's wallet with the de
 ## Stack
 
 Vite, React 19, TypeScript, Tailwind CSS v4, shadcn/ui (Base UI), zustand, viem and Vitest; Canvas 2D for the game.
-Contracts: the Hall and the key router in Solidity 0.8.28 on Solady, tested in an in-memory EVM (ethereumjs); the
-Ember Pot on OpenZeppelin, tested with Foundry. The signing server and relayer are plain Node.
+Contracts in Solidity 0.8.28: the Hall, key router, items and market on Solady, the Ember Pot on OpenZeppelin; all
+of them tested in an in-memory EVM (ethereumjs), the pot also with Foundry. The signing server and relayer are plain
+Node.
 
 ## Next
 
-- Delver NFTs on Mezo and a marketplace priced in MUSD, with a share of every sale into the weekly pot.
+- Item metadata and images, so found weapons show up in wallets and on the explorer.
 - Server-issued seeds for prize descents.
-- Mezo mainnet, after the testnet weeks run cleanly.
+- Delvers as NFTs too, listed on the same Market.
+- Mezo mainnet, after the testnet weeks run cleanly: a 20% chest chance and a daily mint cap.
 
 ## Credits
 

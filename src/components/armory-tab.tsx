@@ -26,7 +26,7 @@ import { ChestOpener } from "./chest-panel";
 /** The sword is found only in the deep now; the camp still lists it for whoever forged one before. */
 const SHOP_WEAPON = (id: WeaponId, owned: readonly WeaponId[]) => id !== "sword" || owned.includes(id);
 
-/** Weapons found in the deep: EmberItems NFTs in the connected wallet, equipped for practice descents. */
+/** Weapons found in the deep: EmberItems NFTs in the connected wallet, carried into practice and prize descents. */
 function FoundWeapons() {
   const { owned, loading, error, refresh, equip } = useItems();
   const wallet = useWallet();
