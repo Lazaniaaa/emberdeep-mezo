@@ -41,6 +41,19 @@ export const MEZO_POT = {
   maxGoldPerRun: 5000,
 } as const;
 
+/**
+ * Pots that a newer one replaced. Nobody buys keys in them any more, but the server still pays out their ended rounds
+ * (server/payout.ts), so a week that was running at the switch is settled like any other.
+ */
+export const MEZO_RETIRED_POTS: readonly { address: Address; launchTime: number; roundSeconds: number }[] = [];
+
+/**
+ * Borrowing MUSD against BTC happens in Mezo's own app; the game only works out how much and sends the player there.
+ * The game suggests at most 65% loan-to-value (a collateral ratio near 154%): Mezo allows more, but in its recovery mode
+ * any loan under 150% can be liquidated. Checked 2026-11-12.
+ */
+export const MEZO_BORROW = { url: "https://testnet.mezo.org/borrow", faucet: "https://faucet.test.mezo.org", maxLtv: 0.65 } as const;
+
 /** The first router: BTC only, owner-less, bound to the 2026-10-23 pot. Used only if KEY_ROUTER is ever unset. */
 export const BTC_ROUTER: Address = "0xd261fc219ef4f48dde9a9ff0ede3a133c78c114e";
 

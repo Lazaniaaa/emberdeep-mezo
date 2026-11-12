@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT, WINDOW_CLASS, windowStyle } from "@/lib/camp-style";
+import { BorrowMusd } from "./borrow-musd";
 import { Section, Tile, WindowHead } from "./camp-ui";
 import { BTC_ROUTER, MEZO_POT, keyRouterAddress, mezoAddressUrl, mezoTxUrl, type PayToken } from "@/chain/mezo-config";
 import { PRIZE_FLASKS, PRIZE_WEAPON, prizeSetup } from "@/game/prize";
@@ -104,6 +105,7 @@ export function EmberPotDialog() {
                 </div>
                 {buying && <p className="text-xs text-gold" aria-live="polite">{BUY_LABEL[buying.step]}</p>}
                 <p className="text-[11px] text-muted-foreground">BTC and MEZO are swapped to MUSD on Tigris and the keys bought in one transaction; leftover MUSD comes back to you.</p>
+                {me && snapshot && <BorrowMusd need={snapshot.keyPrice * BigInt(quantity)} have={me.balances.MUSD} btc={me.balances.BTC} />}
                 {buyError && <p className="text-xs text-destructive" role="alert">{buyError}</p>}
                 {lastBuyTx && (
                   <a className="inline-flex items-center gap-1 text-xs text-lime underline underline-offset-2" href={mezoTxUrl(lastBuyTx)} target="_blank" rel="noreferrer">

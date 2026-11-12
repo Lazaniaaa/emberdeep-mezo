@@ -180,6 +180,14 @@ export async function quoteIn(token: "BTC" | "MEZO", musdOut: bigint): Promise<b
   return (amountIn * (10_000n + SLIPPAGE_BPS)) / 10_000n;
 }
 
+/** The price of one BTC in MUSD (18 decimals) on Tigris, from a small swap's worth, so a borrow can be sized. */
+export async function btcPrice(): Promise<bigint> {
+  const probe = 10n ** 15n;
+  const out = await mezoClient.readContract({ address: TIGRIS.pools.BTC, abi: POOL_ABI, functionName: "getAmountOut", args: [probe, MEZO_TOKENS.BTC.address] });
+  if (out === 0n) throw new Error("The BTC/MUSD pool on Tigris has no liquidity right now.");
+  return out * 1000n;
+}
+
 export type BuyStep = "switching" | "approving" | "buying" | "confirming";
 
 export async function ensureAllowance(provider: Eip1193, account: Address, token: Address, spender: Address, amount: bigint, onStep: (s: BuyStep) => void) {

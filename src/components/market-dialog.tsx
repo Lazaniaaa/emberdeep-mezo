@@ -14,6 +14,7 @@ import { shortAddress, tokens } from "@/lib/format";
 import { useItems } from "@/state/items";
 import { useWallet } from "@/state/wallet";
 import { Section, WindowHead } from "./camp-ui";
+import { BorrowMusd } from "./borrow-musd";
 import { FoundWeaponRow } from "./found-weapon";
 
 const STEP_LABEL = { switching: "Switching to Mezo…", approving: "Approve in your wallet…", buying: "Confirm in your wallet…", confirming: "Writing it to Mezo…", cancelling: "Taking it back…" } as const;
@@ -37,6 +38,15 @@ export function MarketDialog() {
   };
   const mine = listings.filter(l => same(l.seller, wallet.account));
   const forSale = listings.filter(l => !same(l.seller, wallet.account));
+  // What the wallet holds, for the borrow hint when the cheapest weapon costs more MUSD than that.
+  const [balances, setBalances] = useState<Record<PayToken, bigint> | null>(null);
+  useEffect(() => {
+    if (!marketOpen || !wallet.account) return;
+    let active = true;
+    void import("@/chain/mezo").then(m => m.balancesOf(wallet.account as Address)).then(b => { if (active) setBalances(b); }).catch(() => { /* no hint then */ });
+    return () => { active = false; };
+  }, [marketOpen, wallet.account, listings]);
+  const cheapest = forSale.reduce<bigint | null>((min, l) => (min === null || l.price < min ? l.price : min), null);
 
   return (
     <Dialog open={marketOpen} onOpenChange={setMarketOpen}>
@@ -57,6 +67,8 @@ export function MarketDialog() {
             <p className="text-sm text-muted-foreground">Nothing for sale right now. Slay Cerberus, open its chest and be the first to list.</p>
           ) : forSale.map(l => <ForSale key={`${l.item.id}:${l.price}:${quoteVersion}`} listing={l} />)}
         </Section>
+
+        {balances && wallet.account && cheapest !== null && <BorrowMusd need={cheapest} have={balances.MUSD} btc={balances.BTC} />}
 
         {!wallet.account ? (
           <Button variant="outline" onClick={() => void wallet.connect()} disabled={wallet.status === "connecting"}>
