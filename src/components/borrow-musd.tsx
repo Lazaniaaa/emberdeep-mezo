@@ -20,7 +20,8 @@ const STEP_LABEL: Record<BorrowStep, string> = {
 /** BTC kept aside for the transaction's own gas. */
 const GAS_MARGIN = 10n ** 13n;
 
-export function BorrowMusd({ need, have, btc, onBorrowed }: { need: bigint; have: bigint; btc: bigint; onBorrowed?: () => void }) {
+/** `what` names the thing the MUSD is for ("1 key", "the cheapest weapon here"), so the card says why it is there. */
+export function BorrowMusd({ need, have, btc, what, onBorrowed }: { need: bigint; have: bigint; btc: bigint; what?: string; onBorrowed?: () => void }) {
   const account = useWallet(s => s.account);
   const missing = shortfall(need, have);
   const [action, setAction] = useState<TroveAction | null>(null);
@@ -81,8 +82,8 @@ export function BorrowMusd({ need, have, btc, onBorrowed }: { need: bigint; have
     <div className="space-y-1.5 rounded-lg border border-white/10 bg-black/30 p-2.5 text-xs">
       <p className="flex items-center gap-1.5 font-medium text-foreground"><Landmark className="size-3.5" aria-hidden /> Short of MUSD? Borrow it against your BTC on Mezo</p>
       <p className="text-muted-foreground">
-        You need {tokens(missing)} MUSD more.
-        {plan?.kind === "open" && <> This opens a Mezo loan: {tokens(plan.borrow)} MUSD{plan.borrow > missing ? " (Mezo's smallest loan; what you do not spend stays in your wallet)" : ""} against ≈{tokens(plan.send, 4)} BTC locked as collateral, {ltv}% of its value.</>}
+        You need {tokens(missing)} MUSD more{what ? ` for ${what}` : ""}. Paying with BTC sells it; a Mezo loan keeps it.
+        {plan?.kind === "open" && <> This opens one in a single transaction: ≈{tokens(plan.send, 4)} BTC locked as collateral, {tokens(plan.borrow)} MUSD borrowed{plan.borrow > missing ? " (Mezo lends no less; what you do not spend stays in your wallet)" : ""}, a loan worth {ltv}% of the collateral.</>}
         {plan?.kind === "adjust" && <> This borrows {tokens(plan.borrow)} MUSD more on your Mezo loan{plan.send > 0n ? <>, adding ≈{tokens(plan.send, 4)} BTC to keep it at {ltv}%</> : null}.</>}
         {" "}Your BTC stays yours: repay the MUSD in Mezo's app to unlock it. Above {ltv}%, a market drop can liquidate the loan.
       </p>

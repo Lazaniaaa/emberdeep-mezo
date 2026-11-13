@@ -3,7 +3,7 @@
 // wallet on Mezo, paying the gas. An unopened chest is kept, and the Armory lists it until it is opened.
 import { Check, ExternalLink, Gift, Loader2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { mezoTxUrl } from "@/chain/mezo-config";
+import { mezoItemUrl, mezoTxUrl } from "@/chain/mezo-config";
 import { CHEST_CHANCE, MAINNET_CHEST_CHANCE } from "@/game/items";
 import { chestsOf, useItems, type ChestStatus, type PendingChest } from "@/state/items";
 import { useRun } from "@/state/run-store";
@@ -26,7 +26,7 @@ export function ChestPanel() {
     <div className="space-y-2 rounded-lg border border-sigil/50 bg-sigil/[0.07] p-3">
       <p className="flex items-center gap-1.5 font-pixel text-sm text-sigil"><Gift className="size-4" aria-hidden /> Cerberus left a chest</p>
       {pending || opened ? <ChestOpener pending={pending} seed={seed} /> : wallet.account ? (
-        <p className="text-sm text-muted-foreground">Claim the gold above first: the chest opens once this descent is in the Ember Pot.</p>
+        <p className="text-sm text-muted-foreground">Claim the gold above first. Then the chest opens: it holds a weapon, minted to your wallet as an NFT on Mezo, to carry into your next descent or sell at the Market.</p>
       ) : (
         <Button className="w-full" variant="outline" onClick={() => void wallet.connect()}><Wallet data-icon="inline-start" /> Connect a wallet to claim and open it</Button>
       )}
@@ -56,6 +56,7 @@ export function ChestOpener({ pending, seed }: { pending: PendingChest | null; s
         )}
         <div className="flex flex-wrap items-center gap-3 text-xs">
           {job.hash && <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoTxUrl(job.hash)} target="_blank" rel="noreferrer">Mint transaction <ExternalLink className="size-3" aria-hidden /></a>}
+          {item && mezoItemUrl(item.id) && <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoItemUrl(item.id)!} target="_blank" rel="noreferrer">The NFT on Mezo <ExternalLink className="size-3" aria-hidden /></a>}
           <button type="button" className="underline underline-offset-2" onClick={() => setMarketOpen(true)}>Sell it at the Market</button>
         </div>
       </div>

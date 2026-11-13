@@ -7,6 +7,7 @@ import { ACTIVE_SHARE, FLASK_PRICE, KEY_PRICE, LOCK_MAX, LOCK_SHARE, MATURITY_RO
 import { roundShare } from "@/game/economy";
 import { percent, usd } from "@/lib/format";
 import { useHall } from "@/state/hall";
+import { itemsLive } from "@/state/items";
 import { useGame } from "@/state/store";
 
 /** The guide for the Mezo release: no money in camp, real prizes in the Ember Pot. */
@@ -14,9 +15,12 @@ const CRYSTAL_STEPS = [
   { title: "Get in", text: "Take a free practice key at the Dungeon Gate and light the lantern. Oil is free in practice. More oil means more light, and light is how far you can see and walk." },
   { title: "Go down", text: "Every step burns light. Collect gold and crystals, fight dimlings, choose a perk at every new level, and take the stairs for richer floors. On floor 7 Cerberus guards the way." },
   { title: "Come home", text: "Walk back to the rift you arrived through to extract. If your light dies first, everything you carried is lost." },
-  { title: "Win real MUSD", text: "Open the Ember Pot (the coin at the top). Buy a prize key for 1 MUSD, or with BTC or MEZO. A prize descent starts equal for everyone: bring gold home and press Claim. When the week ends, the pot is split by gold." },
+  { title: "Win real MUSD", text: "Open the Ember Pot (the coin at the top). Buy a prize key for 1 MUSD, or with BTC or MEZO; or borrow MUSD against your BTC on Mezo and keep the BTC. Everyone starts a prize descent with the same kit: bring gold home and press Claim. When the week ends, the pot is split by gold." },
   { title: "Grow your camp", text: "Crystals you bring home buy weapons, armor, potions and Delvers. Draw tickets you find go into the weekly Delver draw." },
 ];
+/** Shown once found weapons are live: the part of the loop that runs through the chest and the Market. */
+const WEAPON_STEP = { title: "Find a weapon, trade it", text: "Slay Cerberus on a prize descent and claim it: its chest holds a weapon, minted to your wallet as an NFT on Mezo. Carry it into your next descent in place of the dagger, or sell it at the Market for MUSD, BTC or MEZO. 5% of every sale goes into the week's pot." };
+const crystalSteps = () => (itemsLive() ? [...CRYSTAL_STEPS.slice(0, 4), WEAPON_STEP, ...CRYSTAL_STEPS.slice(4)] : CRYSTAL_STEPS);
 
 const STEPS = [
   {
@@ -45,7 +49,7 @@ export function GuidePanel({ onPlay }: { onPlay: () => void }) {
   return (
     <div className="space-y-4">
       <ol className="grid gap-3 sm:grid-cols-2">
-        {(campMode.crystals ? CRYSTAL_STEPS : STEPS).map((step, i) => (
+        {(campMode.crystals ? crystalSteps() : STEPS).map((step, i) => (
           <li key={step.title} className="rounded-lg border border-white/10 bg-black/40 p-3">
             <div className="mb-1 flex items-center gap-2">
               <span className="grid size-6 place-items-center rounded-full bg-lime font-pixel text-xs text-[#150c2b]">{i + 1}</span>

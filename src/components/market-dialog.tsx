@@ -2,12 +2,12 @@
 // transaction. A share of every sale goes into this week's Ember Pot. Sellers list from their wallet and can take an
 // unsold item back at any time.
 import { useEffect, useRef, useState } from "react";
-import { Bitcoin, Coins, Flame, Loader2, RefreshCw, Store, Tag, Undo2, Wallet } from "lucide-react";
+import { Bitcoin, Coins, ExternalLink, Flame, Loader2, RefreshCw, Store, Tag, Undo2, Wallet } from "lucide-react";
 import { formatUnits, parseUnits, type Address } from "viem";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ACCENT, WINDOW_CLASS, windowStyle } from "@/lib/camp-style";
-import type { PayToken } from "@/chain/mezo-config";
+import { itemsAddress, marketAddress, mezoAddressUrl, type PayToken } from "@/chain/mezo-config";
 import type { MarketListing } from "@/chain/items";
 import type { OwnedItem } from "@/game/items";
 import { shortAddress, tokens } from "@/lib/format";
@@ -65,16 +65,19 @@ export function MarketDialog() {
           {marketLoading && listings.length === 0 ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Reading the market on Mezo…</p>
           ) : forSale.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing for sale right now. Slay Cerberus, open its chest and be the first to list.</p>
+            <p className="text-sm text-muted-foreground">Nothing for sale right now. Slay Cerberus on a prize descent, claim it, open its chest and be the first to list.</p>
           ) : forSale.map(l => <ForSale key={`${l.item.id}:${l.price}:${quoteVersion}`} listing={l} />)}
         </Section>
 
-        {balances && wallet.account && cheapest !== null && <BorrowMusd need={cheapest} have={balances.MUSD} btc={balances.BTC} onBorrowed={() => setBorrowed(n => n + 1)} />}
+        {balances && wallet.account && cheapest !== null && <BorrowMusd need={cheapest} have={balances.MUSD} btc={balances.BTC} what="the cheapest weapon here" onBorrowed={() => setBorrowed(n => n + 1)} />}
 
         {!wallet.account ? (
-          <Button variant="outline" onClick={() => void wallet.connect()} disabled={wallet.status === "connecting"}>
-            <Wallet data-icon="inline-start" /> Connect a wallet to buy or sell
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => void wallet.connect()} disabled={wallet.status === "connecting"}>
+              <Wallet data-icon="inline-start" /> Connect a wallet to buy or sell
+            </Button>
+            {wallet.error && <p className="text-xs text-destructive" role="alert">{wallet.error} On a phone, open this page in your wallet's own browser.</p>}
+          </>
         ) : (
           <div className="space-y-3">
             <Section title="Sell a weapon" icon={Coins}>
@@ -95,6 +98,12 @@ export function MarketDialog() {
             </Section>
           </div>
         )}
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+          {marketAddress() && <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(marketAddress()!)} target="_blank" rel="noreferrer">Market contract <ExternalLink className="size-3" aria-hidden /></a>}
+          {itemsAddress() && <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(itemsAddress()!)} target="_blank" rel="noreferrer">Weapon NFTs <ExternalLink className="size-3" aria-hidden /></a>}
+          <span>A listed weapon is held by the Market contract until it sells or you take it back.</span>
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -154,8 +163,11 @@ function SellRow({ item }: { item: OwnedItem }) {
   const busy = useItems(s => s.busy);
   const working = busy?.id === item.id;
   const amount = /^\d+(\.\d{1,6})?$/.test(price.trim()) ? parseUnits(price.trim(), 18) : 0n;
+  // What the seller keeps once the Market has sent its share into the Ember Pot.
+  const feeBps = useItems(s => s.feeBps);
+  const fee = (amount * BigInt(feeBps)) / 10_000n;
   return (
-    <FoundWeaponRow item={item}>
+    <FoundWeaponRow item={item} note={amount > 0n && feeBps > 0 ? <>You get {tokens(amount - fee)} MUSD · {tokens(fee)} MUSD goes into the Ember Pot</> : undefined}>
       <form className="flex items-center gap-1.5" onSubmit={e => { e.preventDefault(); if (amount > 0n) void useItems.getState().list(item, amount).then(ok => { if (ok) setPrice(""); }); }}>
         <input value={price} onChange={e => setPrice(e.target.value)} inputMode="decimal" placeholder="MUSD" aria-label={`Price for #${item.id} in MUSD`}
           className="h-8 w-20 rounded-md border border-white/15 bg-black/40 px-2 text-sm outline-none focus:border-white/40" disabled={!!busy} />

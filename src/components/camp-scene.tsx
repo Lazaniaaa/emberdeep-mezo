@@ -5,6 +5,7 @@ import { WindowHead } from "@/components/camp-ui";
 import { ACCENT, WINDOW_CLASS, windowStyle } from "@/lib/camp-style";
 import { campMode } from "@/lib/camp-mode";
 import { tokens } from "@/lib/format";
+import { itemsLive, marketLive, useItems } from "@/state/items";
 import { useMezo } from "@/state/mezo";
 import { DescendTab } from "@/components/descend-tab";
 import { DPad } from "@/components/dpad";
@@ -52,7 +53,9 @@ const CRYSTAL_BLURB: Partial<Record<StationId, string>> = {
   ledger: "This week's Ember Pot on Mezo, your keys and your camp.",
   hall: "Your own records, and the Hall of Descents on Mezo.",
 };
-const stationBlurb = (s: Station) => (campMode.crystals ? CRYSTAL_BLURB[s.id] : undefined) ?? s.blurb;
+const stationBlurb = (s: Station) =>
+  (s.id === "armory" && itemsLive() ? "Weapons found in the deep (NFTs on Mezo) and unopened chests; camp weapons, armor and potions for crystals." : null)
+  ?? (campMode.crystals ? CRYSTAL_BLURB[s.id] : undefined) ?? s.blurb;
 
 const ICON: Record<StationId, typeof Flame> = {
   gate: Flame, altar: Sparkles, armory: Swords, board: ScrollText, ledger: Vault, guide: BookOpen, hall: Trophy,
@@ -233,7 +236,7 @@ export function CampScene() {
 
       {/* The round and the weekly draw */}
       <div className="absolute top-14 right-3 z-20 flex w-44 flex-col items-stretch gap-2 sm:top-[4.25rem] sm:w-64">
-        {campMode.crystals ? (
+        {campMode.crystals ? (<>
           <button type="button" aria-label="Open the Ember Pot on Mezo" onClick={() => useMezo.getState().setOpen(true)}
             className="rounded-xl border-2 border-gold/70 bg-[#150c2b]/90 px-3 py-2 text-left shadow-[0_0_18px_rgba(255,201,77,0.22)] backdrop-blur-sm outline-none hover:border-gold focus-visible:ring-2 focus-visible:ring-lime">
             <span className="block font-pixel text-[10px] leading-tight text-gold sm:text-xs">EMBER POT · MEZO</span>
@@ -241,7 +244,15 @@ export function CampScene() {
               {potSnapshot ? <><b className="font-pixel text-gold">{tokens(potSnapshot.pot)} MUSD</b> this week · real prizes</> : "Real MUSD prizes · prize descents"}
             </span>
           </button>
-        ) : (
+          {/* The Market has no building in camp yet, so it gets a card of its own next to the pot it pays into. */}
+          {marketLive() && (
+            <button type="button" aria-label="Open the Market on Mezo" onClick={() => useItems.getState().setMarketOpen(true)}
+              className="rounded-xl border bg-[#150c2b]/90 px-3 py-1.5 text-left backdrop-blur-sm outline-none hover:brightness-125 focus-visible:ring-2 focus-visible:ring-lime" style={{ borderColor: `${ACCENT.market}99` }}>
+              <span className="block font-pixel text-[10px] leading-tight sm:text-xs" style={{ color: ACCENT.market }}>MARKET · MEZO</span>
+              <span className="block text-[10px] leading-tight sm:text-xs">Weapon NFTs for MUSD, BTC or MEZO<span className="hidden sm:inline"> · 5% of sales to the pot</span></span>
+            </button>
+          )}
+        </>) : (
         <button type="button" aria-label="Open Vault" onClick={() => openStation("ledger")}
           className="rounded-xl border border-white/20 bg-[#150c2b]/85 px-3 py-2 text-left backdrop-blur-sm outline-none hover:border-gold focus-visible:ring-2 focus-visible:ring-lime">
           <span className="block font-pixel text-[9px] text-gold sm:text-[10px]">ROUND {game.round}</span>

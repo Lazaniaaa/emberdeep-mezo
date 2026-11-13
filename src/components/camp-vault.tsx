@@ -39,7 +39,7 @@ export function CampVault() {
         </div>
         <ul className="space-y-1 text-sm text-foreground/80">
           <li>A prize key costs <b className="text-gold">1 MUSD</b> (or BTC or MEZO, swapped on Tigris): <b>80%</b> goes into this week's pot, 20% to the treasury.</li>
-          <li>Prize descents start equal. Bring gold home, press Claim, and the game records it in the pot.</li>
+          <li>Everyone starts a prize descent with the same kit; a weapon found in the deep is the one thing you can bring. Bring gold home, press Claim, and the game records it in the pot.</li>
           <li>When the week ends, the game pays everyone out automatically, by gold, straight to their wallets. Nobody, us included, can take the pot out.</li>
         </ul>
         <div className="flex flex-wrap gap-2">

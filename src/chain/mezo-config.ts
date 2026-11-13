@@ -96,3 +96,5 @@ export function potRound(nowSeconds: number) {
 
 export const mezoTxUrl = (hash: string) => `${MEZO_NETWORK.explorer}/tx/${hash}`;
 export const mezoAddressUrl = (address: string) => `${MEZO_NETWORK.explorer}/address/${address}`;
+/** A found weapon's own page on the explorer (its picture, traits and owner), or null while EmberItems is not deployed. */
+export const mezoItemUrl = (id: number | bigint) => (itemsAddress() ? `${MEZO_NETWORK.explorer}/token/${itemsAddress()}/instance/${id}` : null);

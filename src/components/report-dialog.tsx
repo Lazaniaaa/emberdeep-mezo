@@ -26,6 +26,8 @@ export function ReportDialog() {
   const report = useGame(s => s.lastReport);
   const dismiss = useGame(s => s.dismissReport);
   const [copied, setCopied] = useState(false);
+  // Whether the descent this report shows carried a found weapon, for the summary line.
+  const carried = useRun(s => !!s.lastDescent?.setup.item);
   if (!report) return null;
 
   const extracted = report.outcome === "extracted";
@@ -35,7 +37,7 @@ export function ReportDialog() {
     extracted ? `Extracted from depth ${report.depth}` : `Lost in the dark at depth ${report.depth}`,
     cause,
     extracted ? `${report.gold} gold ${report.prize ? "for the Ember Pot on Mezo" : campMode.crystals ? "carried home" : "banked for the round"}` : `${report.gold} gold lost in the dark`,
-    report.prize ? `Prize descent: equal loadout` : campMode.crystals ? `Practice descent` : `Spent ${usd(report.spent)} of simulated USDC on oil`,
+    report.prize ? (carried ? `Prize descent with a found weapon` : `Prize descent: the same kit as everyone`) : campMode.crystals ? `Practice descent` : `Spent ${usd(report.spent)} of simulated USDC on oil`,
     report.bossSlain ? `Slew Cerberus` : null,
     report.minted.length ? `Found ${report.minted.length} Soul Sigil${report.minted.length > 1 ? "s" : ""}` : null,
   ].filter(Boolean).join("\n");
@@ -248,7 +250,7 @@ function ClaimPanel({ report }: { report: RunReport }) {
   if (!prize) {
     return (
       <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-        <Coins className="size-3 text-gold" aria-hidden /> Only a prize descent (equal loadout) can be claimed into the Ember Pot on Mezo.
+        <Coins className="size-3 text-gold" aria-hidden /> Only a prize descent can be claimed into the Ember Pot on Mezo.
         <button className="underline underline-offset-2" onClick={() => setOpen(true)}>Open the pot</button>
       </p>
     );
@@ -275,7 +277,7 @@ function ClaimPanel({ report }: { report: RunReport }) {
             {busy ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Coins data-icon="inline-start" />}
             {CLAIM_LABEL[job.status] ?? `Claim ${gold} gold`}
           </Button>
-          <p className="text-[11px] text-muted-foreground">Into this week's MUSD pot on Mezo · uses 1 key · the game checks every move and pays the gas.</p>
+          <p className="text-[11px] text-muted-foreground">Your gold is your share of this week's MUSD pot on Mezo · uses 1 key · the game checks every move and pays the gas.</p>
           {job.status === "error" && job.error && <p className="text-xs text-destructive" role="alert">{job.error}</p>}
         </>
       ) : (

@@ -1,6 +1,7 @@
 // How a found weapon (an EmberItems NFT) looks everywhere it appears: its icon on a backdrop in its finish and rarity
 // colours, its name, and what it does in a descent.
 import { useMemo, useState, type ReactNode } from "react";
+import { mezoItemUrl } from "@/chain/mezo-config";
 import { RARITY_INFO } from "@/game/catalog";
 import { ITEM_KIND_INFO, finishOf, itemName, itemStats, kindOf, rarityOf, type Item } from "@/game/items";
 import { LEVEL_PERKS, rankLabel } from "@/game/level-perks";
@@ -51,7 +52,9 @@ export function FoundWeaponRow({ item, children, note }: { item: Item & { id: nu
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-pixel text-sm">{itemName(item)}</span>
           <span className="rounded-full border px-1.5 py-0.5 text-[10px] uppercase" style={{ color: rarity.color, borderColor: `${rarity.color}66` }}>{rarity.label}</span>
-          <span className="text-[10px] text-muted-foreground">#{item.id}</span>
+          {mezoItemUrl(item.id)
+            ? <a className="text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground" href={mezoItemUrl(item.id)!} target="_blank" rel="noreferrer" title="This NFT on the Mezo explorer">NFT #{item.id}</a>
+            : <span className="text-[10px] text-muted-foreground">#{item.id}</span>}
         </div>
         <p className="text-xs text-muted-foreground">{itemEffects(item).join(" · ")}</p>
         <p className="text-[11px] text-muted-foreground/70">{note ?? ITEM_KIND_INFO[kindOf(item)].blurb}</p>

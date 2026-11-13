@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Check, Gem, Gift, Loader2, Shield, Sparkles, Swords, Wallet } from "lucide-react";
+import { Check, Gem, Gift, Loader2, Shield, Sparkles, Store, Swords, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { Price } from "./camp-ui";
 const affordable = (balance: number, crystals: number, cents: number, extraCrystals: number) =>
   campMode.crystals ? crystals >= crystalsFor(cents) + extraCrystals : balance >= cents && crystals >= extraCrystals;
 import { InsufficientFunds, useGame } from "@/state/store";
-import { carriedItem, chestsOf, itemsLive, useItems } from "@/state/items";
+import { carriedItem, chestsOf, itemsLive, marketLive, useItems } from "@/state/items";
 import { useWallet } from "@/state/wallet";
 import { ItemArt } from "./art";
 import { FoundWeaponRow } from "./found-weapon";
@@ -43,7 +43,8 @@ function FoundWeapons() {
         <CardTitle className="flex items-center gap-2 font-pixel"><Sparkles className="size-4" /> Found in the deep</CardTitle>
         <CardDescription>
           Slay Cerberus on a prize descent, come home and claim it: its chest holds a pickaxe, axe, sword or spear, from Common to
-          Legendary, minted to your wallet on Mezo. Carry one into any descent instead of your weapon, or sell it at the Market.
+          Legendary, minted to your wallet as an NFT on Mezo. Carry one into any descent, practice or prize, instead of your weapon: it
+          keeps its bonuses. Or sell it at the Market for MUSD.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -79,6 +80,11 @@ function FoundWeapons() {
             </FoundWeaponRow>
           );
         })}
+        {marketLive() && wallet.account && owned.length > 0 && (
+          <Button size="sm" variant="ghost" onClick={() => useItems.getState().setMarketOpen(true)}>
+            <Store data-icon="inline-start" /> Sell one at the Market
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

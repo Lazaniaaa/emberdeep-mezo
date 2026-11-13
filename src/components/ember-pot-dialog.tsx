@@ -6,12 +6,12 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { ACCENT, WINDOW_CLASS, windowStyle } from "@/lib/camp-style";
 import { BorrowMusd } from "./borrow-musd";
 import { Section, Tile, WindowHead } from "./camp-ui";
-import { BTC_ROUTER, MEZO_POT, keyRouterAddress, mezoAddressUrl, mezoTxUrl, type PayToken } from "@/chain/mezo-config";
+import { BTC_ROUTER, MEZO_POT, itemsAddress, keyRouterAddress, marketAddress, mezoAddressUrl, mezoTxUrl, type PayToken } from "@/chain/mezo-config";
 import { PRIZE_FLASKS, PRIZE_WEAPON, prizeSetup } from "@/game/prize";
 import { randomSeed } from "@/game/rng";
 import { shortAddress, tokens } from "@/lib/format";
 import { itemName, itemStats } from "@/game/items";
-import { carriedItem, itemsLive, useItems } from "@/state/items";
+import { carriedItem, itemsLive, marketLive, useItems } from "@/state/items";
 import { useMezo } from "@/state/mezo";
 import { foreignRunActive } from "@/state/run-lock";
 import { useRun } from "@/state/run-store";
@@ -66,16 +66,29 @@ export function EmberPotDialog() {
           <Tile label="Your keys" value={me ? me.keys : "—"} tone={ACCENT.gate} sub={me ? `${me.gold} gold · ~${tokens(me.share)} MUSD` : "Connect a wallet"} />
         </div>
 
-        {marketFunding > 0n && (
-          <p className="text-sm text-gold">From Market sales: {marketFunding < 10n ** 16n ? "<0.01" : tokens(marketFunding)} MUSD this week</p>
+        {/* Where the pot comes from. The Market's line is shown from the first day, so its share is not a surprise. */}
+        {marketLive() && snapshot && (
+          <p className="text-sm text-gold">
+            From Market sales: {marketFunding === 0n ? "0" : marketFunding < 10n ** 16n ? "<0.01" : tokens(marketFunding)} MUSD this week
+            <span className="text-muted-foreground"> · 5% of every weapon sold goes into the pot · </span>
+            <button type="button" className="underline underline-offset-2" onClick={() => { setOpen(false); useItems.getState().setMarketOpen(true); }}>Open the Market</button>
+          </p>
         )}
 
         <div className="grid gap-3 md:grid-cols-2">
           <Section title="Buy prize keys" icon={KeyRound} tone={ACCENT.pot}>
             {!wallet.account ? (
-              <Button variant="outline" onClick={() => void wallet.connect().then(() => refresh())} disabled={wallet.status === "connecting"}>
-                <Wallet data-icon="inline-start" /> Connect a wallet
-              </Button>
+              <>
+                <p className="text-sm text-foreground/80">
+                  A key costs <b className="text-gold">1 MUSD</b> and enters one prize descent: 80% of it goes into this week's pot.
+                  Pay with MUSD, or with BTC or MEZO, swapped on Tigris in the same transaction. No MUSD and you would rather keep
+                  your BTC? Borrow MUSD against it on Mezo, from this window.
+                </p>
+                <Button variant="outline" onClick={() => void wallet.connect().then(() => refresh())} disabled={wallet.status === "connecting"}>
+                  <Wallet data-icon="inline-start" /> Connect a wallet
+                </Button>
+                {wallet.error && <p className="text-xs text-destructive" role="alert">{wallet.error} On a phone, open this page in your wallet's own browser.</p>}
+              </>
             ) : (
               <>
                 {me && (
@@ -105,7 +118,7 @@ export function EmberPotDialog() {
                 </div>
                 {buying && <p className="text-xs text-gold" aria-live="polite">{BUY_LABEL[buying.step]}</p>}
                 <p className="text-[11px] text-muted-foreground">BTC and MEZO are swapped to MUSD on Tigris and the keys bought in one transaction; leftover MUSD comes back to you.</p>
-                {me && snapshot && <BorrowMusd need={snapshot.keyPrice * BigInt(quantity)} have={me.balances.MUSD} btc={me.balances.BTC} onBorrowed={() => void refresh()} />}
+                {me && snapshot && <BorrowMusd need={snapshot.keyPrice * BigInt(quantity)} have={me.balances.MUSD} btc={me.balances.BTC} what={`${quantity} key${quantity === 1 ? "" : "s"}`} onBorrowed={() => void refresh()} />}
                 {buyError && <p className="text-xs text-destructive" role="alert">{buyError}</p>}
                 {lastBuyTx && (
                   <a className="inline-flex items-center gap-1 text-xs text-lime underline underline-offset-2" href={mezoTxUrl(lastBuyTx)} target="_blank" rel="noreferrer">
@@ -116,17 +129,19 @@ export function EmberPotDialog() {
             )}
           </Section>
 
-          <Section title="Prize descent" icon={Flame} tone={ACCENT.gate}>
+          {/* A player who holds a key came here to play: on a phone that block goes first. */}
+          <Section title="Prize descent" icon={Flame} tone={ACCENT.gate} className={me && me.keys > 0 ? "order-first md:order-none" : undefined}>
             <p className="text-sm text-foreground/80">
-              Everyone starts equal: {PRIZE_FLASKS} flasks, the {PRIZE_WEAPON.name}, no Delver perks, no potions. Level perks are earned in the deep.
-              Come home and press <b>Claim</b>: the game checks every move, records your gold and pays the gas. One key per claim.
-              {itemsLive() && <> Slay Cerberus too and its chest holds a weapon NFT; a found weapon you carry replaces the {PRIZE_WEAPON.name}.</>}
+              Everyone starts with the same kit: {PRIZE_FLASKS} flasks, the {PRIZE_WEAPON.name}, no Delver perks, no potions. Level perks are earned in the deep.
+              Come home and press <b>Claim</b>: the game checks every move, records your gold and pays the gas. Your gold is your share of the pot. A key is spent only when you claim.
+              {itemsLive() && <> Slay Cerberus on the way and its chest holds a weapon, minted to you as an NFT on Mezo. A found weapon you carry replaces the {PRIZE_WEAPON.name} and keeps its bonuses: the one thing you can bring.</>}
             </p>
             {found && <p className="text-xs" style={{ color: ACCENT.market }}>Carrying {itemName({ ...found, seed: BigInt(found.seed) })} ({itemStats({ ...found, seed: BigInt(found.seed) }).damage} dmg). Change it in the Armory.</p>}
             <Button className="w-full font-pixel" onClick={startPrize} disabled={!me || me.keys < 1}>
               <Flame data-icon="inline-start" /> Start a prize descent
             </Button>
             {me && me.keys < 1 && <p className="text-xs text-muted-foreground">Buy a key first.</p>}
+            {!wallet.account && <p className="text-xs text-muted-foreground">Connect a wallet and buy a key to start. Want to try the cave first? Close this window and press PLAY: practice descents are free.</p>}
           </Section>
         </div>
 
@@ -160,6 +175,8 @@ export function EmberPotDialog() {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
           <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(MEZO_POT.address)} target="_blank" rel="noreferrer">Pot contract <ExternalLink className="size-3" aria-hidden /></a>
           <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(router ?? BTC_ROUTER)} target="_blank" rel="noreferrer">Key router <ExternalLink className="size-3" aria-hidden /></a>
+          {itemsAddress() && <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(itemsAddress()!)} target="_blank" rel="noreferrer">Weapon NFTs <ExternalLink className="size-3" aria-hidden /></a>}
+          {marketAddress() && <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(marketAddress()!)} target="_blank" rel="noreferrer">Market <ExternalLink className="size-3" aria-hidden /></a>}
           <span>80% to the pot · 20% to the treasury</span>
           <Button variant="ghost" size="sm" className="ml-auto" onClick={() => void refresh()} disabled={loading}>
             <RefreshCw className={loading ? "animate-spin" : ""} data-icon="inline-start" /> Refresh

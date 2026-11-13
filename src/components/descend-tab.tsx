@@ -108,7 +108,7 @@ export function DescendTab() {
         <CardHeader>
           <CardTitle className="font-pixel">Choose who descends</CardTitle>
           <CardDescription>{campMode.crystals
-            ? "Every character has a perk for practice descents. Mint more at the Ember Altar with crystals, or find a Soul Sigil in a Sealed Vault. Prize descents start equal, without these perks."
+            ? "Every character has a perk for practice descents. Mint more at the Ember Altar with crystals, or find a Soul Sigil in a Sealed Vault. Prize descents take none of these perks."
             : `Every character has a perk, and it works at ${Math.round(HOLD_FACTOR * 100)}% strength while you only hold it. Lock it at the Ember Altar to make it stronger over time. Mint more there, or find a Soul Sigil in a Sealed Vault.`}</CardDescription>
         </CardHeader>
         <CardContent>
