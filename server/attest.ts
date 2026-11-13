@@ -21,7 +21,8 @@ import {
 } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { BOSS_DEPTH } from "@/game/config";
-import { isPrizeSetup } from "@/game/prize";
+import { START_REUSE_SECONDS, START_TTL_SECONDS, isPrizeSetup, startMessage } from "@/game/prize";
+import type { RunSetup, StartTicket } from "@/game/run";
 import { ReplayError, replayRun } from "@/game/replay";
 import { DESCENT_TYPES, fromWire, hallDomain, toWire, type Attestation, type SignedDescent } from "@/chain/hall-typed";
 import { RUN_RECORD_TYPES, potDomain, runFromWire, runToWire, type PotAttestation, type RunRecord } from "@/chain/pot-typed";
@@ -107,6 +108,8 @@ export type AttestConfig = {
   siteUrl?: string;
   /** Item metadata requests one address may make per window: wallets and explorers ask more often than players sign. */
   itemLimit?: { max: number; windowMs: number };
+  /** Where a prize descent's seed comes from: Node's CSPRNG, or a fixed list in tests. */
+  pickSeed?: () => number;
   log?: (line: string) => void;
 };
 
@@ -191,6 +194,67 @@ export type EmptyChest = { empty: true; dropId: Hex };
 /** A pot signature never outlives its round: the contract checks it against the round it is sent in. */
 const POT_ROUND_MARGIN = 120;
 
+/**
+ * The prize descents this server has started, one per player: the seed it gave, when, and the record it was claimed
+ * as. Kept in memory: after a restart a player simply gets a new seed.
+ */
+type StartBook = Map<string, { seed: number; issued: number; claimedAs: Hex | null }>;
+const startBooks = new WeakMap<AttestConfig, StartBook>();
+const startBookOf = (config: AttestConfig) => {
+  let book = startBooks.get(config);
+  if (!book) startBooks.set(config, (book = new Map()));
+  return book;
+};
+
+export type StartAnswer = { seed: number; start: StartTicket };
+
+/** Signs a prize descent's start (game/prize.ts, startMessage). Exported for tests. */
+export async function signStart(account: PrivateKeyAccount, player: Address, seed: number, itemId: number | null, issued: number): Promise<StartTicket> {
+  return { issued, signature: await account.signMessage({ message: startMessage(player, seed, itemId, issued) }) };
+}
+
+/**
+ * Starts a prize descent: the seed the server picks and its signed start. Asking again gives the same seed until it is
+ * START_REUSE_SECONDS old or a descent with it is claimed, so a player cannot look through maps for an easy one (the
+ * dungeon is public code) or learn one map by playing it over. The weapon is signed in too; changing it keeps the seed.
+ */
+export async function startPrize(config: AttestConfig, body: unknown): Promise<StartAnswer> {
+  const b = (body ?? {}) as Record<string, unknown>;
+  if (typeof b.player !== "string" || !isAddress(b.player)) throw new HttpError(400, "player must be an address");
+  if (!config.pot) throw new HttpError(404, "The Ember Pot is not set up on this server");
+  if (b.item !== undefined && b.item !== null && (!Number.isSafeInteger(b.item) || (b.item as number) < 1)) throw new HttpError(400, "item must be a token id");
+  const player = getAddress(b.player);
+  const now = Math.floor((config.now ?? Date.now)() / 1000);
+  const book = startBookOf(config);
+  let entry = book.get(player.toLowerCase());
+  if (!entry || entry.claimedAs || now - entry.issued >= START_REUSE_SECONDS) {
+    entry = { seed: config.pickSeed?.() ?? randomBytes(4).readUInt32BE(0), issued: now, claimedAs: null };
+    book.set(player.toLowerCase(), entry);
+    if (book.size > 50_000) for (const [k, v] of book) if (now - v.issued > START_TTL_SECONDS) book.delete(k);
+  }
+  const itemId = typeof b.item === "number" ? b.item : null;
+  return { seed: entry.seed, start: await signStart(config.account, player, entry.seed, itemId, entry.issued) };
+}
+
+/** Checks the start of a descent claimed into the pot, and books the claim against it. */
+async function checkStart(config: AttestConfig, player: Address, setup: RunSetup, runId: Hex, now: number) {
+  const start = setup.start;
+  if (!start) throw new HttpError(422, "A prize descent must be started by the game's server. Start a new one from the Ember Pot.");
+  if (start.issued > now + 60 || now - start.issued > START_TTL_SECONDS) {
+    throw new HttpError(409, "This prize descent was started too long ago to claim. Start a new one from the Ember Pot.");
+  }
+  const message = startMessage(player, setup.seed, setup.item?.id ?? null, start.issued);
+  if (!await verifyMessage({ address: config.account.address, message, signature: start.signature as Hex })) {
+    throw new HttpError(422, "This prize descent was not started by this game's server.");
+  }
+  // One claim per start: the same start sent again with other moves would be a second try at a map already known.
+  const entry = startBookOf(config).get(player.toLowerCase());
+  if (entry && entry.seed === setup.seed && entry.issued === start.issued) {
+    if (entry.claimedAs && entry.claimedAs !== runId) throw new HttpError(409, "This prize descent's start was claimed already. Start a new one from the Ember Pot.");
+    entry.claimedAs = runId;
+  }
+}
+
 export async function attest(config: AttestConfig, body: unknown): Promise<Attestation | PotAttestation | DropAttestation | EmptyChest> {
   const b = (body ?? {}) as Record<string, unknown>;
   if (typeof b.player !== "string" || !isAddress(b.player)) throw new HttpError(400, "player must be an address");
@@ -264,6 +328,7 @@ export async function attest(config: AttestConfig, body: unknown): Promise<Attes
     const roundEnd = pot.launchTime + (round + 1) * pot.roundSeconds;
     const deadline = Math.min(now + config.ttlSeconds, roundEnd - POT_ROUND_MARGIN);
     if (deadline <= now) throw new HttpError(409, "This pot round is closing. Try again in a few minutes, for the next round.");
+    await checkStart(config, player, result.setup, runId, now);
     const run: RunRecord = {
       player, runId, gold: BigInt(Math.min(pot.maxGold, result.gold)), roundId: BigInt(round), deadline: BigInt(deadline),
     };
@@ -427,7 +492,7 @@ export function createAttestServer(config: AttestConfig): Server {
         return;
       }
 
-      if (url.pathname !== "/api/attest" && url.pathname !== "/api/relay") throw new HttpError(404, "Not found");
+      if (url.pathname !== "/api/attest" && url.pathname !== "/api/relay" && url.pathname !== "/api/start") throw new HttpError(404, "Not found");
       if (req.method !== "POST") throw new HttpError(405, "Use POST");
       if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) throw new HttpError(415, "Send JSON");
 
@@ -435,6 +500,12 @@ export function createAttestServer(config: AttestConfig): Server {
 
       let body: unknown;
       try { body = JSON.parse(await readBody(req)); } catch (e) { throw e instanceof HttpError ? e : new HttpError(400, "The body is not JSON"); }
+      if (url.pathname === "/api/start") {
+        const started = await startPrize(config, body);
+        log(`started a prize descent for ${(body as { player: string }).player}`);
+        send(res, 200, started);
+        return;
+      }
       if (url.pathname === "/api/relay") {
         const { hash, attestation } = await relay(config, body);
         log(`relayed ${describe(attestation)} tx ${hash ?? "none"}`);

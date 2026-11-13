@@ -7,7 +7,7 @@ import {
   type Perks, type PotionId,
 } from "./catalog";
 import { LOCK_MAX, MAX_FLASKS, PASSES, STAKE_GOLD_CAP, TICKET_DROP_CHANCE } from "./config";
-import { applyAction, startRun, type PotionBag, type RunAction, type RunSetup, type RunState, type SetupItem } from "./run";
+import { applyAction, startRun, type PotionBag, type RunAction, type RunSetup, type RunState, type SetupItem, type StartTicket } from "./run";
 import {isLevelPerk} from './level-perks';
 import { isItem, itemStats } from "./items";
 
@@ -97,6 +97,7 @@ export function validateSetup(raw: unknown): RunSetup {
   if (!Number.isSafeInteger(s.seed) || (s.seed as number) < 0 || (s.seed as number) > 0xffff_ffff) fail("seed");
   if (!Number.isSafeInteger(s.flasks) || (s.flasks as number) < 1 || (s.flasks as number) > MAX_FLASKS) fail("flasks");
   const item = s.item === undefined ? undefined : validateItem(s.item, fail);
+  const start = s.start === undefined ? undefined : validateStart(s.start, fail);
   if (item ? s.weaponDamage !== itemStats({ ...item, seed: BigInt(item.seed) }).damage : !WEAPON_DAMAGE.has(s.weaponDamage as number)) fail("weapon");
   if (s.ticketChance !== undefined && !TICKET_CHANCES.has(s.ticketChance as number)) fail("ticket chance");
 
@@ -128,7 +129,16 @@ export function validateSetup(raw: unknown): RunSetup {
     seed: s.seed as number, flasks: s.flasks as number, perks, weaponDamage: s.weaponDamage as number, bag,
     ...(s.ticketChance !== undefined ? { ticketChance: s.ticketChance as number } : {}),
     ...(item ? { item } : {}),
+    ...(start ? { start } : {}),
   };
+}
+
+/** A prize descent's start ticket, in shape only: the server checks its signature and age (server/attest.ts). */
+function validateStart(raw: unknown, fail: (what: string) => never): StartTicket {
+  const t = record(raw);
+  if (!Number.isSafeInteger(t.issued) || (t.issued as number) < 1) fail("start issued");
+  if (typeof t.signature !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(t.signature)) fail("start signature");
+  return { issued: t.issued as number, signature: t.signature as string };
 }
 
 /** A found weapon in a setup: its token id and what it is. Whether the player holds it is checked on chain by the server. */

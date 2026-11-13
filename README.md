@@ -188,10 +188,15 @@ descent from its setup and moves; only if the replay ends exactly as claimed doe
 contracts take no record without that signature, credit it only to the player it was signed for, and only once.
 A chest is checked the same way, and only against a record the pot already holds.
 
-What it proves: the gold and depth came from real play under the game's rules. What it does not yet prove: the seed
-is chosen by the browser, so a player could look for a good map before playing, and a found weapon is checked when the
-descent is claimed, not when it starts, so two wallets could pass one weapon between them. A server-issued start (the
-seed and the weapon fixed before the first move) is the next step and closes both.
+**Server-issued starts.** A prize descent is started by the server, not the browser: `/api/start` picks the seed and
+signs it together with the player and the weapon they carry, and the Ember Pot takes no descent without that signed
+start. A player gets a new seed only every two hours or after a claim, and one start counts for one claim, so nobody
+can look through maps for an easy one (the dungeon is public code) or learn one map by playing it over. The weapon is
+fixed before the first move.
+
+What it proves: the gold and depth came from real play under the game's rules, on a map the server picked. What it
+does not prove: the server is trusted to pick seeds at random and to replay honestly; its books of starts live in
+memory, so a restart simply hands out new seeds.
 
 ## Run locally
 
@@ -241,7 +246,6 @@ Node.
 
 ## Next
 
-- A server-issued start for prize descents: the seed and the carried weapon fixed before the first move.
 - Delvers as NFTs too, listed on the same Market.
 - Mezo mainnet, after the testnet weeks run cleanly: a 20% chest chance and a daily mint cap.
 

@@ -13,7 +13,7 @@ import { validateSetup } from "@/game/replay";
 import { EVM_CHAIN_ID, EVM_NOW, createChain, type Compiled, type Deployed } from "../contracts/evm";
 // @ts-expect-error -- a plain .mjs build script without type declarations
 import { CONTRACTS, compileContract } from "../scripts/hall-compile.mjs";
-import { chestRoll, createAttestServer, runIdOf, type AttestConfig, type EmptyChest, type ItemsTarget } from "./attest";
+import { chestRoll, createAttestServer, runIdOf, signStart, type AttestConfig, type EmptyChest, type ItemsTarget } from "./attest";
 
 const outcome = vi.hoisted(() => ({ bossSlain: true, home: true }));
 vi.mock("@/game/replay", async importOriginal => {
@@ -135,7 +135,9 @@ describe("Cerberus chests", () => {
   it("lets a prize descent into the pot with a found weapon only when its player holds that item", async () => {
     const post = await start();
     const axe: Item = { kind: 1, rarity: 2, seed: 99n };
-    const carrying = prizeSetup(16, { id: 7, kind: 1, rarity: 2, seed: "99" });
+    const weapon = { id: 7, kind: 1, rarity: 2, seed: "99" };
+    // The start the server gave for this seed and this weapon (server/attest.ts, /api/start).
+    const carrying = prizeSetup(16, weapon, await signStart(signer, PLAYER, 16, weapon.id, Number(EVM_NOW)));
     const claim = { ...ask(carrying), target: "pot" };
     expect((await post(claim)).status).toBe(422); // not minted
     held.set(7, { owner: OTHER, item: axe });

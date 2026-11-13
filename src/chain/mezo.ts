@@ -14,6 +14,7 @@ import { runFromWire, type PotAttestation } from "./pot-typed";
 import { waitForReceipt } from "./receipt";
 import { RELAY_LOGIN_SECONDS, relayMessage } from "./relay-auth";
 import type { Eip1193 } from "./wallet";
+import type { StartTicket } from "@/game/run";
 
 export const MEZO = defineChain({
   id: MEZO_NETWORK.id,
@@ -347,6 +348,22 @@ export async function requestPotAttestation(url: string, body: PotRequest, fetch
   const data = await res.json().catch(() => null) as (PotAttestation & { error?: string }) | null;
   if (!res.ok || !data?.run || !data.signature) throw new Error(data?.error ?? `The game's server answered ${res.status}.`);
   return data;
+}
+
+/**
+ * Asks the game's server to start a prize descent: the seed it picks and its signed start (game/prize.ts), with the
+ * weapon the player carries fixed in it. The Ember Pot takes no prize descent without one.
+ */
+export async function requestStart(attestUrl: string, player: Address, itemId: number | null, fetchImpl: typeof fetch = fetch): Promise<{ seed: number; start: StartTicket }> {
+  let res: Response;
+  try {
+    res = await fetchImpl(attestUrl.replace(/\/attest$/, "/start"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ player, item: itemId }) });
+  } catch {
+    throw new Error("The game's server cannot be reached, and a prize descent is started by it. Try again in a moment.");
+  }
+  const data = await res.json().catch(() => null) as { seed?: number; start?: StartTicket; error?: string } | null;
+  if (!res.ok || typeof data?.seed !== "number" || !data.start) throw new Error(data?.error ?? `The game's server answered ${res.status}.`);
+  return { seed: data.seed, start: data.start };
 }
 
 /** Sends a signed prize descent to the pot. It spends one of the player's keys and adds the gold to this round. */

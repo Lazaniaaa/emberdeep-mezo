@@ -1,7 +1,7 @@
 // The whole path: a bot plays a descent, the server replays and signs it, and the compiled Hall accepts the record.
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { recoverTypedDataAddress, type Address, type Hex } from "viem";
+import { recoverMessageAddress, recoverTypedDataAddress, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { DESCENT_TYPES, fromWire, hallDomain, type Attestation } from "@/chain/hall-typed";
 import { RUN_RECORD_TYPES, potDomain, runFromWire, type PotAttestation } from "@/chain/pot-typed";
@@ -12,7 +12,8 @@ import { applyAction,startRun,emptyBag, type RunAction, type RunState } from "@/
 import {PERK_IDS} from '@/game/level-perks';
 import { simulateDiveRun, simulateFogRun } from "@/game/sim";
 import { EVM_CHAIN_ID, EVM_NOW, deployHall } from "../contracts/hall-evm";
-import { createAttestServer, type AttestConfig, type RelayCall } from "./attest";
+import { createAttestServer, signStart, type AttestConfig, type RelayCall } from "./attest";
+import { START_TTL_SECONDS, startMessage } from "@/game/prize";
 
 const tape = vi.hoisted(() => ({ moves: [] as RunAction[], last: null as RunState | null, on: false }));
 vi.mock("@/game/run", async importOriginal => {
@@ -37,6 +38,9 @@ const signer = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae8
 const OWNER = "0x00000000000000000000000000000000000000a0" as Hex;
 const PLAYER = "0x00000000000000000000000000000000000000B1" as Address;
 const setupFor = (seed: number, flasks: number) => ({ seed, flasks, perks: { ...NO_PERKS }, weaponDamage: WEAPONS.dagger.damage, bag: emptyBag() });
+/** A prize descent with a start signed by the server's key, as /api/start would give it. */
+const prizeFor = async (player: Address, seed: number, flasks = 3, issued = Number(EVM_NOW)) =>
+  ({ ...setupFor(seed, flasks), start: await signStart(signer, player, seed, null, issued) });
 
 let hall: Awaited<ReturnType<typeof deployHall>>;
 let base: string;
@@ -162,7 +166,7 @@ describe("attestation server", () => {
     expect(found).not.toBeNull();
     const { seed, moves, gold } = found!;
 
-    const res = await post(potUrl, { player: PLAYER, setup: setupFor(seed, 3), moves, target: "pot" });
+    const res = await post(potUrl, { player: PLAYER, setup: await prizeFor(PLAYER, seed), moves, target: "pot" });
     expect(res.status).toBe(200);
     const { run, signature } = await res.json() as PotAttestation;
     expect(run).toMatchObject({ player: PLAYER, gold: String(gold), roundId: "3", deadline: String(EVM_NOW + 3600n) });
@@ -170,19 +174,72 @@ describe("attestation server", () => {
     expect(by).toBe(signer.address);
 
     // Any other loadout is refused: the pot pays real MUSD, and the simulated loadout cannot be proven.
-    const richer = await post(potUrl, { player: PLAYER, setup: setupFor(seed, 4), moves, target: "pot" });
+    const richer = await post(potUrl, { player: PLAYER, setup: await prizeFor(PLAYER, seed, 4), moves, target: "pot" });
     expect(richer.status).toBe(422);
     const lost = play(() => simulateDiveRun(77, 3));
     expect(lost.final.status).toBe("dead");
-    expect((await post(potUrl, { player: PLAYER, setup: setupFor(77, 3), moves: lost.moves, target: "pot" })).status).toBe(422);
+    expect((await post(potUrl, { player: PLAYER, setup: await prizeFor(PLAYER, 77), moves: lost.moves, target: "pot" })).status).toBe(422);
 
     // Near the end of a round the signature would land in the next one, so it is refused.
     const closing = await start({ pot: { address: POT, chainId: 31611, launchTime: Number(EVM_NOW) - 604_800 + 60, roundSeconds: 604_800, maxGold: 5000 } });
-    expect((await post(closing, { player: PLAYER, setup: setupFor(seed, 3), moves, target: "pot" })).status).toBe(409);
+    expect((await post(closing, { player: PLAYER, setup: await prizeFor(PLAYER, seed), moves, target: "pot" })).status).toBe(409);
     // A deadline never passes the round's end.
     const late = await start({ pot: { address: POT, chainId: 31611, launchTime: Number(EVM_NOW) - 604_800 + 1000, roundSeconds: 604_800, maxGold: 5000 } });
-    const capped = await (await post(late, { player: PLAYER, setup: setupFor(seed, 3), moves, target: "pot" })).json() as PotAttestation;
+    const capped = await (await post(late, { player: PLAYER, setup: await prizeFor(PLAYER, seed), moves, target: "pot" })).json() as PotAttestation;
     expect(Number(capped.run.deadline)).toBe(Number(EVM_NOW) + 1000 - 120);
+  }, 120_000);
+
+  it("starts prize descents itself: one seed a player, signed, claimed once", async () => {
+    // A map the bot brings home, played two ways (the second waits once first), for the one-claim rule below.
+    let found: { seed: number; moves: string[]; other: string[] } | null = null;
+    for (let seed = 1; seed < 80 && !found; seed++) {
+      const { moves, final } = play(() => simulateFogRun(seed, 3));
+      if (final.status !== "extracted" || final.gold <= 0) continue;
+      const other = ["W", ...moves];
+      let s = startRun(setupFor(seed, 3));
+      for (const m of other) s = applyAction(s, decodeMove(m));
+      if (s.status === "extracted" && s.gold > 0) found = { seed, moves, other };
+    }
+    expect(found).not.toBeNull();
+    const { seed, moves, other } = found!;
+
+    // The server hands out that map first, then another.
+    const seeds = [seed, seed + 1000];
+    const POT = "0x00000000000000000000000000000000000000e7" as Address;
+    const url = await start({
+      pot: { address: POT, chainId: 31611, launchTime: Number(EVM_NOW) - 1000, roundSeconds: 604_800, maxGold: 5000 },
+      pickSeed: () => seeds.shift()!,
+    });
+    const ask = async (body: unknown) => (await fetch(`${url}/api/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }));
+    type Started = { seed: number; start: { issued: number; signature: Hex } };
+
+    // The server picks the seed and signs it with the weapon; asking again gives the same seed, whatever the weapon.
+    const first = await (await ask({ player: PLAYER })).json() as Started;
+    expect(first.seed).toBe(seed);
+    expect(first.start.issued).toBe(Number(EVM_NOW));
+    expect(await recoverMessageAddress({ message: startMessage(PLAYER, seed, null, first.start.issued), signature: first.start.signature as Hex })).toBe(signer.address);
+    const withAxe = await (await ask({ player: PLAYER, item: 7 })).json() as Started;
+    expect(withAxe.seed).toBe(seed);
+    expect(await recoverMessageAddress({ message: startMessage(PLAYER, seed, 7, first.start.issued), signature: withAxe.start.signature as Hex })).toBe(signer.address);
+    expect((await ask({ player: "nope" })).status).toBe(400);
+    expect((await fetch(`${base}/api/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ player: PLAYER }) })).status).toBe(404);
+
+    const claim = (setup: unknown, m = moves) => post(url, { player: PLAYER, setup, moves: m, target: "pot" });
+    // No start, a start someone else signed, one for another weapon or another seed, or one too old: refused.
+    expect((await claim(setupFor(seed, 3))).status).toBe(422);
+    const stranger = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a");
+    expect((await claim({ ...setupFor(seed, 3), start: await signStart(stranger, PLAYER, seed, null, Number(EVM_NOW)) })).status).toBe(422);
+    expect((await claim({ ...setupFor(seed, 3), start: withAxe.start })).status).toBe(422);
+    expect((await claim({ ...setupFor(seed, 3), start: await signStart(signer, PLAYER, seed + 1, null, Number(EVM_NOW)) })).status).toBe(422);
+    expect((await claim(await prizeFor(PLAYER, seed, 3, Number(EVM_NOW) - START_TTL_SECONDS - 1))).status).toBe(409);
+
+    // Claimed once: the same descent again is fine (a retried claim), another way of playing that map is not, and
+    // the next start is a new seed.
+    const setup = { ...setupFor(seed, 3), start: first.start };
+    expect((await claim(setup)).status).toBe(200);
+    expect((await claim(setup)).status).toBe(200);
+    expect((await claim(setup, other)).status).toBe(409);
+    expect((await (await ask({ player: PLAYER })).json() as Started).seed).toBe(seed + 1000);
   }, 120_000);
 
   it("relays Mezo records for a player who signed in, and for nobody else", async () => {
@@ -200,7 +257,7 @@ describe("attestation server", () => {
       const { moves, final } = play(() => simulateFogRun(seed, 3));
       if (final.status === "extracted" && final.gold > 0) found = { seed, moves };
     }
-    const body = { player: player.address, setup: setupFor(found!.seed, 3), moves: found!.moves, target: "pot", until, login };
+    const body = { player: player.address, setup: await prizeFor(player.address, found!.seed), moves: found!.moves, target: "pot", until, login };
     const relayPost = (b: unknown) => fetch(`${url}/api/relay`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) });
 
     expect((await relayPost({ ...body, login: undefined })).status).toBe(401);

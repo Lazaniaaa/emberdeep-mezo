@@ -66,7 +66,7 @@ export function MarketDialog() {
             <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Reading the market on Mezo…</p>
           ) : forSale.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nothing for sale right now. Slay Cerberus on a prize descent, claim it, open its chest and be the first to list.</p>
-          ) : forSale.map(l => <ForSale key={`${l.item.id}:${l.price}:${quoteVersion}`} listing={l} />)}
+          ) : forSale.map(l => <ForSale key={`${l.item.id}:${l.price}:${quoteVersion}`} listing={l} balances={wallet.account ? balances : null} />)}
         </Section>
 
         {balances && wallet.account && cheapest !== null && <BorrowMusd need={cheapest} have={balances.MUSD} btc={balances.BTC} what="the cheapest weapon here" onBorrowed={() => setBorrowed(n => n + 1)} />}
@@ -109,7 +109,8 @@ export function MarketDialog() {
   );
 }
 
-function ForSale({ listing }: { listing: MarketListing }) {
+/** One weapon for sale. `balances` (the connected wallet's) light the way to pay it can afford and hold back the rest. */
+function ForSale({ listing, balances }: { listing: MarketListing; balances: Record<PayToken, bigint> | null }) {
   const row = useRef<HTMLDivElement>(null);
   const [quotes, setQuotes] = useState<Partial<Record<"BTC" | "MEZO", bigint | null>>>({});
   useEffect(() => {
@@ -132,6 +133,10 @@ function ForSale({ listing }: { listing: MarketListing }) {
   const wallet = useWallet();
   const busy = useItems(s => s.busy);
   const working = busy?.id === listing.item.id;
+  // What each way of paying costs: the price in MUSD, or the quoted BTC or MEZO (unknown until the quote is back).
+  const cost = (token: PayToken) => (token === "MUSD" ? listing.price : quotes[token] ?? null);
+  const short = (token: PayToken) => { const c = cost(token); return !!balances && c !== null && balances[token] < c; };
+  const suggested = balances ? PAY.find(({ token }) => cost(token) !== null && !short(token))?.token ?? null : "MUSD";
   return (
     <FoundWeaponRow item={listing.item} note={<>Sold by {shortAddress(listing.seller as Address)}</>}>
       <div ref={row} className="flex max-w-full flex-col items-end gap-1.5">
@@ -144,7 +149,8 @@ function ForSale({ listing }: { listing: MarketListing }) {
               const amount = token === "MUSD" ? null : quotes[token];
               const label = amount ? `≈${Number(formatUnits(amount, 18)).toLocaleString("en-US", { maximumSignificantDigits: 4 })} ${token}` : token;
               return (
-                <Button key={token} size="sm" variant={token === "MUSD" ? "default" : "outline"} disabled={!wallet.account || !!busy}
+                <Button key={token} size="sm" variant={token === suggested ? "default" : "outline"} disabled={!wallet.account || !!busy || short(token)}
+                  title={short(token) ? `Not enough ${token} in your wallet` : undefined}
                   aria-label={`Buy with ${label}`} onClick={() => void useItems.getState().buy(listing, token)}>
                   <Icon data-icon="inline-start" /> {label}
                 </Button>

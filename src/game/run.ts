@@ -105,7 +105,14 @@ export type RunSetup = {
    * the setup stays plain JSON.
    */
   item?: SetupItem;
+  /**
+   * A prize descent's start, issued by the game's server: when, and its signature over the player, the seed and the
+   * weapon (game/prize.ts, startMessage). The Ember Pot takes no descent without one, so the browser cannot pick its map.
+   */
+  start?: StartTicket;
 };
+
+export type StartTicket = { issued: number; signature: string };
 
 export type SetupItem = { id: number; kind: number; rarity: number; seed: string };
 

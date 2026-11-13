@@ -112,7 +112,7 @@ the pot's "From Market sales" line.
 | "Let players open or top up a trove through BorrowerOperations to fund their keys" | Done: in the game, for keys and weapons (slide 4) |
 | "Show players other than the deployer wallet … and a completed weekly distribute" | TODO: N outside wallets, payouts in PROOF.md |
 | "Verify the three contracts on the explorer" | TODO: all contracts verified |
-| "Use server-issued seeds" | TODO: done / next milestone |
+| "Use server-issued seeds" | Done: the server starts every prize descent and signs its seed; one claim per start |
 | "Add a pitch deck" | This deck, a PDF in the repo; video 2:00 |
 | "The pot is still a port of your Arc USDC pool" | The pot is now fed by a Mezo-only Market, through `fund()` |
 

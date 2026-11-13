@@ -8,7 +8,8 @@ import { BorrowMusd } from "./borrow-musd";
 import { Section, Tile, WindowHead } from "./camp-ui";
 import { BTC_ROUTER, MEZO_POT, itemsAddress, keyRouterAddress, marketAddress, mezoAddressUrl, mezoTxUrl, type PayToken } from "@/chain/mezo-config";
 import { PRIZE_FLASKS, PRIZE_WEAPON, prizeSetup } from "@/game/prize";
-import { randomSeed } from "@/game/rng";
+import { ATTEST_URL } from "@/chain/arc-config";
+import type { Address } from "viem";
 import { shortAddress, tokens } from "@/lib/format";
 import { itemName, itemStats } from "@/game/items";
 import { carriedItem, itemsLive, marketLive, useItems } from "@/state/items";
@@ -40,12 +41,32 @@ export function EmberPotDialog() {
   const marketFunding = snapshot?.marketFunding ?? 0n;
   const found = useItems(s => s.equipped && carriedItem());
 
-  const startPrize = () => {
+  // The way to pay this wallet can afford, lit as the main button: MUSD when it holds enough, else BTC, else MEZO.
+  // (BTC and MEZO are swapped on Tigris, so holding some is a fair sign; the swap itself says if it falls short.)
+  const suggested: PayToken | null = !me || !snapshot ? "MUSD"
+    : me.balances.MUSD >= snapshot.keyPrice * BigInt(quantity) ? "MUSD"
+    : me.balances.BTC > 10n ** 14n ? "BTC"
+    : me.balances.MEZO > 0n && router ? "MEZO" : null;
+  const [starting, setStarting] = useState(false);
+  const startPrize = async () => {
     if (foreignRunActive()) { toast.error("A descent is already running in another tab. Finish it there first."); return; }
-    if (!me || me.keys < 1) { toast.error("You need an Ember Pot key on Mezo first."); return; }
-    // A found weapon the wallet holds replaces the dagger; the server checks it is still the player's.
-    useRun.getState().start(prizeSetup(randomSeed(), carriedItem()), true);
-    setOpen(false);
+    if (!me || me.keys < 1 || !wallet.account) { toast.error("You need an Ember Pot key on Mezo first."); return; }
+    setStarting(true);
+    try {
+      // The weapons are read again first, so a weapon sold from another device is not carried into a descent the pot
+      // would then refuse. A found weapon the wallet holds replaces the dagger.
+      if (itemsLive()) await useItems.getState().refresh();
+      const item = carriedItem();
+      // The server picks the map and signs it with the weapon: the pot takes no prize descent it did not start.
+      const { requestStart } = await import("@/chain/mezo");
+      const { seed, start } = await requestStart(ATTEST_URL, wallet.account as Address, item?.id ?? null);
+      useRun.getState().start(prizeSetup(seed, item, start), true);
+      setOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStarting(false);
+    }
   };
 
   return (
@@ -107,9 +128,11 @@ export function EmberPotDialog() {
                   {PAY.map(({ token, label, icon: Icon }) => {
                     const unavailable = token === "MEZO" && !router;
                     const busy = buying?.token === token;
+                    // MUSD the wallet does not hold would only fail in the wallet, so that button waits for a top-up.
+                    const short = token === "MUSD" && !!me && !!snapshot && me.balances.MUSD < snapshot.keyPrice * BigInt(quantity);
                     return (
-                      <Button key={token} variant={token === "MEZO" ? "default" : "secondary"} disabled={!!buying || unavailable} onClick={() => void buy(token, quantity)}
-                        title={unavailable ? "The BTC/MEZO key router is not deployed yet" : `Pay with ${label}`}>
+                      <Button key={token} variant={token === suggested ? "default" : "secondary"} disabled={!!buying || unavailable || short} onClick={() => void buy(token, quantity)}
+                        title={unavailable ? "The BTC/MEZO key router is not deployed yet" : short ? "Not enough MUSD in your wallet: pay with BTC or MEZO, or borrow MUSD below" : `Pay with ${label}`}>
                         {busy ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Icon data-icon="inline-start" />}
                         {label}
                       </Button>
@@ -137,8 +160,8 @@ export function EmberPotDialog() {
               {itemsLive() && <> Slay Cerberus on the way and its chest holds a weapon, minted to you as an NFT on Mezo. A found weapon you carry replaces the {PRIZE_WEAPON.name} and keeps its bonuses: the one thing you can bring.</>}
             </p>
             {found && <p className="text-xs" style={{ color: ACCENT.market }}>Carrying {itemName({ ...found, seed: BigInt(found.seed) })} ({itemStats({ ...found, seed: BigInt(found.seed) }).damage} dmg). Change it in the Armory.</p>}
-            <Button className="w-full font-pixel" onClick={startPrize} disabled={!me || me.keys < 1}>
-              <Flame data-icon="inline-start" /> Start a prize descent
+            <Button className="w-full font-pixel" onClick={() => void startPrize()} disabled={!me || me.keys < 1 || starting}>
+              {starting ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Flame data-icon="inline-start" />} {starting ? "Starting on the game's server…" : "Start a prize descent"}
             </Button>
             {me && me.keys < 1 && <p className="text-xs text-muted-foreground">Buy a key first.</p>}
             {!wallet.account && <p className="text-xs text-muted-foreground">Connect a wallet and buy a key to start. Want to try the cave first? Close this window and press PLAY: practice descents are free.</p>}

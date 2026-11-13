@@ -139,9 +139,10 @@ Wave 1 feedback, point by point, and what we did with it.
 2. **"Show players other than the deployer wallet buying keys and a completed weekly distribute on-chain."**
    TODO: N outside wallets, listed in PROOF.md with what each did; completed payouts in rows 15 and 16.
 3. **"Verify the three contracts on the explorer."** TODO: all contracts verified, links in PROOF.md.
-4. **"Use server-issued seeds so the result doesn't rest on trusting the operator."** TODO (confirm it shipped):
-   the server issues the seed of a prize descent before the first move. If it did not ship, replace this line with:
-   "Not done yet; it is our next milestone. Until then a player could look for a favourable map before playing."
+4. **"Use server-issued seeds so the result doesn't rest on trusting the operator."** Done: the server starts every
+   prize descent (`/api/start`). It picks the seed and signs it with the player and the weapon they carry, and the
+   Ember Pot takes no descent without that start. One start counts for one claim, and a player gets a new seed only
+   every two hours or after a claim, so no one can shop for an easy map or replay a known one.
 5. **"Add a pitch deck."** Done: the deck is a PDF in the repo, linked above, and the video is 2:00.
 6. **"The Ember Pot is still a port of your Arc USDC pool."** The pot is now part of a loop that exists only on
    Mezo: `EmberPotV3` adds `fund()`, through which the Market pays 5% of every sale into the current week, and
@@ -165,16 +166,15 @@ New in Wave 2 beyond the feedback:
   equal in everything except the weapon. Weapons are earned by play or bought from players, never sold by us.
 - The server is trusted to replay honestly and to keep the chest secret. A stolen signing key could mint items
   until the owner replaces it; a daily mint cap comes before mainnet.
-- A weapon's ownership is checked when a descent is claimed, not when it starts.
-- TODO: the seed (see point 4 above), and any PROOF.md row still empty.
+- The server picks seeds and is trusted to pick them at random; its record of starts lives in memory, so a restart
+  hands out new seeds.
+- TODO: any PROOF.md row still empty.
 
 ## Future milestones
 
 1. **Pot funds at work on Mezo** (December 2026): the week's idle MUSD in the MUSD savings vault or a Mezo pool,
    with the yield added to the prizes.
-2. **A server-issued start for every prize descent** (December 2026): seed and carried weapon fixed before the
-   first move. TODO: drop "seed" from this line if it shipped in Wave 2.
-3. **Mezo mainnet** (Q1 2027), after the testnet weeks run cleanly: a 20% chest chance, a daily mint cap, Delvers
+2. **Mezo mainnet** (Q1 2027), after the testnet weeks run cleanly: a 20% chest chance, a daily mint cap, Delvers
    as NFTs on the same Market, and Mezo Passport sign-in.
 
 ## Team
@@ -198,7 +198,7 @@ What we did with the Wave 1 feedback
 1. "Let players open or top up a trove through BorrowerOperations to fund their keys": done. One button in the game opens a Mezo trove (openTrove, BTC as collateral, 65% LTV) or borrows more on the player's (adjustTrove), sized with Mezo's own PriceFeed, minNetDebt, fee and SortedTroves hints. Shown wherever the game asks for MUSD: keys and weapons.
 2. "Players other than the deployer, and a completed weekly distribute": TODO N outside wallets and the payout txs are in PROOF.md.
 3. "Verify the contracts": TODO all verified.
-4. "Server-issued seeds": TODO done / next milestone.
+4. "Server-issued seeds": done. The server starts every prize descent and signs its seed with the player and weapon; the pot takes no descent without it, one claim per start.
 5. "Add a pitch deck": done, a PDF in the repo; the video is 2:00.
 6. "The pot is a port of your Arc pool": EmberPotV3 adds fund(), through which the new Market pays 5% of every sale into the current week.
 

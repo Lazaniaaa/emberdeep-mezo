@@ -101,4 +101,12 @@ describe("a descent with a found weapon", () => {
     expect("item" in plain).toBe(false);
     expect(replayRun(plain, ["X"]).state.levelPerks).toEqual([]);
   });
+
+  it("keeps a server's start with the setup, in shape only (the server checks its signature)", () => {
+    const start = { issued: 1_800_000_000, signature: `0x${"ab".repeat(65)}` };
+    expect(validateSetup(prizeSetup(7, null, start)).start).toEqual(start);
+    expect(() => validateSetup(prizeSetup(7, null, { ...start, signature: "0x12" }))).toThrow(ReplayError);
+    expect(() => validateSetup(prizeSetup(7, null, { ...start, issued: -1 }))).toThrow(ReplayError);
+    expect(isPrizeSetup(validateSetup(prizeSetup(7, null, start)))).toBe(true);
+  });
 });

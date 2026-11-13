@@ -5,7 +5,7 @@
 // server refuses any other setup for the pot (server/attest.ts).
 import { NO_PERKS, POTION_IDS, WEAPONS } from "./catalog";
 import { itemStats } from "./items";
-import { emptyBag, type RunSetup, type SetupItem } from "./run";
+import { emptyBag, type RunSetup, type SetupItem, type StartTicket } from "./run";
 
 /** Lantern oil every prize descent starts with. */
 export const PRIZE_FLASKS = 3;
@@ -13,10 +13,23 @@ export const PRIZE_WEAPON = WEAPONS.dagger;
 
 const itemDamage = (item: SetupItem) => itemStats({ ...item, seed: BigInt(item.seed) }).damage;
 
-export const prizeSetup = (seed: number, item?: SetupItem | null): RunSetup => ({
+export const prizeSetup = (seed: number, item?: SetupItem | null, start?: StartTicket): RunSetup => ({
   seed, flasks: PRIZE_FLASKS, perks: { ...NO_PERKS }, weaponDamage: item ? itemDamage(item) : PRIZE_WEAPON.damage, bag: emptyBag(),
   ...(item ? { item } : {}),
+  ...(start ? { start } : {}),
 });
+
+/**
+ * The game's server picks a prize descent's seed and signs this text with its key (server/attest.ts, /api/start), so
+ * the map is not the browser's choice: a player gets a new seed only every START_REUSE_SECONDS or after a claim. The
+ * weapon is part of it, fixed before the first move.
+ */
+export const startMessage = (player: string, seed: number, itemId: number | null, issued: number) =>
+  `Emberdeep prize descent\nPlayer: ${player.toLowerCase()}\nSeed: ${seed}\nWeapon: ${itemId ?? "none"}\nIssued: ${issued}`;
+/** A start is good for this long: the descent must be claimed within it. */
+export const START_TTL_SECONDS = 6 * 3600;
+/** Asking again within this long gives the same seed, unless a descent with it was claimed. */
+export const START_REUSE_SECONDS = 2 * 3600;
 
 /** Whether a (validated) setup is the prize loadout, with the dagger or a found weapon. The seed and the ticket chance do not matter. */
 export function isPrizeSetup(setup: RunSetup): boolean {
