@@ -6,7 +6,8 @@ start with the same loadout for everyone, except a found weapon you hold; the go
 the week's **Ember Pot**. Slay Cerberus on a prize descent and its chest holds a **weapon NFT** you can carry, or sell
 at the **Market** for MUSD.
 
-**Play:** https://108-61-197-158.sslip.io (Mezo Testnet) &nbsp;·&nbsp; **Mezo Buildathon, Wave 2**
+**Play:** https://108-61-197-158.sslip.io (Mezo Testnet) &nbsp;·&nbsp; **Pitch deck:** [docs/emberdeep-deck.pdf](docs/emberdeep-deck.pdf)
+&nbsp;·&nbsp; **Proof on chain:** [docs/PROOF.md](docs/PROOF.md) &nbsp;·&nbsp; **Mezo Buildathon, Wave 2**
 
 <p align="center">
   <img src="docs/screenshots/mezo-descent.png" alt="A descent: a ginger cat with a lantern, a Waxling and a Cave Spider ahead; light, level and loot on the left, potions on the right, the Ember Pot in the header" width="720">

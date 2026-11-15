@@ -11,13 +11,14 @@ signing in. A deck that does not open capped Materials at 1 in Wave 1, and so di
 
 - Live (Mezo Testnet): https://108-61-197-158.sslip.io
 - Code: https://github.com/Lazaniaaa/emberdeep-mezo
-- Pitch deck (PDF in the repo): TODO `https://github.com/Lazaniaaa/emberdeep-mezo/blob/main/docs/emberdeep-deck.pdf`
+- Pitch deck (PDF in the repo): https://github.com/Lazaniaaa/emberdeep-mezo/blob/main/docs/emberdeep-deck.pdf
 - Video (2:00): TODO
 - Proof on chain (every step as a transaction): https://github.com/Lazaniaaa/emberdeep-mezo/blob/main/docs/PROOF.md
 - Contracts (chain 31611), all verified on the explorer:
   EmberPotV3 `0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c` · EmberKeyRouter `0xe81eeb4ac622be0ffe6b127b4e86d93bbd560d3a` ·
   EmberItems `0xc36a4c19760dc368c719eba29159d639b2f62362` · EmberMarket `0x4c598c2146a30b9595b3c224c47fae13ba7a4a04` ·
-  Hall of Descents `0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6`
+  Hall of Descents `0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6` · quick test pots (5 and 10 min rounds)
+  `0xff019fbb3ddc88163d605ca2a0abdb879ccfedc8` · `0x8c91e96c4e846377c95212617bbf58556d39fcb3`
 
 ## Project name
 
@@ -101,9 +102,9 @@ We read the Wave 1 feedback as a ladder and built up it. In order:
 - **One scenario across them.** trove → MUSD → key → pot → chest NFT → Market → Tigris swap → 5% back into the pot.
   The Market is not a side feature: its fee is a second source of the prize pool, shown in the pot window
   ("From Market sales") and counted on chain (`fundedIn`).
-- **Third parties and the full cycle on chain.** TODO: N wallets other than ours bought keys, claimed and traded;
-  each step is in `docs/PROOF.md` with its hash, including a completed weekly `distribute`. (Delete this bullet if
-  the table is not filled.)
+- **The full cycle on chain.** Each step is in `docs/PROOF.md` with its hash: a loan from the game, keys in MUSD and
+  in BTC through Tigris, claims, a chest NFT, Market listings and a sale with its 5% into the pot, and a round paid
+  out by gold (`distribute`). A second wallet, not the deployer, bought keys and a weapon.
 
 What we did not do yet: the pot's MUSD sits idle during the week. Putting it to work in a Mezo pool or the savings
 vault was the judge's other suggestion; it changes the pot contract, so it is the first milestone below rather than
@@ -126,7 +127,7 @@ each claim spends a key. Nothing depends on a token or on emissions.
 ## Tech stack
 
 Solidity 0.8.28 (Solady; the pot on OpenZeppelin), tested in an in-memory EVM (ethereumjs) and with Foundry.
-TypeScript, React 19, Vite, viem, Canvas 2D. A Node signing server and relayer (EIP-712). 626 tests (`npm test`): the game
+TypeScript, React 19, Vite, viem, Canvas 2D. A Node signing server and relayer (EIP-712). 627 tests (`npm test`): the game
 rules, the replay, the contracts in an EVM, the server, the relayer and the chest.
 
 ## What changed since Wave 1
@@ -136,11 +137,15 @@ Wave 1 feedback, point by point, and what we did with it.
 1. **"Make MUSD do protocol work … let players open or top up a trove through BorrowerOperations to fund their
    keys."** Done. A player short of MUSD presses one button and the game opens a trove (`openTrove`) or borrows more
    on theirs (`adjustTrove`), with Mezo's own price feed, minimum debt, fee and list hints. It appears wherever the
-   game asks for MUSD: buying keys and buying weapons. Proof: TODO row 1 and 2 of PROOF.md.
+   game asks for MUSD: buying keys and buying weapons. Proof: row 2 of PROOF.md (`adjustTrove` from the game,
+   +100 MUSD); a wallet without a trove gets `openTrove` from the same button.
 2. **"Show players other than the deployer wallet buying keys and a completed weekly distribute on-chain."**
-   TODO: N outside wallets, listed in PROOF.md with what each did; completed payouts in rows 15 and 16.
-3. **"Verify the three contracts on the explorer."** Done: the four Wave 2 contracts, the Hall of Descents and the
-   Wave 1 key router are verified on the Mezo explorer; links in PROOF.md.
+   A second wallet, not the deployer, bought keys and a weapon (PROOF.md, "Outside players"). Payouts by gold are on
+   chain: a quick test pot's round (row 15) and the Wave 1 pot's round 0 (row 16). The weekly pot's first round ends
+   on 22 November and is paid out by the same loop.
+3. **"Verify the three contracts on the explorer."** Done: all eight live contracts (the weekly pot, two quick test
+   pots, the key router, EmberItems, EmberMarket, the Hall of Descents and the Wave 1 key router) are verified on the
+   Mezo explorer; links in PROOF.md.
 4. **"Use server-issued seeds so the result doesn't rest on trusting the operator."** Done: the server starts every
    prize descent (`/api/start`). It picks the seed and signs it with the player and the weapon they carry, and the
    Ember Pot takes no descent without that start. One start counts for one claim, and a player gets a new seed only
@@ -159,6 +164,8 @@ New in Wave 2 beyond the feedback:
 - **The Market** (`EmberMarket`): escrow listings in MUSD; buy with MUSD, BTC or MEZO through Tigris in one
   transaction; a seller can always take an unsold item back; the owner can only choose which collections list.
 - **Found weapons in prize descents**: the server checks on chain that the player holds the item before it signs.
+- **Quick test pots**: the same pot contract with 5- and 10-minute rounds, so a judge or a new player sees a key,
+  a claim and the payout by gold in one sitting.
 - **A one-page deploy and a reproducible server**, so the contracts keep trusting the same signer across servers.
 
 ## Honest limits
@@ -170,7 +177,8 @@ New in Wave 2 beyond the feedback:
   until the owner replaces it; a daily mint cap comes before mainnet.
 - The server picks seeds and is trusted to pick them at random; its record of starts lives in memory, so a restart
   hands out new seeds.
-- TODO: any PROOF.md row still empty.
+- Built but not yet on chain: a first trove opened from the game, a key paid in MEZO, a weapon paid in BTC or MEZO,
+  a prize descent carrying a found weapon (PROOF.md rows 1, 5, 12, 14).
 
 ## Future milestones
 
@@ -194,29 +202,30 @@ Telegram: TODO · Discord: TODO · Email: the one on the AKINDO account.
 Paste this block. It is the short form of "What changed since Wave 1"; replace every TODO first.
 
 ```
-Emberdeep, Wave 2 (Mezo Testnet). Play: https://108-61-197-158.sslip.io · Code: https://github.com/Lazaniaaa/emberdeep-mezo · Deck: TODO · Video (2:00): TODO · Proof, every step as a tx: https://github.com/Lazaniaaa/emberdeep-mezo/blob/main/docs/PROOF.md
+Emberdeep, Wave 2 (Mezo Testnet). Play: https://108-61-197-158.sslip.io · Code: https://github.com/Lazaniaaa/emberdeep-mezo · Deck: https://github.com/Lazaniaaa/emberdeep-mezo/blob/main/docs/emberdeep-deck.pdf · Video (2:00): TODO · Proof, every step as a tx: https://github.com/Lazaniaaa/emberdeep-mezo/blob/main/docs/PROOF.md
 
 What we did with the Wave 1 feedback
 1. "Let players open or top up a trove through BorrowerOperations to fund their keys": done. One button in the game opens a Mezo trove (openTrove, BTC as collateral, 65% LTV) or borrows more on the player's (adjustTrove), sized with Mezo's own PriceFeed, minNetDebt, fee and SortedTroves hints. Shown wherever the game asks for MUSD: keys and weapons.
-2. "Players other than the deployer, and a completed weekly distribute": TODO N outside wallets and the payout txs are in PROOF.md.
-3. "Verify the contracts": done, the four Wave 2 contracts plus the Hall and the Wave 1 router; links in PROOF.md.
+2. "Players other than the deployer, and a completed weekly distribute": a second wallet bought keys and a weapon; rounds paid out by gold on chain (a quick test pot, and the Wave 1 pot); hashes in PROOF.md.
+3. "Verify the contracts": done, all eight live contracts; links in PROOF.md.
 4. "Server-issued seeds": done. The server starts every prize descent and signs its seed with the player and weapon; the pot takes no descent without it, one claim per start.
 5. "Add a pitch deck": done, a PDF in the repo; the video is 2:00.
 6. "The pot is a port of your Arc pool": EmberPotV3 adds fund(), through which the new Market pays 5% of every sale into the current week.
 
 New in Wave 2
 - Found weapons as NFTs (EmberItems, ERC-721): 4 kinds x 4 rarities, with on-chain-read metadata, so they show in wallets and on the Mezo explorer.
-- Cerberus chests: only for a prize descent already claimed into the pot; one chest per pot record, so every chest cost a key.
+- Cerberus chests: only for a descent claimed into the pot, one per record, so every chest cost a key.
 - EmberMarket: escrow listings in MUSD; buy with MUSD, or with BTC or MEZO swapped on Tigris in the same transaction; 5% of each sale goes into the week's pot.
 - Found weapons can be carried into prize descents; the server checks ownership on chain before signing.
+- Quick test pots (5- and 10-minute rounds): the whole cycle, key to payout, in one sitting.
 
 One loop, all on Mezo: borrow MUSD against BTC (trove) or swap BTC/MEZO on Tigris -> key -> prize descent -> gasless Claim -> chest NFT -> Market (Tigris again) -> 5% back into the pot -> automatic weekly payout.
 
-Contracts (chain 31611, verified): EmberPotV3 0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c · EmberKeyRouter 0xe81eeb4ac622be0ffe6b127b4e86d93bbd560d3a · EmberItems 0xc36a4c19760dc368c719eba29159d639b2f62362 · EmberMarket 0x4c598c2146a30b9595b3c224c47fae13ba7a4a04 · Hall 0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6
+Contracts (chain 31611): all eight verified; addresses and explorer links in PROOF.md. Ember Pot: 0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c
 
 Business model: 20% of every key goes to the treasury and pays for the replay server and the relayer's gas; 80% of keys and the Market's 5% of every sale are the players' pot, which is what sells the next key. No token.
 
 Limits, honestly: testnet only; a found weapon makes a prize descent easier (everything else is equal); the server is trusted to replay; the pot's idle MUSD is not yet deployed into a Mezo pool (next milestone).
 
-Track: both (2: access, a one-click first trove; 1: borrowing + Tigris + market in one cycle). Status: existing game, all Mezo features built in Waves 1-2. Team: TODO name, solo; X TODO.
+Track: both. Status: existing game; its Mezo features were built in Waves 1-2. Team: Lazan1aa, solo; X https://x.com/NotYur.
 ```
