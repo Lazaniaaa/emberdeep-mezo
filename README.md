@@ -6,8 +6,7 @@ start with the same loadout for everyone, except a found weapon you hold; the go
 the week's **Ember Pot**. Slay Cerberus on a prize descent and its chest holds a **weapon NFT** you can carry, or sell
 at the **Market** for MUSD.
 
-**Mezo Buildathon, Wave 2** &nbsp;·&nbsp; **Play:** the Wave 2 build goes live on Mezo Testnet before 15 November
-(the Wave 1 server was retired).
+**Play:** https://108-61-197-158.sslip.io (Mezo Testnet) &nbsp;·&nbsp; **Mezo Buildathon, Wave 2**
 
 <p align="center">
   <img src="docs/screenshots/mezo-descent.png" alt="A descent: a ginger cat with a lantern, a Waxling and a Cave Spider ahead; light, level and loot on the left, potions on the right, the Ember Pot in the header" width="720">
@@ -76,13 +75,18 @@ buy a key (MUSD, or BTC / MEZO swapped on Tigris; or open a Mezo trove from the 
 
 | On Mezo Testnet (chain 31611) | Address | Source |
 | --- | --- | --- |
-| Ember Pot (V2, Wave 1) | [`0x7a3e5548a81456ae695d058a90aa73ca543b16eb`](https://explorer.test.mezo.org/address/0x7a3e5548a81456ae695d058a90aa73ca543b16eb) | [`contracts/ember-pot/`](contracts/ember-pot/) |
-| Key router (BTC or MEZO → keys) | [`0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d`](https://explorer.test.mezo.org/address/0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d) | [`contracts/EmberKeyRouter.sol`](contracts/EmberKeyRouter.sol) |
+| Ember Pot (V3) | [`0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c`](https://explorer.test.mezo.org/address/0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c) | [`contracts/ember-pot/EmberPotV3.sol`](contracts/ember-pot/EmberPotV3.sol) |
+| Key router (BTC or MEZO → keys) | [`0xe81eeb4ac622be0ffe6b127b4e86d93bbd560d3a`](https://explorer.test.mezo.org/address/0xe81eeb4ac622be0ffe6b127b4e86d93bbd560d3a) | [`contracts/EmberKeyRouter.sol`](contracts/EmberKeyRouter.sol) |
+| EmberItems (weapon NFTs) | [`0xc36a4c19760dc368c719eba29159d639b2f62362`](https://explorer.test.mezo.org/address/0xc36a4c19760dc368c719eba29159d639b2f62362) | [`contracts/EmberItems.sol`](contracts/EmberItems.sol) |
+| EmberMarket | [`0x4c598c2146a30b9595b3c224c47fae13ba7a4a04`](https://explorer.test.mezo.org/address/0x4c598c2146a30b9595b3c224c47fae13ba7a4a04) | [`contracts/EmberMarket.sol`](contracts/EmberMarket.sol) |
 | Hall of Descents | [`0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6`](https://explorer.test.mezo.org/address/0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6) | [`contracts/EmberdeepHall.sol`](contracts/EmberdeepHall.sol) |
 | MUSD · MEZO · BTC | `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` · `0x7b7c…0001` · `0x7b7c…0000` | Mezo |
+| Mezo's lending (troves) | BorrowerOperations [`0xCdF7028ceAB81fA0C6971208e83fa7872994beE5`](https://explorer.test.mezo.org/address/0xCdF7028ceAB81fA0C6971208e83fa7872994beE5) | Mezo |
+| Ember Pot V2 (Wave 1, retired) | [`0x7a3e5548a81456ae695d058a90aa73ca543b16eb`](https://explorer.test.mezo.org/address/0x7a3e5548a81456ae695d058a90aa73ca543b16eb) | its last week is still paid out by the server |
 
-The Wave 2 contracts (`EmberPotV3`, its key router, `EmberItems`, `EmberMarket`) are deployed with the Wave 2 build;
-their addresses go here then. When V3 takes over, the server keeps paying out V2's last week.
+The Wave 2 contracts were deployed on 15 November 2026 from `deploy-mezo.html`, all owned by
+`0x08e4f62eD093124AA3cE257830c81B2bC14A51E9`, with the game server's signer `0xc0702Ec1ee458D746aE4DDEd8316c3D397001240`.
+Found weapons' metadata: `https://108-61-197-158.sslip.io/api/item/<id>`.
 
 **What the owners can and cannot do.** Nobody can take MUSD out of the pot or a listed item out of the Market.
 The pot's owner can change the key price and the signer and pause key sales. The Market's owner can only choose which

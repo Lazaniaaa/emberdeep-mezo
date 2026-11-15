@@ -29,23 +29,26 @@ export const TIGRIS = {
 } as const satisfies { router: Address; factory: Address; pools: Record<"BTC" | "MEZO", Address> };
 
 /**
- * The Ember Pot on Mezo Testnet (EmberPotV2, deployed 2026-10-26 at block 16371144; the 2026-10-23 one at
- * 0xaf6d…e3ea lost its signer with the old server): keys cost 1 MUSD, 80% of each goes into the week's
- * pot and 20% to the treasury; the server-signed descents add gold; after the week anyone splits the pot by gold.
- * Its signer is the game server's key (0xc070…1240). Round timing is immutable on chain.
+ * The Ember Pot on Mezo Testnet (EmberPotV3, deployed 2026-11-15 from deploy-mezo.html): keys cost 1 MUSD, 80% of each
+ * goes into the week's pot and 20% to the treasury; the server-signed descents add gold, and the Market's 5% of every
+ * sale comes in through fund(); after the week anyone splits the pot by gold. Its signer is the game server's key
+ * (0xc070…1240). Round timing is immutable on chain.
  */
 export const MEZO_POT = {
-  address: "0x7a3e5548a81456ae695d058a90aa73ca543b16eb",
-  launchTime: 1_792_976_870,
+  address: "0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c",
+  launchTime: 1_794_705_429,
   roundSeconds: 604_800,
   maxGoldPerRun: 5000,
 } as const;
 
 /**
  * Pots that a newer one replaced. Nobody buys keys in them any more, but the server still pays out their ended rounds
- * (server/payout.ts), so a week that was running at the switch is settled like any other.
+ * (server/payout.ts), so a week that was running at the switch is settled like any other. EmberPotV2 ran Wave 1
+ * (deployed 2026-10-26 at block 16371144; its round 0 was paid out on chain).
  */
-export const MEZO_RETIRED_POTS: readonly { address: Address; launchTime: number; roundSeconds: number }[] = [];
+export const MEZO_RETIRED_POTS: readonly { address: Address; launchTime: number; roundSeconds: number }[] = [
+  { address: "0x7a3e5548a81456ae695d058a90aa73ca543b16eb", launchTime: 1_792_976_870, roundSeconds: 604_800 },
+];
 
 /**
  * Borrowing MUSD against BTC happens in Mezo's own app; the game only works out how much and sends the player there.
@@ -75,13 +78,13 @@ const env = (key: string): Address | null => {
 
 /** The Hall of Descents on Mezo: the same contract as on Arc. Deployed 2026-10-26 at block 16371186, signer 0xc070…1240. */
 const MEZO_HALL: Address | null = "0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6";
-/** EmberKeyRouter (contracts/EmberKeyRouter.sol): keys for BTC or MEZO, for the pot above. Deployed 2026-10-26. */
-const KEY_ROUTER: Address | null = "0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d";
+/** EmberKeyRouter (contracts/EmberKeyRouter.sol): keys for BTC or MEZO, for the pot above. Deployed 2026-11-15. */
+const KEY_ROUTER: Address | null = "0xe81eeb4ac622be0ffe6b127b4e86d93bbd560d3a";
 
-/** EmberItems (contracts/EmberItems.sol): weapons found in the deep, as NFTs. Not deployed yet. */
-const ITEMS: Address | null = null;
-/** EmberMarket (contracts/EmberMarket.sol): items for MUSD, BTC or MEZO, its fee into the Ember Pot. Not deployed yet. */
-const MARKET: Address | null = null;
+/** EmberItems (contracts/EmberItems.sol): weapons found in the deep, as NFTs; signer 0xc070…1240. Deployed 2026-11-15. */
+const ITEMS: Address | null = "0xc36a4c19760dc368c719eba29159d639b2f62362";
+/** EmberMarket (contracts/EmberMarket.sol): items for MUSD, BTC or MEZO, 5% into the Ember Pot. Deployed 2026-11-15. */
+const MARKET: Address | null = "0x4c598c2146a30b9595b3c224c47fae13ba7a4a04";
 
 export const mezoHallAddress = (): Address | null => env("VITE_MEZO_HALL_ADDRESS") ?? MEZO_HALL;
 export const keyRouterAddress = (): Address | null => env("VITE_MEZO_KEY_ROUTER") ?? KEY_ROUTER;

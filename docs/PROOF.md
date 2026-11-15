@@ -10,12 +10,16 @@ asks you to trust a screenshot: each row is a hash, the wallet that sent it, and
 
 | Contract | Address | Verified source |
 | --- | --- | --- |
-| EmberPotV3 (weekly MUSD prize pool) | TODO | TODO: link to the verified code tab |
-| EmberKeyRouter (BTC or MEZO → MUSD on Tigris → keys) | TODO | TODO |
-| EmberItems (found weapons, ERC-721) | TODO | TODO |
-| EmberMarket (escrow, buy with MUSD / BTC / MEZO, 5% into the pot) | TODO | TODO |
-| Hall of Descents | `0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6` | TODO |
-| Ember Pot V2 (Wave 1, retired; its last rounds are still paid out) | `0x7a3e5548a81456ae695d058a90aa73ca543b16eb` | TODO |
+| EmberPotV3 (weekly MUSD prize pool) | [`0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c`](https://explorer.test.mezo.org/address/0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c) | [verified](https://explorer.test.mezo.org/address/0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c?tab=contract) |
+| EmberKeyRouter (BTC or MEZO → MUSD on Tigris → keys) | [`0xe81eeb4ac622be0ffe6b127b4e86d93bbd560d3a`](https://explorer.test.mezo.org/address/0xe81eeb4ac622be0ffe6b127b4e86d93bbd560d3a) | [verified](https://explorer.test.mezo.org/address/0xe81eeb4ac622be0ffe6b127b4e86d93bbd560d3a?tab=contract) |
+| EmberItems (found weapons, ERC-721) | [`0xc36a4c19760dc368c719eba29159d639b2f62362`](https://explorer.test.mezo.org/address/0xc36a4c19760dc368c719eba29159d639b2f62362) | [verified](https://explorer.test.mezo.org/address/0xc36a4c19760dc368c719eba29159d639b2f62362?tab=contract) |
+| EmberMarket (escrow, buy with MUSD / BTC / MEZO, 5% into the pot) | [`0x4c598c2146a30b9595b3c224c47fae13ba7a4a04`](https://explorer.test.mezo.org/address/0x4c598c2146a30b9595b3c224c47fae13ba7a4a04) | [verified](https://explorer.test.mezo.org/address/0x4c598c2146a30b9595b3c224c47fae13ba7a4a04?tab=contract) |
+| Hall of Descents | [`0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6`](https://explorer.test.mezo.org/address/0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6) | [verified](https://explorer.test.mezo.org/address/0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6?tab=contract) |
+| Key router of Wave 1 (retired with its pot) | [`0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d`](https://explorer.test.mezo.org/address/0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d) | [verified](https://explorer.test.mezo.org/address/0x515e4e47a8bcd7e1b4ab4fc28b3d16b29dd58a9d?tab=contract) |
+| Ember Pot V2 (Wave 1, retired; its last rounds are still paid out) | [`0x7a3e5548a81456ae695d058a90aa73ca543b16eb`](https://explorer.test.mezo.org/address/0x7a3e5548a81456ae695d058a90aa73ca543b16eb) | not verified yet (source in `contracts/ember-pot/EmberPotV2.sol`) |
+
+All Wave 2 contracts were deployed on 15 November 2026 by the owner `0x08e4f62eD093124AA3cE257830c81B2bC14A51E9`;
+the game server signs with `0xc0702Ec1ee458D746aE4DDEd8316c3D397001240`.
 
 Mezo's own contracts the game calls: BorrowerOperations `0xCdF7028ceAB81fA0C6971208e83fa7872994beE5` (with its
 TroveManager, SortedTroves and PriceFeed, read from it), MUSD `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503`,
@@ -44,7 +48,7 @@ Tigris router `0x9a1ff7FE3a0F69959A3fBa1F1e5ee18e1A9CD7E9`, Tigris pools BTC/MUS
 | 13 | The Market's 5% in the pot | `Funded(round, market, amount)` in row 11 or 12; `fundedIn(round)` on the pot | TODO: same hash, log index | — |
 | 14 | A descent that carried a found weapon | `recordRun` for a descent whose setup carried the NFT of row 9 (the server checked its owner) | TODO | relayer, for TODO |
 | 15 | Weekly payout | `EmberPotV3.distribute(round, players)`: MUSD to every player by gold | TODO | relayer |
-| 16 | Weekly payout of the Wave 1 pot | `distribute` on Ember Pot V2, a completed round | TODO | relayer |
+| 16 | Weekly payout of the Wave 1 pot | `distribute` on Ember Pot V2: round 0 paid 7.2 MUSD by gold, automatically, on 2 November | [`0x97d7…26cc`](https://explorer.test.mezo.org/tx/0x97d7283e52dff7244cdb52af3a41acae1116c2afe44801e36f0fe81f0fd926cc) | relayer |
 
 ## Outside players
 
