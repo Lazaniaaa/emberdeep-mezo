@@ -4,11 +4,12 @@
 import { Check, ExternalLink, Gift, Loader2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { mezoItemUrl, mezoTxUrl } from "@/chain/mezo-config";
-import { CHEST_CHANCE, MAINNET_CHEST_CHANCE } from "@/game/items";
+import { RARITY_INFO } from "@/game/catalog";
+import { CHEST_CHANCE, MAINNET_CHEST_CHANCE, itemName, rarityOf, type OwnedItem } from "@/game/items";
 import { chestsOf, useItems, type ChestStatus, type PendingChest } from "@/state/items";
 import { useRun } from "@/state/run-store";
 import { useWallet } from "@/state/wallet";
-import { FoundWeaponRow } from "./found-weapon";
+import { FoundWeaponRow, ItemIcon } from "./found-weapon";
 
 const LABEL: Partial<Record<ChestStatus, string>> = {
   login: "Sign in once in your wallet…",
@@ -34,6 +35,41 @@ export function ChestPanel() {
   );
 }
 
+/** Cerberus's hoard chest in the loot sheet (public/props/loot.png): six cells of 112 x 96, the hoard the last. */
+const HOARD_CELL = 5, CELL_W = 112, CELL_H = 96, CELLS = 6, SHOW = 2;
+
+/**
+ * The chest itself: still until it is opened, rattling while the server opens it, then a burst in the rarity's colour
+ * and the weapon rising out of it. With reduced motion every step shows at once, in its final state.
+ */
+function ChestStage({ phase, item }: { phase: "closed" | "opening" | "open" | "empty"; item: OwnedItem | null }) {
+  const color = item ? RARITY_INFO[rarityOf(item)].color : "#ffb547";
+  const open = phase === "open" || phase === "empty";
+  return (
+    <div className="relative grid h-52 place-items-center overflow-hidden" aria-hidden>
+      {open && item && (
+        <>
+          <div className="absolute size-44 rounded-full opacity-40"
+            style={{ background: `repeating-conic-gradient(${color}55 0deg 12deg, transparent 12deg 30deg)`, animation: "chest-rays 9s linear infinite", maskImage: "radial-gradient(circle, black 30%, transparent 70%)" }} />
+          <div className="absolute size-32 rounded-full" style={{ background: `radial-gradient(circle, ${color} 0%, ${color}66 35%, transparent 70%)`, animation: "chest-burst 0.9s ease-out forwards" }} />
+        </>
+      )}
+      <div className="pixelated relative mt-6" style={{
+        width: CELL_W * SHOW, height: CELL_H * SHOW,
+        backgroundImage: `url(${import.meta.env.BASE_URL}props/loot.png)`, backgroundSize: `${CELL_W * CELLS * SHOW}px ${CELL_H * SHOW}px`,
+        backgroundPosition: `${-HOARD_CELL * CELL_W * SHOW}px 0`, imageRendering: "pixelated", transformOrigin: "50% 90%",
+        animation: phase === "opening" ? "chest-rattle 0.35s ease-in-out infinite" : open ? "chest-open 0.6s ease-out forwards" : undefined,
+      }} />
+      {open && item && (
+        <div className="absolute top-2 flex flex-col items-center gap-1" style={{ animation: "item-rise 0.9s cubic-bezier(.2,.9,.3,1.2) 0.25s both" }}>
+          <ItemIcon item={item} scale={2} />
+          <span className="font-pixel text-xs" style={{ color, textShadow: `0 0 8px ${color}` }}>{itemName(item)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Opens one kept chest, then shows what was in it. */
 export function ChestOpener({ pending, seed }: { pending: PendingChest | null; seed: number | null }) {
   const { chestFor, chest, openChest, equip, setMarketOpen } = useItems();
@@ -45,6 +81,7 @@ export function ChestOpener({ pending, seed }: { pending: PendingChest | null; s
     const item = job.item;
     return (
       <div className="space-y-2">
+        <ChestStage phase="open" item={item} />
         {item ? (
           <FoundWeaponRow item={item}>
             <Button size="sm" variant={carriedId === item.id ? "secondary" : "outline"} onClick={() => equip(carriedId === item.id ? null : item)}>
@@ -62,10 +99,11 @@ export function ChestOpener({ pending, seed }: { pending: PendingChest | null; s
       </div>
     );
   }
-  if (job.status === "empty") return <p className="text-sm text-muted-foreground">The chest was empty this time.</p>;
+  if (job.status === "empty") return <><ChestStage phase="empty" item={null} /><p className="text-sm text-muted-foreground">The chest was empty this time.</p></>;
   if (!pending) return null;
   return (
     <>
+      <ChestStage phase={busy ? "opening" : "closed"} item={null} />
       <Button className="w-full font-pixel" variant="secondary" onClick={() => void openChest(pending)} disabled={busy}>
         {busy ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Gift data-icon="inline-start" />}
         {LABEL[job.status] ?? "Open the chest"}

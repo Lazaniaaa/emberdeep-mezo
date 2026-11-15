@@ -152,3 +152,34 @@
   0% { box-shadow: inset 0 0 90px 18px rgba(255, 40, 30, 0.75); background: rgba(255, 30, 20, 0.16); }
   100% { box-shadow: inset 0 0 90px 18px rgba(255, 40, 30, 0); background: rgba(255, 30, 20, 0); }
 }
+
+/* A Cerberus chest (chest-panel.tsx): it rattles while the server opens it, bursts in the rarity's colour, and the
+   weapon rises out of it. */
+@keyframes chest-rattle {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-4deg) translateY(-1px); }
+  40% { transform: rotate(4deg); }
+  60% { transform: rotate(-3deg) translateY(-2px); }
+  80% { transform: rotate(2deg); }
+}
+@keyframes chest-open {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.14, 0.88); }
+  55% { transform: scale(0.94, 1.1); }
+  100% { transform: scale(1); opacity: 0.5; }
+}
+@keyframes chest-burst {
+  0% { transform: scale(0.2); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes chest-rays {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes item-rise {
+  0% { transform: translateY(36px) scale(0.2); opacity: 0; }
+  55% { transform: translateY(-14px) scale(1.18); opacity: 1; }
+  75% { transform: translateY(-6px) scale(0.96); }
+  100% { transform: translateY(-8px) scale(1); opacity: 1; }
+}
