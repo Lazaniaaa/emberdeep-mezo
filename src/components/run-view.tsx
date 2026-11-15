@@ -7,7 +7,7 @@ import { DPad } from "@/components/dpad";
 import { Header } from "@/components/header";
 import { MOVE_MS, isActKey, moveOf } from "@/lib/controls";
 import { playSfx } from "@/audio/sfx";
-import { lootMultiplier } from "@/game/config";
+import { BOSS_DEPTH, lootMultiplier } from "@/game/config";
 import type { Animal } from "@/game/animals";
 import { POTIONS, POTION_IDS, RARITY_INFO, type PotionId } from "@/game/catalog";
 import { itemName, rarityOf } from "@/game/items";
@@ -230,9 +230,12 @@ export function RunView() {
       {/* Actions, warnings and the log share one stack, so nothing sits on the touch pad */}
       <div data-run-hud className="pointer-events-none absolute bottom-20 left-3 z-20 flex w-[calc(100%-10.5rem)] max-w-[26rem] flex-col gap-1.5 lg:w-[26rem]">
         <div className="pointer-events-auto flex flex-col items-start gap-1.5">
-          {atStairs && playing && !sealed && (
+          {atStairs && playing && !sealed && (run.depth >= BOSS_DEPTH ? (
+            // Cerberus's floor is the bottom of the deep: its stairs lead out, like the rift.
+            <Button size="lg" className="font-pixel shadow-lg" variant="secondary" onClick={contextAction}><DoorOpen data-icon="inline-start" /> Climb out with {run.gold} gold <Kbd>E</Kbd></Button>
+          ) : (
             <Button size="lg" className="font-pixel shadow-lg" onClick={contextAction}><ArrowDown data-icon="inline-start" /> Descend to depth {run.depth + 1} <Kbd>E</Kbd></Button>
-          )}
+          ))}
           {atStairs && playing && sealed && (
             <p className="rounded-lg border border-sigil/50 bg-[#150c2b]/90 px-3 py-1.5 text-xs text-sigil">The stairs are sealed. Defeat Cerberus, or walk back to the rift and leave with your loot.</p>
           )}

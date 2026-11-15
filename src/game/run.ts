@@ -169,14 +169,15 @@ export function currentStepCost(state: RunState) {
   return stepCost(state.depth) * (1 - state.perks.stepDiscount) * hungryCost(rankOf(state,'hungry-flame'));
 }
 
-/** What the stairs on Cerberus's floor say once it is dead: the deep ends there, and only the rift leads on. */
-const DEEPEST = "The stairs end in rubble: this is the bottom of the deep. Walk back to the rift to bring your loot home.";
+/** What the stairs on Cerberus's floor say once it is dead: the deep ends there, and they lead out, like the rift. */
+const DEEPEST = "The bottom of the deep. Press E to climb out with your loot.";
 
 /** The boss keeps the stairs sealed until it is dead. */
 export const bossAlive = (s: RunState) => s.floor.dimlings.some(d => d.boss);
 
 export const onStairs = (s: RunState) => s.player.x === s.floor.stairs.x && s.player.y === s.floor.stairs.y;
-/** Whether the stairs here lead down: never with Cerberus alive, and never below its floor, the bottom of the deep. */
+/** Whether the stairs here lead down: never with Cerberus alive, and never below its floor, the bottom of the deep
+ * (where, once it is dead, they lead out instead). */
 export const canDescend = (s: RunState) => onStairs(s) && !bossAlive(s) && s.depth < BOSS_DEPTH;
 export const onRift = (s: RunState) => s.player.x === s.floor.spawn.x && s.player.y === s.floor.spawn.y;
 
@@ -726,10 +727,12 @@ export function applyAction(prev: RunState, action: RunAction): RunState {
         say(state, "The stairs are sealed. Cerberus must fall first.");
         return { ...prev, messages: state.messages, events: ["sealed"] };
       }
-      // Cerberus's floor is the bottom of the deep: past it there is only the way home.
+      // Cerberus's floor is the bottom of the deep: with it dead, its stairs end the descent, like the rift.
       if (state.depth >= BOSS_DEPTH) {
-        say(state, DEEPEST);
-        return { ...prev, messages: state.messages, events: ["sealed"] };
+        state.status = "extracted";
+        state.events.push("extract");
+        say(state, "You climb out of the deep with your loot, back to camp.");
+        break;
       }
       state.depth++;
       state.deepest = Math.max(state.deepest, state.depth);

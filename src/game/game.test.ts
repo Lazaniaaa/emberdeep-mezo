@@ -395,11 +395,11 @@ describe("cerberus", () => {
     s = { ...s, floor: { ...s.floor, dimlings: [] } };
     expect(bossAlive(s)).toBe(false);
     expect(onStairs(s)).toBe(true);
-    // Cerberus's floor is the deepest: with it dead the stairs still lead nowhere, and only the rift is left.
+    // Cerberus's floor is the bottom of the deep: with it dead, its stairs end the descent like the rift.
     const bottom = applyAction(s, { type: "descend" });
     expect(bottom.depth).toBe(BOSS_DEPTH);
-    expect(bottom.steps).toBe(s.steps);
-    expect(bottom.messages[0]).toMatch(/bottom of the deep/);
+    expect(bottom.status).toBe("extracted");
+    expect(bottom.events).toContain("extract");
   });
 
   it("walks as a 2x2 body: never into walls, the player or another creature, and it closes in", () => {

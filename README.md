@@ -158,8 +158,8 @@ Sense, Second Wind and the risky Hungry Flame. See [level perks](docs/design/lev
 **Cerberus.** Depth 7 ends in an arena guarded by a three-headed hound (2x2 tiles, 150 HP). It marks the cells it
 will hit, winds up, strikes for 40 light, then recovers for two turns: step off the marks and attack while it
 recovers. It leaves a **Cerberus Hoard**: gold, crystals, a Healing Draught, a Rage Potion and a chance of a Soul
-Sigil. Its floor is the last: once it falls, the only way on is back to the rift. You can also skip it and leave
-through the rift.
+Sigil. Its floor is the last: once it falls, its stairs lead out of the deep, like the rift. You can also skip it and
+leave through the rift.
 
 **Sound.** The music, the four cave soundscapes and every creature's windup, strike and death are synthesized live:
 no samples or downloaded music. The music muffles as your lantern dims, with a heartbeat at low light.
