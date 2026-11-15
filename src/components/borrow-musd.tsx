@@ -19,11 +19,17 @@ const STEP_LABEL: Record<BorrowStep, string> = {
 };
 /** BTC kept aside for the transaction's own gas. */
 const GAS_MARGIN = 10n ** 13n;
+/** What a wallet that holds enough is offered: a new loan rises to Mezo's smallest by itself; more on a loan has no floor. */
+const OFFER = 100n * 10n ** 18n;
 
 /** `what` names the thing the MUSD is for ("1 key", "the cheapest weapon here"), so the card says why it is there. */
 export function BorrowMusd({ need, have, btc, what, onBorrowed }: { need: bigint; have: bigint; btc: bigint; what?: string; onBorrowed?: () => void }) {
   const account = useWallet(s => s.account);
-  const missing = shortfall(need, have);
+  // A wallet that holds enough MUSD can still choose to borrow: the card then folds into one line, and opened it plans
+  // the OFFER.
+  const [offered, setOffered] = useState(false);
+  const short = shortfall(need, have);
+  const missing = short > 0n ? short : offered ? OFFER : 0n;
   const [action, setAction] = useState<TroveAction | null>(null);
   const [planFor, setPlanFor] = useState<string | null>(null);
   const [step, setStep] = useState<BorrowStep | null>(null);
@@ -52,11 +58,18 @@ export function BorrowMusd({ need, have, btc, what, onBorrowed }: { need: bigint
       </div>
     );
   }
-  if (missing === 0n) return null;
+  if (missing === 0n) {
+    return account ? (
+      <button type="button" onClick={() => setOffered(true)}
+        className="flex w-full items-center gap-1.5 rounded-lg border border-white/10 bg-black/30 px-2.5 py-2 text-left text-xs hover:border-white/25">
+        <Landmark className="size-3.5" aria-hidden /> Borrow MUSD against your BTC on Mezo <span className="text-muted-foreground">· keep the BTC</span>
+      </button>
+    ) : null;
+  }
 
   const plan = planFor === key ? action : null;
   const ltv = Math.round(MEZO_BORROW.maxLtv * 100);
-  const short = plan !== null && btc < plan.send + GAS_MARGIN;
+  const lowBtc = plan !== null && btc < plan.send + GAS_MARGIN;
   const borrow = async () => {
     if (!plan || !account) return;
     setError(null);
@@ -80,21 +93,22 @@ export function BorrowMusd({ need, have, btc, what, onBorrowed }: { need: bigint
 
   return (
     <div className="space-y-1.5 rounded-lg border border-white/10 bg-black/30 p-2.5 text-xs">
-      <p className="flex items-center gap-1.5 font-medium text-foreground"><Landmark className="size-3.5" aria-hidden /> Short of MUSD? Borrow it against your BTC on Mezo</p>
+      <p className="flex items-center gap-1.5 font-medium text-foreground"><Landmark className="size-3.5" aria-hidden /> {short > 0n ? "Short of MUSD? Borrow it against your BTC on Mezo" : "Borrow MUSD against your BTC on Mezo"}</p>
       <p className="text-muted-foreground">
-        You need {tokens(missing)} MUSD more{what ? ` for ${what}` : ""}. Paying with BTC sells it; a Mezo loan keeps it.
-        {plan?.kind === "open" && <> This opens one in a single transaction: ≈{tokens(plan.send, 4)} BTC locked as collateral, {tokens(plan.borrow)} MUSD borrowed{plan.borrow > missing ? " (Mezo lends no less; what you do not spend stays in your wallet)" : ""}, a loan worth {ltv}% of the collateral.</>}
+        {short > 0n ? <>You need {tokens(missing)} MUSD more{what ? ` for ${what}` : ""}. Paying with BTC sells it; a Mezo loan keeps it.</>
+          : <>Spend MUSD on keys and weapons and keep your BTC.</>}
+        {plan?.kind === "open" && <> This opens one in a single transaction: ≈{tokens(plan.send, 4)} BTC locked as collateral, {tokens(plan.borrow)} MUSD borrowed{short > 0n && plan.borrow > missing ? " (Mezo lends no less; what you do not spend stays in your wallet)" : ""}, a loan worth {ltv}% of the collateral.</>}
         {plan?.kind === "adjust" && <> This borrows {tokens(plan.borrow)} MUSD more on your Mezo loan{plan.send > 0n ? <>, adding ≈{tokens(plan.send, 4)} BTC to keep it at {ltv}%</> : null}.</>}
         {" "}Your BTC stays yours: repay the MUSD in Mezo's app to unlock it. Above {ltv}%, a market drop can liquidate the loan.
       </p>
       {account && plan && (
-        <Button size="sm" className="w-full" onClick={() => void borrow()} disabled={!!step || short}>
+        <Button size="sm" className="w-full" onClick={() => void borrow()} disabled={!!step || lowBtc}>
           {step ? <><Loader2 className="animate-spin" data-icon="inline-start" /> {STEP_LABEL[step]}</> : <>Borrow {tokens(plan.borrow)} MUSD on Mezo</>}
         </Button>
       )}
       {error && <p className="text-destructive" role="alert">{error}</p>}
       <div className="flex flex-wrap gap-x-3 gap-y-1">
-        {short && (
+        {lowBtc && (
           <a className="inline-flex items-center gap-1 text-lime underline underline-offset-2" href={MEZO_BORROW.faucet} target="_blank" rel="noreferrer">
             Get testnet BTC (you hold {tokens(btc, 4)}) <ExternalLink className="size-3" aria-hidden />
           </a>

@@ -69,7 +69,7 @@ export function MarketDialog() {
           ) : forSale.map(l => <ForSale key={`${l.item.id}:${l.price}:${quoteVersion}`} listing={l} balances={wallet.account ? balances : null} />)}
         </Section>
 
-        {balances && wallet.account && cheapest !== null && <BorrowMusd need={cheapest} have={balances.MUSD} btc={balances.BTC} what="the cheapest weapon here" onBorrowed={() => setBorrowed(n => n + 1)} />}
+        {balances && wallet.account && <BorrowMusd need={cheapest ?? 0n} have={balances.MUSD} btc={balances.BTC} what="the cheapest weapon here" onBorrowed={() => setBorrowed(n => n + 1)} />}
 
         {!wallet.account ? (
           <>
