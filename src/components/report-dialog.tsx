@@ -271,6 +271,9 @@ function ClaimPanel({ report }: { report: RunReport }) {
           </div>
           {hallJob?.status === "error" && <p className="text-xs text-muted-foreground">The Hall on Mezo did not take it ({hallJob.error}). Your gold is in the pot all the same.</p>}
         </div>
+      ) : gold <= 0 ? (
+        // The pot takes no descent without gold (the server refuses it), so there is nothing to claim, and no key is spent.
+        <p className="text-sm text-muted-foreground">No gold came home, so there is nothing to claim. Your key is not spent: start another prize descent.</p>
       ) : wallet.account ? (
         <>
           <Button className="h-11 w-full font-pixel text-base" onClick={() => void claim(report)} disabled={busy}>
