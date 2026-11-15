@@ -138,7 +138,8 @@ function validateStart(raw: unknown, fail: (what: string) => never): StartTicket
   const t = record(raw);
   if (!Number.isSafeInteger(t.issued) || (t.issued as number) < 1) fail("start issued");
   if (typeof t.signature !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(t.signature)) fail("start signature");
-  return { issued: t.issued as number, signature: t.signature as string };
+  if (typeof t.pot !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(t.pot)) fail("start pot");
+  return { issued: t.issued as number, signature: t.signature as string, pot: (t.pot as string).toLowerCase() };
 }
 
 /** A found weapon in a setup: its token id and what it is. Whether the player holds it is checked on chain by the server. */

@@ -29,4 +29,5 @@ export const runFromWire = (r: RunRecordWire): RunRecord => ({
 export const potDomain = (chainId: number, verifyingContract: Hex) => ({ ...POT_DOMAIN, chainId, verifyingContract });
 
 /** What the signing server answers for the pot: the record it replayed and its signature over it. */
-export type PotAttestation = { run: RunRecordWire; signature: Hex };
+/** `pot` is the pot the record is for: the weekly pot, or a quick test pot (from the descent's start). */
+export type PotAttestation = { run: RunRecordWire; signature: Hex; pot?: Hex };

@@ -39,8 +39,10 @@ const OWNER = "0x00000000000000000000000000000000000000a0" as Hex;
 const PLAYER = "0x00000000000000000000000000000000000000B1" as Address;
 const setupFor = (seed: number, flasks: number) => ({ seed, flasks, perks: { ...NO_PERKS }, weaponDamage: WEAPONS.dagger.damage, bag: emptyBag() });
 /** A prize descent with a start signed by the server's key, as /api/start would give it. */
-const prizeFor = async (player: Address, seed: number, flasks = 3, issued = Number(EVM_NOW)) =>
-  ({ ...setupFor(seed, flasks), start: await signStart(signer, player, seed, null, issued) });
+/** The pot every pot test here plays into. */
+const POT = "0x00000000000000000000000000000000000000e7" as Address;
+const prizeFor = async (player: Address, seed: number, flasks = 3, issued = Number(EVM_NOW), pot: Address = POT) =>
+  ({ ...setupFor(seed, flasks), start: await signStart(signer, player, seed, null, issued, pot) });
 
 let hall: Awaited<ReturnType<typeof deployHall>>;
 let base: string;
@@ -155,7 +157,6 @@ describe("attestation server", () => {
   });
 
   it("signs the Ember Pot only for a prize descent that came home, inside the current round", async () => {
-    const POT = "0x00000000000000000000000000000000000000e7" as Address;
     const launch = Number(EVM_NOW) - 3 * 604_800 - 1000; // round 3, ends in 604,800 - 1,000 seconds
     const potUrl = await start({ pot: { address: POT, chainId: 31611, launchTime: launch, roundSeconds: 604_800, maxGold: 5000 } });
     let found: { seed: number; moves: string[]; gold: number } | null = null;
@@ -210,7 +211,6 @@ describe("attestation server", () => {
 
     // The server hands out that map first, then another.
     const seeds = [seed, seed + 1000];
-    const POT = "0x00000000000000000000000000000000000000e7" as Address;
     const url = await start({
       pot: { address: POT, chainId: 31611, launchTime: Number(EVM_NOW) - 1000, roundSeconds: 604_800, maxGold: 5000 },
       pickSeed: () => seeds.shift()!,
@@ -222,10 +222,10 @@ describe("attestation server", () => {
     const first = await (await ask({ player: PLAYER })).json() as Started;
     expect(first.seed).toBe(seed);
     expect(first.start.issued).toBe(Number(EVM_NOW));
-    expect(await recoverMessageAddress({ message: startMessage(PLAYER, seed, null, first.start.issued), signature: first.start.signature as Hex })).toBe(signer.address);
+    expect(await recoverMessageAddress({ message: startMessage(PLAYER, seed, null, first.start.issued, POT), signature: first.start.signature as Hex })).toBe(signer.address);
     const withAxe = await (await ask({ player: PLAYER, item: 7 })).json() as Started;
     expect(withAxe.seed).toBe(seed);
-    expect(await recoverMessageAddress({ message: startMessage(PLAYER, seed, 7, first.start.issued), signature: withAxe.start.signature as Hex })).toBe(signer.address);
+    expect(await recoverMessageAddress({ message: startMessage(PLAYER, seed, 7, first.start.issued, POT), signature: withAxe.start.signature as Hex })).toBe(signer.address);
     expect((await ask({ player: "nope" })).status).toBe(400);
     expect((await fetch(`${base}/api/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ player: PLAYER }) })).status).toBe(404);
 
@@ -233,9 +233,9 @@ describe("attestation server", () => {
     // No start, a start someone else signed, one for another weapon or another seed, or one too old: refused.
     expect((await claim(setupFor(seed, 3))).status).toBe(422);
     const stranger = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a");
-    expect((await claim({ ...setupFor(seed, 3), start: await signStart(stranger, PLAYER, seed, null, Number(EVM_NOW)) })).status).toBe(422);
+    expect((await claim({ ...setupFor(seed, 3), start: await signStart(stranger, PLAYER, seed, null, Number(EVM_NOW), POT) })).status).toBe(422);
     expect((await claim({ ...setupFor(seed, 3), start: withAxe.start })).status).toBe(422);
-    expect((await claim({ ...setupFor(seed, 3), start: await signStart(signer, PLAYER, seed + 1, null, Number(EVM_NOW)) })).status).toBe(422);
+    expect((await claim({ ...setupFor(seed, 3), start: await signStart(signer, PLAYER, seed + 1, null, Number(EVM_NOW), POT) })).status).toBe(422);
     expect((await claim(await prizeFor(PLAYER, seed, 3, Number(EVM_NOW) - START_TTL_SECONDS - 1))).status).toBe(409);
 
     // Claimed once: the same descent again is fine (a retried claim), another way of playing that map is not, and
@@ -247,9 +247,38 @@ describe("attestation server", () => {
     expect((await (await ask({ player: PLAYER })).json() as Started).seed).toBe(seed + 1000);
   }, 120_000);
 
+  it("starts and signs descents for a quick test pot, into that pot only", async () => {
+    let found: { seed: number; moves: string[] } | null = null;
+    for (let seed = 1; seed < 80 && !found; seed++) {
+      const { moves, final } = play(() => simulateFogRun(seed, 3));
+      if (final.status === "extracted" && final.gold > 0) found = { seed, moves };
+    }
+    const QUICK = "0x00000000000000000000000000000000000000f5" as Address;
+    const url = await start({
+      pot: { address: POT, chainId: 31611, launchTime: Number(EVM_NOW) - 1000, roundSeconds: 604_800, maxGold: 5000 },
+      quickPots: [{ address: QUICK, chainId: 31611, launchTime: Number(EVM_NOW) - 100, roundSeconds: 300, maxGold: 5000 }],
+      pickSeed: () => found!.seed,
+    });
+    const ask = (body: unknown) => fetch(`${url}/api/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    expect((await ask({ player: PLAYER, pot: "0x00000000000000000000000000000000000000aa" })).status).toBe(400);
+    const started = await (await ask({ player: PLAYER, pot: QUICK })).json() as { seed: number; start: { issued: number; signature: Hex; pot: string } };
+    expect(started.start.pot).toBe(QUICK.toLowerCase());
+
+    const res = await post(url, { player: PLAYER, setup: { ...setupFor(found!.seed, 3), start: started.start }, moves: found!.moves, target: "pot" });
+    expect(res.status).toBe(200);
+    const att = await res.json() as PotAttestation;
+    expect(att.pot?.toLowerCase()).toBe(QUICK.toLowerCase());
+    // Round 0 of a five-minute round; signed for the quick pot's own contract, which the weekly pot would refuse.
+    expect(att.run.roundId).toBe("0");
+    const by = await recoverTypedDataAddress({ domain: potDomain(31611, QUICK), types: RUN_RECORD_TYPES, primaryType: "RunRecord", message: runFromWire(att.run), signature: att.signature });
+    expect(by).toBe(signer.address);
+    // The same start's pot cannot be swapped for the weekly one.
+    const swapped = { ...started.start, pot: POT.toLowerCase() };
+    expect((await post(url, { player: PLAYER, setup: { ...setupFor(found!.seed, 3), start: swapped }, moves: found!.moves, target: "pot" })).status).toBe(422);
+  }, 120_000);
+
   it("relays Mezo records for a player who signed in, and for nobody else", async () => {
     const player = privateKeyToAccount("0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba");
-    const POT = "0x00000000000000000000000000000000000000e7" as Address;
     const sent: RelayCall[] = [];
     let fail: string | null = null;
     const relay = { address: OWNER as Address, send: async (call: RelayCall) => { if (fail) throw new Error(fail); sent.push(call); return "0xabc" as Hex; } };

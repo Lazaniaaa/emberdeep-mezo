@@ -23,10 +23,15 @@ const DEFAULT_SIGNER = "0xc0702Ec1ee458D746aE4DDEd8316c3D397001240";
 const FEE_BPS = MARKET_FEE_BPS;
 const TOKENS = { MUSD: MEZO_TOKENS.MUSD.address, BTC: MEZO_TOKENS.BTC.address, MEZO: MEZO_TOKENS.MEZO.address } as const;
 
-type StepKey = "pot" | "router" | "items" | "market" | "listed";
+type MainKey = "pot" | "router" | "items" | "market" | "listed";
+type StepKey = MainKey | QuickKey;
+type QuickKey = "quick5" | "quick10";
+/** The quick test pots: a round of five or ten minutes. */
+const QUICK: Record<QuickKey, { minutes: number }> = { quick5: { minutes: 5 }, quick10: { minutes: 10 } };
 type Saved = {
   owner?: Address; signer?: Address; baseUri?: string;
   pot?: Address; launchTime?: string; router?: Address; items?: Address; market?: Address; listed?: Hex;
+  quick?: Partial<Record<QuickKey, { address: Address; launchTime: string }>>;
   args?: Partial<Record<string, Hex>>;
   /** A step's transaction that was sent and has not been seen to land yet (the tab closed, or Mezo was slow). */
   pending?: { key: StepKey; hash: Hex } | null;
@@ -36,7 +41,7 @@ const load = (): Saved => { try { return JSON.parse(localStorage.getItem(STORE) 
 let saved = load();
 const save = (patch: Partial<Saved>) => { saved = { ...saved, ...patch }; try { localStorage.setItem(STORE, JSON.stringify(saved)); } catch { /* kept for this tab only */ } };
 
-type Step = { key: StepKey; title: string; run: (ctx: Ctx) => Promise<Partial<Saved>> };
+type Step = { key: MainKey; title: string; run: (ctx: Ctx) => Promise<Partial<Saved>> };
 type Ctx = { account: Address; provider: Eip1193; signer: Address; baseUri: string };
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -150,6 +155,7 @@ async function readLaunchTime() {
 const nextStep = () => STEPS.find(s => !saved[s.key]);
 
 function render() {
+  renderQuick();
   const next = nextStep();
   $("steps").innerHTML = "";
   for (const s of STEPS) {
@@ -279,6 +285,37 @@ $("reset").addEventListener("click", () => {
   say("");
   render();
 });
+
+/** The quick test pots' addresses and clocks, as mezo-config.ts lists them. */
+function renderQuick() {
+  const lines = (Object.keys(QUICK) as QuickKey[]).flatMap(k => {
+    const q = saved.quick?.[k];
+    return q ? [`  { id: "${k}", label: "Quick test pot · ${QUICK[k].minutes} min", address: "${q.address}", launchTime: ${q.launchTime}, roundSeconds: ${QUICK[k].minutes * 60}, maxGoldPerRun: ${MEZO_POT.maxGoldPerRun} },`] : [];
+  });
+  $("quickout").textContent = lines.length ? ["// src/chain/mezo-config.ts", "MEZO_QUICK_POTS = [", ...lines, "]"].join("\n") : "";
+  for (const k of Object.keys(QUICK) as QuickKey[]) {
+    const b = $<HTMLButtonElement>(k);
+    b.disabled = !account || !provider || !!saved.quick?.[k] || !isAddress(signerInput.value.trim()) || (!!saved.pending && saved.pending.key !== k);
+    if (saved.quick?.[k]) b.textContent = `${QUICK[k].minutes}-minute pot: ${saved.quick[k]!.address.slice(0, 10)}…`;
+  }
+}
+
+for (const k of Object.keys(QUICK) as QuickKey[]) {
+  $(k).addEventListener("click", async () => {
+    if (!account || !provider) return;
+    const signer = (saved.signer ?? signerInput.value.trim()) as Address;
+    try {
+      const ctx = { account, provider, signer, baseUri: "" };
+      const r = await deploy(ctx, k, "EmberPotV3", potArgs(TOKENS, account, signer, MEZO_POT.maxGoldPerRun, QUICK[k].minutes * 60));
+      const launchTime = await reader.readContract({ address: r.address, abi: [{ type: "function", name: "launchTime", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] }], functionName: "launchTime" });
+      save({ quick: { ...saved.quick, [k]: { address: r.address, launchTime: launchTime.toString() } }, args: { ...saved.args, [`EmberPotV3 (${QUICK[k].minutes} min)`]: r.args } });
+      say(`Deployed the ${QUICK[k].minutes}-minute pot.`, "ok");
+    } catch (e) {
+      say(e instanceof Error ? (e as { shortMessage?: string }).shortMessage ?? e.message.split("\n")[0] : String(e), "err");
+    }
+    render();
+  });
+}
 
 signerInput.addEventListener("input", render);
 baseUriInput.addEventListener("input", render);

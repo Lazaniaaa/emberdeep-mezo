@@ -137,7 +137,7 @@ describe("Cerberus chests", () => {
     const axe: Item = { kind: 1, rarity: 2, seed: 99n };
     const weapon = { id: 7, kind: 1, rarity: 2, seed: "99" };
     // The start the server gave for this seed and this weapon (server/attest.ts, /api/start).
-    const carrying = prizeSetup(16, weapon, await signStart(signer, PLAYER, 16, weapon.id, Number(EVM_NOW)));
+    const carrying = prizeSetup(16, weapon, await signStart(signer, PLAYER, 16, weapon.id, Number(EVM_NOW), getAddress("0x00000000000000000000000000000000000000d3")));
     const claim = { ...ask(carrying), target: "pot" };
     expect((await post(claim)).status).toBe(422); // not minted
     held.set(7, { owner: OTHER, item: axe });

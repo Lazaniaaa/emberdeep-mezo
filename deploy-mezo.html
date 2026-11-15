@@ -66,6 +66,15 @@
       </section>
 
       <section>
+        <h2>Quick test pots (optional)</h2>
+        <p>The same EmberPotV3 with rounds of minutes, so a judge or a new player can see a key, a claimed descent and the
+          payout by gold in one sitting. Each is one transaction from the same wallet; the game lists them in the pot window.</p>
+        <button id="quick5">Deploy a 5-minute pot</button>
+        <button id="quick10">Deploy a 10-minute pot</button>
+        <p id="quickout" class="mono"></p>
+      </section>
+
+      <section>
         <h2>4. Wire it in</h2>
         <p>When every step is done, these are the addresses for <code>src/chain/mezo-config.ts</code>, and the constructor
           arguments for verifying each contract on the explorer ("Solidity (Standard JSON input)", the matching

@@ -103,7 +103,7 @@ describe("a descent with a found weapon", () => {
   });
 
   it("keeps a server's start with the setup, in shape only (the server checks its signature)", () => {
-    const start = { issued: 1_800_000_000, signature: `0x${"ab".repeat(65)}` };
+    const start = { issued: 1_800_000_000, signature: `0x${"ab".repeat(65)}`, pot: "0x00000000000000000000000000000000000000e7" };
     expect(validateSetup(prizeSetup(7, null, start)).start).toEqual(start);
     expect(() => validateSetup(prizeSetup(7, null, { ...start, signature: "0x12" }))).toThrow(ReplayError);
     expect(() => validateSetup(prizeSetup(7, null, { ...start, issued: -1 }))).toThrow(ReplayError);

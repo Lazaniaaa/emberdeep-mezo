@@ -22,10 +22,10 @@ export const prizeSetup = (seed: number, item?: SetupItem | null, start?: StartT
 /**
  * The game's server picks a prize descent's seed and signs this text with its key (server/attest.ts, /api/start), so
  * the map is not the browser's choice: a player gets a new seed only every START_REUSE_SECONDS or after a claim. The
- * weapon is part of it, fixed before the first move.
+ * weapon is part of it, fixed before the first move, and so is the pot the descent is claimed into.
  */
-export const startMessage = (player: string, seed: number, itemId: number | null, issued: number) =>
-  `Emberdeep prize descent\nPlayer: ${player.toLowerCase()}\nSeed: ${seed}\nWeapon: ${itemId ?? "none"}\nIssued: ${issued}`;
+export const startMessage = (player: string, seed: number, itemId: number | null, issued: number, pot: string) =>
+  `Emberdeep prize descent\nPlayer: ${player.toLowerCase()}\nPot: ${pot.toLowerCase()}\nSeed: ${seed}\nWeapon: ${itemId ?? "none"}\nIssued: ${issued}`;
 /** A start is good for this long: the descent must be claimed within it. */
 export const START_TTL_SECONDS = 6 * 3600;
 /** Asking again within this long gives the same seed, unless a descent with it was claimed. */

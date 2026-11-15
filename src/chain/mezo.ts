@@ -8,7 +8,8 @@ import { HALL_ABI, readHall, requestAttestation, type HallBoard, type RecordStep
 import { fallbackTerms, troveAction, type BorrowTerms, type Trove, type TroveAction } from "./borrow";
 import { fromWire, type Attestation } from "./hall-typed";
 import {
-  BTC_ROUTER, MEZO_BORROW, MEZO_NETWORK, MEZO_POT, MEZO_TOKENS, TIGRIS, keyRouterAddress, marketAddress, mezoHallAddress, potRound, type PayToken,
+  BTC_ROUTER, MEZO_BORROW, MEZO_NETWORK, MEZO_POT, MEZO_TOKENS, TIGRIS, WEEKLY_POT, keyRouterAddress, marketAddress, mezoHallAddress, potRound,
+  type PayToken, type PotInfo,
 } from "./mezo-config";
 import { runFromWire, type PotAttestation } from "./pot-typed";
 import { waitForReceipt } from "./receipt";
@@ -97,17 +98,18 @@ export type PotSnapshot = {
 /** How many players a page of the pot reads; the contract pays out at most 200 per call. */
 const PAGE = 200n;
 
-async function roundPlayers(round: bigint): Promise<Address[]> {
-  const count = await mezoClient.readContract({ address: POT, abi: POT_ABI, functionName: "playerCount", args: [round] });
+async function roundPlayers(round: bigint, pot: Address = POT): Promise<Address[]> {
+  const count = await mezoClient.readContract({ address: pot, abi: POT_ABI, functionName: "playerCount", args: [round] });
   const out: Address[] = [];
   for (let start = 0n; start < count; start += PAGE) {
-    out.push(...await mezoClient.readContract({ address: POT, abi: POT_ABI, functionName: "playersOf", args: [round, start, PAGE] }));
+    out.push(...await mezoClient.readContract({ address: pot, abi: POT_ABI, functionName: "playersOf", args: [round, start, PAGE] }));
   }
   return out;
 }
 
-const read = <T>(functionName: string, args: readonly unknown[] = []) =>
-  mezoClient.readContract({ address: POT, abi: POT_ABI, functionName: functionName as never, args: args as never }) as Promise<T>;
+/** Reads the weekly pot, or the pot given (a quick test pot). */
+const read = <T>(functionName: string, args: readonly unknown[] = [], pot: Address = POT) =>
+  mezoClient.readContract({ address: pot, abi: POT_ABI, functionName: functionName as never, args: args as never }) as Promise<T>;
 
 export async function balancesOf(account: Address): Promise<Record<PayToken, bigint>> {
   const [btc, mezo, musd] = await Promise.all([
@@ -122,19 +124,21 @@ export async function balancesOf(account: Address): Promise<Record<PayToken, big
  * MUSD the Market's sale fees added to a round: EmberPotV3 counts what fund() brings in. Null when no market is set or
  * the pot is a V2 without the count. (Mezo's RPC serves logs over at most 10,000 blocks, too few for a week.)
  */
-export async function readMarketFunding(round: bigint): Promise<bigint | null> {
-  if (!marketAddress()) return null;
+export async function readMarketFunding(round: bigint, pot: Address = POT): Promise<bigint | null> {
+  // The Market pays into the weekly pot only.
+  if (!marketAddress() || pot.toLowerCase() !== POT.toLowerCase()) return null;
   return read<bigint>("fundedIn", [round]).catch(() => null);
 }
 
 /** Everything the pot panel shows, read straight from Mezo. Needs no wallet; `account` adds the player's own line. */
-export async function readPot(account: Address | null, nowSeconds = Math.floor(Date.now() / 1000)): Promise<PotSnapshot> {
-  const { round, endsAt } = potRound(nowSeconds);
+export async function readPot(account: Address | null, nowSeconds = Math.floor(Date.now() / 1000), which: PotInfo = WEEKLY_POT): Promise<PotSnapshot> {
+  const at = which.address;
+  const { round, endsAt } = potRound(nowSeconds, which);
   const r = BigInt(round);
   const [pot, totalGold, keyPrice, players, marketFunding] = await Promise.all([
-    read<bigint>("roundPot", [r]), read<bigint>("totalGold", [r]), read<bigint>("keyPrice"), roundPlayers(r), readMarketFunding(r),
+    read<bigint>("roundPot", [r], at), read<bigint>("totalGold", [r], at), read<bigint>("keyPrice", [], at), roundPlayers(r, at), readMarketFunding(r, at),
   ]);
-  const golds = await Promise.all(players.map(p => read<bigint>("goldOf", [r, p])));
+  const golds = await Promise.all(players.map(p => read<bigint>("goldOf", [r, p], at)));
   const standings = players
     .map((player, i) => ({ player, gold: Number(golds[i]), share: totalGold ? (pot * golds[i]) / totalGold : 0n }))
     .sort((a, b) => b.gold - a.gold);
@@ -143,16 +147,16 @@ export async function readPot(account: Address | null, nowSeconds = Math.floor(D
   if (round > 0) {
     const p = r - 1n;
     const [ppot, pgold, pdist, pplayers] = await Promise.all([
-      read<bigint>("roundPot", [p]), read<bigint>("totalGold", [p]), read<bigint>("totalDistributed", [p]), roundPlayers(p),
+      read<bigint>("roundPot", [p], at), read<bigint>("totalGold", [p], at), read<bigint>("totalDistributed", [p], at), roundPlayers(p, at),
     ]);
-    const paid = await Promise.all(pplayers.map(pl => read<boolean>("paid", [p, pl])));
+    const paid = await Promise.all(pplayers.map(pl => read<boolean>("paid", [p, pl], at)));
     const unpaid = pplayers.filter((_, i) => !paid[i]);
     if (ppot > pdist) previous = { round: round - 1, pot: ppot, totalGold: Number(pgold), distributed: pdist, unpaid };
   }
 
   let me: PotSnapshot["me"] = null;
   if (account) {
-    const [keys, gold, balances] = await Promise.all([read<bigint>("keyBalance", [account]), read<bigint>("goldOf", [r, account]), balancesOf(account)]);
+    const [keys, gold, balances] = await Promise.all([read<bigint>("keyBalance", [account], at), read<bigint>("goldOf", [r, account], at), balancesOf(account)]);
     me = { keys: Number(keys), gold: Number(gold), share: totalGold ? (pot * gold) / totalGold : 0n, balances };
   }
   return { round, endsAt, pot, marketFunding, totalGold: Number(totalGold), keyPrice, standings, players: players.length, previous, me };
@@ -294,20 +298,22 @@ export async function ensureAllowance(provider: Eip1193, account: Address, token
 }
 
 /** Buys pot keys for the connected wallet: MUSD straight from the pot, BTC or MEZO through a key router. */
-export async function buyKeys(provider: Eip1193, account: Address, token: PayToken, quantity: number, onStep: (s: BuyStep) => void = () => {}): Promise<Hash> {
+export async function buyKeys(provider: Eip1193, account: Address, token: PayToken, quantity: number, onStep: (s: BuyStep) => void = () => {}, pot: Address = POT): Promise<Hash> {
+  // The key router buys for the weekly pot only; a quick test pot takes MUSD straight.
+  if (token !== "MUSD" && pot.toLowerCase() !== POT.toLowerCase()) throw new Error("A quick test pot takes MUSD only. Borrow some, or switch to the weekly pot.");
   onStep("switching");
   await switchToMezo(provider);
   const q = BigInt(quantity);
-  const keyPrice = await read<bigint>("keyPrice");
+  const keyPrice = await read<bigint>("keyPrice", [], pot);
   const cost = keyPrice * q;
   const w = wallet(provider, account);
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
 
   if (token === "MUSD") {
-    await ensureAllowance(provider, account, MEZO_TOKENS.MUSD.address, POT, cost, onStep);
+    await ensureAllowance(provider, account, MEZO_TOKENS.MUSD.address, pot, cost, onStep);
     onStep("buying");
-    await mezoClient.simulateContract({ address: POT, abi: POT_ABI, functionName: "buyKeys", args: [q], account });
-    const hash = await w.writeContract({ address: POT, abi: POT_ABI, functionName: "buyKeys", args: [q] });
+    await mezoClient.simulateContract({ address: pot, abi: POT_ABI, functionName: "buyKeys", args: [q], account });
+    const hash = await w.writeContract({ address: pot, abi: POT_ABI, functionName: "buyKeys", args: [q] });
     onStep("confirming");
     return confirm(hash);
   }
@@ -354,10 +360,10 @@ export async function requestPotAttestation(url: string, body: PotRequest, fetch
  * Asks the game's server to start a prize descent: the seed it picks and its signed start (game/prize.ts), with the
  * weapon the player carries fixed in it. The Ember Pot takes no prize descent without one.
  */
-export async function requestStart(attestUrl: string, player: Address, itemId: number | null, fetchImpl: typeof fetch = fetch): Promise<{ seed: number; start: StartTicket }> {
+export async function requestStart(attestUrl: string, player: Address, itemId: number | null, pot: Address = POT, fetchImpl: typeof fetch = fetch): Promise<{ seed: number; start: StartTicket }> {
   let res: Response;
   try {
-    res = await fetchImpl(attestUrl.replace(/\/attest$/, "/start"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ player, item: itemId }) });
+    res = await fetchImpl(attestUrl.replace(/\/attest$/, "/start"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ player, item: itemId, pot }) });
   } catch {
     throw new Error("The game's server cannot be reached, and a prize descent is started by it. Try again in a moment.");
   }
@@ -370,21 +376,23 @@ export async function requestStart(attestUrl: string, player: Address, itemId: n
 export async function recordInPot(provider: Eip1193, account: Address, attestation: PotAttestation, onStep: (s: RecordStep) => void = () => {}): Promise<Hash> {
   const run = runFromWire(attestation.run);
   const args = [run.player, run.runId, run.gold, run.deadline, attestation.signature] as const;
+  // The pot the server signed for: the weekly pot, or the quick test pot the descent was started for.
+  const pot = attestation.pot ?? POT;
   onStep("switching");
   await switchToMezo(provider);
-  await mezoClient.simulateContract({ address: POT, abi: POT_ABI, functionName: "recordRun", args, account });
+  await mezoClient.simulateContract({ address: pot, abi: POT_ABI, functionName: "recordRun", args, account });
   onStep("signing");
-  const hash = await wallet(provider, account).writeContract({ address: POT, abi: POT_ABI, functionName: "recordRun", args });
+  const hash = await wallet(provider, account).writeContract({ address: pot, abi: POT_ABI, functionName: "recordRun", args });
   onStep("confirming");
   return confirm(hash);
 }
 
 /** Pays out an ended round to the given players, by their gold. Anyone may call it; the MUSD goes to the players. */
-export async function distribute(provider: Eip1193, account: Address, round: number, players: Address[]): Promise<Hash> {
+export async function distribute(provider: Eip1193, account: Address, round: number, players: Address[], pot: Address = POT): Promise<Hash> {
   await switchToMezo(provider);
   const args = [BigInt(round), players.slice(0, 200)] as const;
-  await mezoClient.simulateContract({ address: POT, abi: POT_ABI, functionName: "distribute", args, account });
-  return confirm(await wallet(provider, account).writeContract({ address: POT, abi: POT_ABI, functionName: "distribute", args }));
+  await mezoClient.simulateContract({ address: pot, abi: POT_ABI, functionName: "distribute", args, account });
+  return confirm(await wallet(provider, account).writeContract({ address: pot, abi: POT_ABI, functionName: "distribute", args }));
 }
 
 // ── relaying: the game's server sends the record and pays the gas ───────────────────────────────────────

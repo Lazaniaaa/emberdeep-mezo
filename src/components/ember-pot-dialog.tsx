@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { ACCENT, WINDOW_CLASS, windowStyle } from "@/lib/camp-style";
 import { BorrowMusd } from "./borrow-musd";
 import { Section, Tile, WindowHead } from "./camp-ui";
-import { BTC_ROUTER, MEZO_POT, itemsAddress, keyRouterAddress, marketAddress, mezoAddressUrl, mezoTxUrl, type PayToken } from "@/chain/mezo-config";
+import { BTC_ROUTER, MEZO_POTS, MEZO_QUICK_POTS, WEEKLY_POT, itemsAddress, keyRouterAddress, marketAddress, mezoAddressUrl, mezoTxUrl, type PayToken } from "@/chain/mezo-config";
 import { PRIZE_FLASKS, PRIZE_WEAPON, prizeSetup } from "@/game/prize";
 import { ATTEST_URL } from "@/chain/arc-config";
 import type { Address } from "viem";
@@ -33,7 +33,9 @@ const PAY: { token: PayToken; label: string; icon: typeof Coins }[] = [
 
 /** The Ember Pot on Mezo: this week's real MUSD pool, the player's keys, buying keys and starting a prize descent. */
 export function EmberPotDialog() {
-  const { open, setOpen, snapshot, loading, loadError, refresh, buy, buying, buyError, lastBuyTx, payOut, payout } = useMezo();
+  const { open, setOpen, snapshot, loading, loadError, refresh, buy, buying, buyError, lastBuyTx, payOut, payout, potInfo, setPot } = useMezo();
+  // A quick test pot runs in minutes and takes MUSD only (the key router serves the weekly pot).
+  const quick = potInfo.address !== WEEKLY_POT.address;
   const wallet = useWallet();
   const [quantity, setQuantity] = useState(1);
   const router = keyRouterAddress();
@@ -45,6 +47,7 @@ export function EmberPotDialog() {
   // (BTC and MEZO are swapped on Tigris, so holding some is a fair sign; the swap itself says if it falls short.)
   const suggested: PayToken | null = !me || !snapshot ? "MUSD"
     : me.balances.MUSD >= snapshot.keyPrice * BigInt(quantity) ? "MUSD"
+    : quick ? null
     : me.balances.BTC > 10n ** 14n ? "BTC"
     : me.balances.MEZO > 0n && router ? "MEZO" : null;
   const [starting, setStarting] = useState(false);
@@ -59,7 +62,7 @@ export function EmberPotDialog() {
       const item = carriedItem();
       // The server picks the map and signs it with the weapon: the pot takes no prize descent it did not start.
       const { requestStart } = await import("@/chain/mezo");
-      const { seed, start } = await requestStart(ATTEST_URL, wallet.account as Address, item?.id ?? null);
+      const { seed, start } = await requestStart(ATTEST_URL, wallet.account as Address, item?.id ?? null, potInfo.address);
       useRun.getState().start(prizeSetup(seed, item, start), true);
       setOpen(false);
     } catch (e) {
@@ -78,10 +81,28 @@ export function EmberPotDialog() {
           badge={<span className="rounded-full border border-gold/40 px-2 py-0.5 text-[10px] tracking-wider text-gold uppercase">Mezo Testnet</span>}
           subtitle="A real weekly prize pool in MUSD. Every key adds to it; when the week ends the game pays it out automatically, split by the gold players carried home. Nobody can take it out." />
 
+        {MEZO_QUICK_POTS.length > 0 && (
+          <div className="space-y-1">
+            <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Which pot">
+              {MEZO_POTS.map(p => (
+                <Button key={p.address} size="sm" role="tab" aria-selected={p.address === potInfo.address}
+                  variant={p.address === potInfo.address ? "default" : "outline"} onClick={() => setPot(p)}>{p.label}</Button>
+              ))}
+            </div>
+            {quick && (
+              <p className="text-xs text-muted-foreground">
+                A quick test pot: the same contract as the weekly pot, with {Math.round(potInfo.roundSeconds / 60)}-minute rounds, so you can
+                see the whole cycle in one sitting. Buy a key with MUSD, play a short prize descent (pick up some gold, walk back to the
+                rift), press Claim, and watch the game pay the round out by gold a minute after it ends.
+              </p>
+            )}
+          </div>
+        )}
+
         {loadError && <p className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive" role="alert">Could not read the pot: {loadError}</p>}
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Tile label={snapshot ? `Round ${snapshot.round} pot` : "This week"} value={snapshot ? `${tokens(snapshot.pot)} MUSD` : loading ? "…" : "—"} tone={ACCENT.pot} />
+          <Tile label={snapshot ? `Round ${snapshot.round} pot` : quick ? "This round" : "This week"} value={snapshot ? `${tokens(snapshot.pot)} MUSD` : loading ? "…" : "—"} tone={ACCENT.pot} />
           <Tile label="Ends in" value={snapshot ? timeLeft(snapshot.endsAt) : "…"} sub="Then paid out automatically" />
           <Tile label="Players" value={snapshot ? snapshot.players : "…"} sub={snapshot ? `${snapshot.totalGold} gold in` : undefined} />
           <Tile label="Your keys" value={me ? me.keys : "—"} tone={ACCENT.gate} sub={me ? `${me.gold} gold · ~${tokens(me.share)} MUSD` : "Connect a wallet"} />
@@ -126,7 +147,7 @@ export function EmberPotDialog() {
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {PAY.map(({ token, label, icon: Icon }) => {
-                    const unavailable = token === "MEZO" && !router;
+                    const unavailable = (token === "MEZO" && !router) || (quick && token !== "MUSD");
                     const busy = buying?.token === token;
                     // MUSD the wallet does not hold would only fail in the wallet, so that button waits for a top-up.
                     const short = token === "MUSD" && !!me && !!snapshot && me.balances.MUSD < snapshot.keyPrice * BigInt(quantity);
@@ -196,7 +217,7 @@ export function EmberPotDialog() {
         )}
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-          <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(MEZO_POT.address)} target="_blank" rel="noreferrer">Pot contract <ExternalLink className="size-3" aria-hidden /></a>
+          <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(potInfo.address)} target="_blank" rel="noreferrer">Pot contract <ExternalLink className="size-3" aria-hidden /></a>
           <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(router ?? BTC_ROUTER)} target="_blank" rel="noreferrer">Key router <ExternalLink className="size-3" aria-hidden /></a>
           {itemsAddress() && <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(itemsAddress()!)} target="_blank" rel="noreferrer">Weapon NFTs <ExternalLink className="size-3" aria-hidden /></a>}
           {marketAddress() && <a className="inline-flex items-center gap-1 underline underline-offset-2" href={mezoAddressUrl(marketAddress()!)} target="_blank" rel="noreferrer">Market <ExternalLink className="size-3" aria-hidden /></a>}

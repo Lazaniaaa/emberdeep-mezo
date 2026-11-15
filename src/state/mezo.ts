@@ -2,7 +2,7 @@ import type { Address } from "viem";
 import { create } from "zustand";
 import type { RecordStep } from "@/chain/arc";
 import { ATTEST_URL } from "@/chain/arc-config";
-import { mezoHallAddress, type PayToken } from "@/chain/mezo-config";
+import { WEEKLY_POT, mezoHallAddress, type PayToken, type PotInfo } from "@/chain/mezo-config";
 import type { BuyStep, PotSnapshot } from "@/chain/mezo";
 import { BOSS_DEPTH } from "@/game/config";
 import { earnedChest, useItems } from "./items";
@@ -34,6 +34,9 @@ type MezoState = {
   hallFor: RunReport | null;
   hall: Job;
   setOpen: (open: boolean) => void;
+  /** The pot the window shows and plays into: the weekly pot, or a quick test pot. */
+  potInfo: PotInfo;
+  setPot: (pot: PotInfo) => void;
   refresh: () => Promise<void>;
   buy: (token: PayToken, quantity: number) => Promise<void>;
   payOut: () => Promise<void>;
@@ -95,7 +98,7 @@ async function viaRelay(target: "mezo" | "pot", report: RunReport, setJob: (job:
 }
 
 export const useMezo = create<MezoState>()((set, get) => ({
-  open: false, snapshot: null, loading: false, loadError: null,
+  open: false, snapshot: null, loading: false, loadError: null, potInfo: WEEKLY_POT,
   buying: null, buyError: null, lastBuyTx: null, payout: IDLE,
   potFor: null, pot: IDLE, hallFor: null, hall: IDLE,
 
@@ -104,12 +107,18 @@ export const useMezo = create<MezoState>()((set, get) => ({
     if (open) void get().refresh();
   },
 
+  setPot: potInfo => {
+    if (potInfo.address === get().potInfo.address) return;
+    set({ potInfo, snapshot: null, buyError: null, lastBuyTx: null, payout: IDLE });
+    void get().refresh();
+  },
+
   refresh: async () => {
     const id = ++request;
     set({ loading: true, loadError: null });
     try {
       const { readPot } = await import("@/chain/mezo");
-      const snapshot = await readPot(useWallet.getState().account);
+      const snapshot = await readPot(useWallet.getState().account, undefined, get().potInfo);
       if (id === request) set({ snapshot, loading: false });
     } catch (e) {
       if (id === request) set({ loading: false, loadError: message(e) });
@@ -122,7 +131,7 @@ export const useMezo = create<MezoState>()((set, get) => ({
     const mezo = await import("@/chain/mezo");
     try {
       const { account, provider } = await walletOrThrow();
-      const hash = await mezo.buyKeys(provider, account, token, quantity, step => set({ buying: { token, step } }));
+      const hash = await mezo.buyKeys(provider, account, token, quantity, step => set({ buying: { token, step } }), get().potInfo.address);
       set({ buying: null, lastBuyTx: hash });
       void get().refresh();
     } catch (e) {
@@ -137,7 +146,7 @@ export const useMezo = create<MezoState>()((set, get) => ({
     const mezo = await import("@/chain/mezo");
     try {
       const { account, provider } = await walletOrThrow();
-      const hash = await mezo.distribute(provider, account, previous.round, previous.unpaid);
+      const hash = await mezo.distribute(provider, account, previous.round, previous.unpaid, get().potInfo.address);
       set({ payout: { status: "done", txHash: hash, error: null } });
       void get().refresh();
     } catch (e) {

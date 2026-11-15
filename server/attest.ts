@@ -28,7 +28,7 @@ import { DESCENT_TYPES, fromWire, hallDomain, toWire, type Attestation, type Sig
 import { RUN_RECORD_TYPES, potDomain, runFromWire, runToWire, type PotAttestation, type RunRecord } from "@/chain/pot-typed";
 import { DROP_TYPES, dropFromWire, dropToWire, itemsDomain, type DropAttestation, type SignedDrop } from "@/chain/items-typed";
 import { RELAY_LOGIN_SECONDS, relayMessage } from "@/chain/relay-auth";
-import { MEZO_NETWORK, MEZO_POT, MEZO_RETIRED_POTS, itemsAddress, mezoHallAddress } from "@/chain/mezo-config";
+import { MEZO_NETWORK, MEZO_POT, MEZO_QUICK_POTS, MEZO_RETIRED_POTS, itemsAddress, mezoHallAddress } from "@/chain/mezo-config";
 import { rollChest, type Item } from "@/game/items";
 import { itemMetadata } from "@/game/item-metadata";
 import { startAutoPayout } from "./payout";
@@ -69,6 +69,13 @@ export type PotTarget = {
   runRecorded?: (runId: Hex) => Promise<boolean>;
 };
 
+/** Every pot this server signs for: the weekly one, then the quick test pots. */
+const potsOf = (config: AttestConfig): PotTarget[] => [...(config.pot ? [config.pot] : []), ...(config.quickPots ?? [])];
+/** The pot at `address`, or the weekly pot when no address is given. Null for a pot this server does not know. */
+const potAt = (config: AttestConfig, address: unknown): PotTarget | null =>
+  address === undefined || address === null ? config.pot ?? null
+    : potsOf(config).find(p => typeof address === "string" && p.address.toLowerCase() === address.toLowerCase()) ?? null;
+
 /**
  * EmberItems on Mezo: the chest a descent earns by slaying Cerberus, and the found weapons a descent may carry.
  * `secret` keys the roll of what a chest holds; `readItem` reads an item and its holder from the chain.
@@ -92,6 +99,8 @@ export type AttestConfig = {
   mezoHall?: HallTarget;
   /** The Ember Pot on Mezo. */
   pot?: PotTarget;
+  /** Quick test pots: the same contract with rounds of minutes, so the whole cycle can be seen in one sitting. */
+  quickPots?: PotTarget[];
   /** EmberItems on Mezo. Without it chests are not opened and descents cannot carry found weapons. */
   items?: ItemsTarget;
   /** The relayer for Mezo Testnet. Without it /api/relay answers 404 and players send records themselves. */
@@ -199,6 +208,8 @@ const POT_ROUND_MARGIN = 120;
  * as. Kept in memory: after a restart a player simply gets a new seed.
  */
 type StartBook = Map<string, { seed: number; issued: number; claimedAs: Hex | null }>;
+/** A player's starts are kept apart per pot. */
+const bookKey = (player: Address, pot: PotTarget) => `${player.toLowerCase()}:${pot.address.toLowerCase()}`;
 const startBooks = new WeakMap<AttestConfig, StartBook>();
 const startBookOf = (config: AttestConfig) => {
   let book = startBooks.get(config);
@@ -209,8 +220,8 @@ const startBookOf = (config: AttestConfig) => {
 export type StartAnswer = { seed: number; start: StartTicket };
 
 /** Signs a prize descent's start (game/prize.ts, startMessage). Exported for tests. */
-export async function signStart(account: PrivateKeyAccount, player: Address, seed: number, itemId: number | null, issued: number): Promise<StartTicket> {
-  return { issued, signature: await account.signMessage({ message: startMessage(player, seed, itemId, issued) }) };
+export async function signStart(account: PrivateKeyAccount, player: Address, seed: number, itemId: number | null, issued: number, pot: Address): Promise<StartTicket> {
+  return { issued, pot: pot.toLowerCase(), signature: await account.signMessage({ message: startMessage(player, seed, itemId, issued, pot) }) };
 }
 
 /**
@@ -222,33 +233,37 @@ export async function startPrize(config: AttestConfig, body: unknown): Promise<S
   const b = (body ?? {}) as Record<string, unknown>;
   if (typeof b.player !== "string" || !isAddress(b.player)) throw new HttpError(400, "player must be an address");
   if (!config.pot) throw new HttpError(404, "The Ember Pot is not set up on this server");
+  const pot = potAt(config, b.pot);
+  if (!pot) throw new HttpError(400, "pot is not one of this game's pots");
   if (b.item !== undefined && b.item !== null && (!Number.isSafeInteger(b.item) || (b.item as number) < 1)) throw new HttpError(400, "item must be a token id");
   const player = getAddress(b.player);
   const now = Math.floor((config.now ?? Date.now)() / 1000);
   const book = startBookOf(config);
-  let entry = book.get(player.toLowerCase());
-  if (!entry || entry.claimedAs || now - entry.issued >= START_REUSE_SECONDS) {
+  let entry = book.get(bookKey(player, pot));
+  // A quick test pot hands out a new seed every round at most; the weekly pot every START_REUSE_SECONDS.
+  const reuse = Math.min(START_REUSE_SECONDS, pot.roundSeconds);
+  if (!entry || entry.claimedAs || now - entry.issued >= reuse) {
     entry = { seed: config.pickSeed?.() ?? randomBytes(4).readUInt32BE(0), issued: now, claimedAs: null };
-    book.set(player.toLowerCase(), entry);
+    book.set(bookKey(player, pot), entry);
     if (book.size > 50_000) for (const [k, v] of book) if (now - v.issued > START_TTL_SECONDS) book.delete(k);
   }
   const itemId = typeof b.item === "number" ? b.item : null;
-  return { seed: entry.seed, start: await signStart(config.account, player, entry.seed, itemId, entry.issued) };
+  return { seed: entry.seed, start: await signStart(config.account, player, entry.seed, itemId, entry.issued, pot.address) };
 }
 
 /** Checks the start of a descent claimed into the pot, and books the claim against it. */
-async function checkStart(config: AttestConfig, player: Address, setup: RunSetup, runId: Hex, now: number) {
+async function checkStart(config: AttestConfig, player: Address, setup: RunSetup, runId: Hex, now: number, pot: PotTarget) {
   const start = setup.start;
   if (!start) throw new HttpError(422, "A prize descent must be started by the game's server. Start a new one from the Ember Pot.");
   if (start.issued > now + 60 || now - start.issued > START_TTL_SECONDS) {
     throw new HttpError(409, "This prize descent was started too long ago to claim. Start a new one from the Ember Pot.");
   }
-  const message = startMessage(player, setup.seed, setup.item?.id ?? null, start.issued);
+  const message = startMessage(player, setup.seed, setup.item?.id ?? null, start.issued, pot.address);
   if (!await verifyMessage({ address: config.account.address, message, signature: start.signature as Hex })) {
     throw new HttpError(422, "This prize descent was not started by this game's server.");
   }
   // One claim per start: the same start sent again with other moves would be a second try at a map already known.
-  const entry = startBookOf(config).get(player.toLowerCase());
+  const entry = startBookOf(config).get(bookKey(player, pot));
   if (entry && entry.seed === setup.seed && entry.issued === start.issued) {
     if (entry.claimedAs && entry.claimedAs !== runId) throw new HttpError(409, "This prize descent's start was claimed already. Start a new one from the Ember Pot.");
     entry.claimedAs = runId;
@@ -303,8 +318,10 @@ export async function attest(config: AttestConfig, body: unknown): Promise<Attes
     if (!result.bossSlain) throw new HttpError(422, "Only slaying Cerberus earns a chest");
     if (!result.home) throw new HttpError(422, "The chest counts only if you carry it home");
     if (!isPrizeSetup(result.setup)) throw new HttpError(422, "Only a prize descent earns a chest");
-    if (!config.pot?.runRecorded) throw new HttpError(404, "The Ember Pot is not set up on this server");
-    const recorded = await config.pot.runRecorded(runId).catch(() => { throw new HttpError(503, "Could not read the Ember Pot on Mezo. Try again in a minute."); });
+    // The chest belongs to the record in the pot the descent was started for.
+    const chestPot = potAt(config, result.setup.start?.pot);
+    if (!chestPot?.runRecorded) throw new HttpError(404, "The Ember Pot is not set up on this server");
+    const recorded = await chestPot.runRecorded(runId).catch(() => { throw new HttpError(503, "Could not read the Ember Pot on Mezo. Try again in a minute."); });
     if (!recorded) throw new HttpError(409, "Claim this descent into the Ember Pot first. Its chest opens after that.");
     const dropId = runId;
     const item = rollChest(chestRoll(items.secret, dropId));
@@ -319,23 +336,26 @@ export async function attest(config: AttestConfig, body: unknown): Promise<Attes
   }
 
   if (target === "pot") {
-    const pot = config.pot!;
+    // The pot the descent was started for: the weekly pot, or a quick test pot.
+    const pot = potAt(config, result.setup.start?.pot);
+    if (!pot) throw new HttpError(422, "This prize descent was started for a pot this server does not know.");
     if (!isPrizeSetup(result.setup)) throw new HttpError(422, "Only a prize descent (the equal loadout) can enter the Ember Pot");
     if (!result.home) throw new HttpError(422, "Only a descent that came home can enter the Ember Pot");
     if (result.gold <= 0) throw new HttpError(422, "A descent with no gold adds nothing to the Ember Pot");
     const round = Math.floor((now - pot.launchTime) / pot.roundSeconds);
     if (round < 0) throw new HttpError(409, "The Ember Pot has not opened yet");
     const roundEnd = pot.launchTime + (round + 1) * pot.roundSeconds;
-    const deadline = Math.min(now + config.ttlSeconds, roundEnd - POT_ROUND_MARGIN);
+    // A quick pot's round is minutes long, so it keeps a shorter margin (a tenth of the round) for the relayer to land it.
+    const deadline = Math.min(now + config.ttlSeconds, roundEnd - Math.min(POT_ROUND_MARGIN, Math.floor(pot.roundSeconds / 10)));
     if (deadline <= now) throw new HttpError(409, "This pot round is closing. Try again in a few minutes, for the next round.");
-    await checkStart(config, player, result.setup, runId, now);
+    await checkStart(config, player, result.setup, runId, now, pot);
     const run: RunRecord = {
       player, runId, gold: BigInt(Math.min(pot.maxGold, result.gold)), roundId: BigInt(round), deadline: BigInt(deadline),
     };
     const signature = await config.account.signTypedData({
       domain: potDomain(pot.chainId, pot.address), types: RUN_RECORD_TYPES, primaryType: "RunRecord", message: run,
     });
-    return { run: runToWire(run), signature };
+    return { run: runToWire(run), signature, pot: pot.address };
   }
 
   const hall = target === "mezo" ? config.mezoHall! : { address: config.hall!, chainId: config.chainId };
@@ -391,7 +411,7 @@ export async function relay(config: AttestConfig, body: unknown): Promise<{ hash
   const call: RelayCall = "run" in attestation
     ? (() => {
       const r = runFromWire(attestation.run);
-      return { address: config.pot!.address, abi: RELAY_POT_ABI, functionName: "recordRun", args: [r.player, r.runId, r.gold, r.deadline, attestation.signature] };
+      return { address: attestation.pot ?? config.pot!.address, abi: RELAY_POT_ABI, functionName: "recordRun", args: [r.player, r.runId, r.gold, r.deadline, attestation.signature] };
     })()
     : "drop" in attestation
       ? { address: config.items!.address, abi: ITEMS_ABI, functionName: "claimDrop", args: [dropFromWire(attestation.drop), attestation.signature] }
@@ -627,6 +647,14 @@ function main(argv: string[]) {
         runRecorded: runId => potReader.readContract({ address: pot, abi: POT_READ_ABI, functionName: "runRecorded", args: [runId] }),
       },
     } : {}),
+    // The quick test pots come with the build too.
+    quickPots: MEZO_QUICK_POTS.map(q => {
+      const address = getAddress(q.address);
+      return {
+        address, chainId: mezoChainId, launchTime: q.launchTime, roundSeconds: q.roundSeconds, maxGold: q.maxGoldPerRun,
+        runRecorded: (runId: Hex) => potReader.readContract({ address, abi: POT_READ_ABI, functionName: "runRecorded", args: [runId] }),
+      };
+    }),
     ...(relayer ? { relay: relayer } : {}),
     ...(itemsEnv ? { items: createItems(itemsEnv, mezoChainId, mezoRpc, loadSecret(process.env.CHEST_SECRET_FILE ?? DEFAULT_SECRET_FILE)) } : {}),
     ...(siteUrl ? { siteUrl } : {}),
@@ -640,6 +668,7 @@ function main(argv: string[]) {
     if (config.hall) console.log(`  Hall on Arc ${config.hall} (chain ${config.chainId})`);
     if (config.mezoHall) console.log(`  Hall on Mezo ${config.mezoHall.address} (chain ${config.mezoHall.chainId})`);
     if (config.pot) console.log(`  Ember Pot ${config.pot.address} (chain ${config.pot.chainId})`);
+    for (const q of config.quickPots ?? []) console.log(`  Quick test pot ${q.address}: ${q.roundSeconds / 60}-minute rounds`);
     if (config.relay) console.log(`  Relayer ${config.relay.address} pays the gas on Mezo Testnet`);
     if (config.items) console.log(`  Items ${config.items.address}: opens Cerberus chests, and answers their metadata at ${config.siteUrl ?? "(this site)"}/api/item/<id>`);
   });
@@ -650,6 +679,10 @@ function main(argv: string[]) {
     startAutoPayout(reader, config.relay, { address: config.pot.address, launchTime: config.pot.launchTime, roundSeconds: config.pot.roundSeconds }, line => console.log(line));
     for (const old of MEZO_RETIRED_POTS) {
       startAutoPayout(reader, config.relay, { ...old, address: getAddress(old.address), retired: true }, line => console.log(`[retired pot] ${line}`));
+    }
+    // A quick pot's round lasts minutes, so it is checked every half minute.
+    for (const q of config.quickPots ?? []) {
+      startAutoPayout(reader, config.relay, { address: q.address, launchTime: q.launchTime, roundSeconds: q.roundSeconds }, line => console.log(`[quick pot] ${line}`), 30_000);
     }
     console.log(`  Pays out each ended pot week automatically${MEZO_RETIRED_POTS.length ? `, and the last weeks of ${MEZO_RETIRED_POTS.length} retired pot(s)` : ""}`);
   }

@@ -41,6 +41,23 @@ export const MEZO_POT = {
   maxGoldPerRun: 5000,
 } as const;
 
+/** A pot the game plays into: the weekly one, or a quick test pot. */
+export type PotInfo = { id: string; label: string; address: Address; launchTime: number; roundSeconds: number; maxGoldPerRun: number };
+
+export const WEEKLY_POT: PotInfo = { id: "week", label: "This week's pot", ...MEZO_POT };
+
+/**
+ * Quick test pots: the same EmberPotV3, with rounds of minutes instead of a week, so a judge or a new player can see the
+ * whole cycle (a key, a claimed descent, the payout by gold) in one sitting. Keys only in MUSD (the key router serves the
+ * weekly pot). The server pays their rounds out within a minute of ending.
+ */
+export const MEZO_QUICK_POTS: readonly PotInfo[] = [];
+
+/** Every pot a prize descent may enter, the weekly one first. */
+export const MEZO_POTS: readonly PotInfo[] = [WEEKLY_POT, ...MEZO_QUICK_POTS];
+export const potByAddress = (address: string | null | undefined): PotInfo | null =>
+  MEZO_POTS.find(p => p.address.toLowerCase() === (address ?? "").toLowerCase()) ?? null;
+
 /**
  * Pots that a newer one replaced. Nobody buys keys in them any more, but the server still pays out their ended rounds
  * (server/payout.ts), so a week that was running at the switch is settled like any other. EmberPotV2 ran Wave 1
@@ -91,10 +108,10 @@ export const keyRouterAddress = (): Address | null => env("VITE_MEZO_KEY_ROUTER"
 export const itemsAddress = (): Address | null => env("VITE_MEZO_ITEMS") ?? ITEMS;
 export const marketAddress = (): Address | null => env("VITE_MEZO_MARKET") ?? MARKET;
 
-/** The pot round running at `nowSeconds`, and when it ends, as the contract computes them. */
-export function potRound(nowSeconds: number) {
-  const round = Math.max(0, Math.floor((nowSeconds - MEZO_POT.launchTime) / MEZO_POT.roundSeconds));
-  return { round, endsAt: MEZO_POT.launchTime + (round + 1) * MEZO_POT.roundSeconds };
+/** The round of `pot` running at `nowSeconds`, and when it ends, as the contract computes them. */
+export function potRound(nowSeconds: number, pot: { launchTime: number; roundSeconds: number } = MEZO_POT) {
+  const round = Math.max(0, Math.floor((nowSeconds - pot.launchTime) / pot.roundSeconds));
+  return { round, endsAt: pot.launchTime + (round + 1) * pot.roundSeconds };
 }
 
 export const mezoTxUrl = (hash: string) => `${MEZO_NETWORK.explorer}/tx/${hash}`;

@@ -112,7 +112,8 @@ export type RunSetup = {
   start?: StartTicket;
 };
 
-export type StartTicket = { issued: number; signature: string };
+/** `pot` is the pot the start is for (the weekly one or a quick test pot): the claim goes there and nowhere else. */
+export type StartTicket = { issued: number; signature: string; pot: string };
 
 export type SetupItem = { id: number; kind: number; rarity: number; seed: string };
 
