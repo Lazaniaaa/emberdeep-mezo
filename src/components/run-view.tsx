@@ -9,7 +9,9 @@ import { MOVE_MS, isActKey, moveOf } from "@/lib/controls";
 import { playSfx } from "@/audio/sfx";
 import { lootMultiplier } from "@/game/config";
 import type { Animal } from "@/game/animals";
-import { POTIONS, POTION_IDS, type PotionId } from "@/game/catalog";
+import { POTIONS, POTION_IDS, RARITY_INFO, type PotionId } from "@/game/catalog";
+import { itemName, rarityOf } from "@/game/items";
+import { ItemIcon } from "./found-weapon";
 import { roundShare } from "@/game/economy";
 import { MAX_LEVEL, xpToNext } from "@/game/levels";
 import { GEAR } from "@/game/props";
@@ -38,6 +40,9 @@ function runZoom(screen: Screen) {
 /** The descent fills the screen, like the camp: the cave is the picture and everything else floats over it. */
 export function RunView() {
   const run = useRun(s => s.run)!;
+  // The found weapon this descent was started with, if any: the setup keeps it, the run state only its effects.
+  const setupItem = useRun(s => s.log?.setup.item ?? s.lastDescent?.setup.item ?? null);
+  const carried = setupItem ? { ...setupItem, seed: BigInt(setupItem.seed) } : null;
   const act = useRun(s => s.act);
   const clear = useRun(s => s.clear);
   const game = useGame();
@@ -196,6 +201,12 @@ export function RunView() {
             <div className="h-full rounded-full bg-sigil transition-[width]" style={{ width: `${xpPct}%` }} />
           </div>
           <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
+            {carried && (
+              <Badge variant="outline" className="gap-1" style={{ color: RARITY_INFO[rarityOf(carried)].color, borderColor: `${RARITY_INFO[rarityOf(carried)].color}88` }}
+                title={`A found weapon (NFT #${carried.id}) carried in place of the camp weapon`}>
+                <ItemIcon item={carried} scale={0.5} className="rounded-sm border-0 p-0" /> {itemName(carried)}
+              </Badge>
+            )}
             <Badge variant="outline">Damage {baseDamage(run)}</Badge>
             {level < MAX_LEVEL && <Badge variant="outline">{xpOf(run)}/{xpToNext(level)} xp</Badge>}
             {(run.gear ?? []).map(g => <Badge key={g} className="bg-gold text-black" title={GEAR[g].blurb}>{GEAR[g].name}</Badge>)}

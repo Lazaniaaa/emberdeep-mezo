@@ -1,5 +1,5 @@
 import {
-  BOSS_DRAIN, BOSS_MOVE_FACTOR, BOSS_RECOVERY, BOSS_WINDUP, ENEMY_HIT_MULT, ENEMY_RECOVERY, FLASK_LIGHT, KILL_GOLD, HEAL_LIGHT, HOARD_CRYSTALS, HOARD_GOLD, HOARD_SIGIL_CHANCE,
+  BOSS_DEPTH, BOSS_DRAIN, BOSS_MOVE_FACTOR, BOSS_RECOVERY, BOSS_WINDUP, ENEMY_HIT_MULT, ENEMY_RECOVERY, FLASK_LIGHT, KILL_GOLD, HEAL_LIGHT, HOARD_CRYSTALS, HOARD_GOLD, HOARD_SIGIL_CHANCE,
   NIGHT_VISION_STEPS, RAGE_HITS, RAGE_MULT, REGEN_TURNS, SIGIL_DROP_CHANCE, TICKET_DROP_CHANCE, WARD_STEPS, lightRadius, lootMultiplier,
   stepCost,
 } from "./config";
@@ -169,10 +169,15 @@ export function currentStepCost(state: RunState) {
   return stepCost(state.depth) * (1 - state.perks.stepDiscount) * hungryCost(rankOf(state,'hungry-flame'));
 }
 
+/** What the stairs on Cerberus's floor say once it is dead: the deep ends there, and only the rift leads on. */
+const DEEPEST = "The stairs end in rubble: this is the bottom of the deep. Walk back to the rift to bring your loot home.";
+
 /** The boss keeps the stairs sealed until it is dead. */
 export const bossAlive = (s: RunState) => s.floor.dimlings.some(d => d.boss);
 
 export const onStairs = (s: RunState) => s.player.x === s.floor.stairs.x && s.player.y === s.floor.stairs.y;
+/** Whether the stairs here lead down: never with Cerberus alive, and never below its floor, the bottom of the deep. */
+export const canDescend = (s: RunState) => onStairs(s) && !bossAlive(s) && s.depth < BOSS_DEPTH;
 export const onRift = (s: RunState) => s.player.x === s.floor.spawn.x && s.player.y === s.floor.spawn.y;
 
 function reveal(state: RunState) {
@@ -676,7 +681,7 @@ export function applyAction(prev: RunState, action: RunAction): RunState {
       state.events.push("step");
       pickup(state);
       endTurn(state,true,free);
-      if (state.status === "playing" && onStairs(state)) say(state, "Stairs down. Press E to descend deeper.");
+      if (state.status === "playing" && onStairs(state)) say(state, state.depth >= BOSS_DEPTH ? DEEPEST : "Stairs down. Press E to descend deeper.");
       else if (state.status === "playing" && onRift(state)) say(state, "A rift home. Press E to extract with your loot.");
       break;
     }
@@ -719,6 +724,11 @@ export function applyAction(prev: RunState, action: RunAction): RunState {
       if (!onStairs(state)) return prev;
       if (bossAlive(state)) {
         say(state, "The stairs are sealed. Cerberus must fall first.");
+        return { ...prev, messages: state.messages, events: ["sealed"] };
+      }
+      // Cerberus's floor is the bottom of the deep: past it there is only the way home.
+      if (state.depth >= BOSS_DEPTH) {
+        say(state, DEEPEST);
         return { ...prev, messages: state.messages, events: ["sealed"] };
       }
       state.depth++;

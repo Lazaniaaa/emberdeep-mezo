@@ -3,7 +3,7 @@ import { NO_PERKS, WEAPONS, mergePerks, type Perks } from "./catalog";
 import { dimlingDistance, distances, footprint, idx, isFloor, visibleSet, type Point } from "./dungeon";
 import { attackTiles } from "./enemy-ai";
 import { settleRound } from "./economy";
-import { applyAction, baseDamage, bossAlive, currentRadius, currentStepCost, emptyBag, onRift, onStairs, propsOf, startRun, type RunState } from "./run";
+import { applyAction, baseDamage, bossAlive, canDescend, currentRadius, currentStepCost, emptyBag, onRift, onStairs, propsOf, startRun, type RunState } from "./run";
 import {botPerkChoice} from './level-perks';
 
 /** Free choices are resolved before planning a turn, with the same four-slot restrictions as a player. */
@@ -45,7 +45,7 @@ export function simulateRun(seed: number, flasks = 1, perks: Perks = NO_PERKS, g
     const reserve = backCost * greed + 6;
     const stairsDist = distances(s.floor, s.floor.stairs)[idx(s.floor, s.player.x, s.player.y)];
 
-    if (onStairs(s) && !bossAlive(s) && s.light > reserve + 45 * cost) { s = applyAction(s, { type: "descend" }); continue; }
+    if (canDescend(s) && s.light > reserve + 45 * cost) { s = applyAction(s, { type: "descend" }); continue; }
     if (s.light <= reserve) {
       if (onRift(s)) { s = applyAction(s, { type: "extract" }); break; }
       const d = stepToward(s, s.floor.spawn);
@@ -157,7 +157,7 @@ export function simulateFogRun(seed: number, flasks = 1, perks: Perks = NO_PERKS
     }
 
     const stairsKnown = s.floor.seen[idx(s.floor, s.floor.stairs.x, s.floor.stairs.y)] === 1;
-    if (onStairs(s) && !bossAlive(s) && s.light > reserve + 45 * cost) { s = applyAction(s, { type: "descend" }); continue; }
+    if (canDescend(s) && s.light > reserve + 45 * cost) { s = applyAction(s, { type: "descend" }); continue; }
 
     const goHome = () => {
       if (onRift(s)) { s = applyAction(s, { type: "extract" }); return true; }
@@ -184,8 +184,8 @@ export function simulateFogRun(seed: number, flasks = 1, perks: Perks = NO_PERKS
     if (frontier) { s = move(stepAlong(s, knownDistances(s, frontier))); continue; }
 
     // Floor fully explored: go down if we can afford it, otherwise leave.
-    if (stairsKnown && !bossAlive(s) && s.light > reserve + 45 * cost) {
-      if (onStairs(s)) { s = applyAction(s, { type: "descend" }); continue; }
+    if (stairsKnown && !bossAlive(s) && s.depth < BOSS_DEPTH && s.light > reserve + 45 * cost) {
+      if (canDescend(s)) { s = applyAction(s, { type: "descend" }); continue; }
       s = move(stepAlong(s, knownDistances(s, s.floor.stairs)));
       continue;
     }
@@ -226,7 +226,7 @@ export function simulateDiveRun(seed: number, flasks = 1, perks: Perks = NO_PERK
       const touching = DIRS4.find(o => dimlingDistance(foe, { x: s.player.x + o.x, y: s.player.y + o.y }) === 0)!;
       s = move(touching); continue;
     }
-    if (onStairs(s) && !bossAlive(s)) { s = applyAction(s, { type: "descend" }); continue; }
+    if (canDescend(s)) { s = applyAction(s, { type: "descend" }); continue; }
 
     const seen = visibleSet(s.floor, s.player, currentRadius(s));
     // Loot within a few steps of where we stand is worth a detour; anything further is not.
@@ -239,6 +239,11 @@ export function simulateDiveRun(seed: number, flasks = 1, perks: Perks = NO_PERK
     const boss = s.floor.dimlings.find(d => d.boss);
     if (boss && s.depth === BOSS_DEPTH && known[idx(s.floor, boss.x, boss.y)] !== -1) {
       s = move(stepAlong(s, pathFrom(boss))); continue;
+    }
+    // Cerberus slain: its floor is the bottom of the deep, so the only way on is home.
+    if (s.depth >= BOSS_DEPTH && !boss) {
+      if (onRift(s)) { s = applyAction(s, { type: "extract" }); break; }
+      s = move(stepAlong(s, pathFrom(s.floor.spawn))); continue;
     }
     const stairsKnown = style.knowsMap || s.floor.seen[idx(s.floor, s.floor.stairs.x, s.floor.stairs.y)] === 1;
     if (stairsKnown && known[idx(s.floor, s.floor.stairs.x, s.floor.stairs.y)] > 0) {

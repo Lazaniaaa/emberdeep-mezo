@@ -135,7 +135,7 @@ buildings: press **E** next to one, tap it, or use the icon rail on the left.
 Other delvers wander the camp with name tags and chatter. They are ambience, not other players.
 
 **The descent.** Floors 1-7 have authored tile layouts: Catacombs (1-2), Mycelium (3-4), Cinderworks (5-6) and
-Hollowglass (7); deeper floors are generated, and all of them sit under fog of war. Every step burns light. Vision
+Hollowglass (7), and all of them sit under fog of war. Floor 7, Cerberus's, is the bottom of the deep. Every step burns light. Vision
 stays wide until the last 25 light, then narrows. Deeper floors pay more (+40% loot per depth) but burn more light.
 Walk back to the rift you arrived through to extract; if your light and Night Vision run out, everything you carried
 is lost.
@@ -158,7 +158,8 @@ Sense, Second Wind and the risky Hungry Flame. See [level perks](docs/design/lev
 **Cerberus.** Depth 7 ends in an arena guarded by a three-headed hound (2x2 tiles, 150 HP). It marks the cells it
 will hit, winds up, strikes for 40 light, then recovers for two turns: step off the marks and attack while it
 recovers. It leaves a **Cerberus Hoard**: gold, crystals, a Healing Draught, a Rage Potion and a chance of a Soul
-Sigil. You can also skip it and leave through the rift.
+Sigil. Its floor is the last: once it falls, the only way on is back to the rift. You can also skip it and leave
+through the rift.
 
 **Sound.** The music, the four cave soundscapes and every creature's windup, strike and death are synthesized live:
 no samples or downloaded music. The music muffles as your lantern dims, with a heartbeat at low light.

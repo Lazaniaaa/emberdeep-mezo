@@ -176,9 +176,14 @@ describe("attestation server", () => {
     // Any other loadout is refused: the pot pays real MUSD, and the simulated loadout cannot be proven.
     const richer = await post(potUrl, { player: PLAYER, setup: await prizeFor(PLAYER, seed, 4), moves, target: "pot" });
     expect(richer.status).toBe(422);
-    const lost = play(() => simulateDiveRun(77, 3));
-    expect(lost.final.status).toBe("dead");
-    expect((await post(potUrl, { player: PLAYER, setup: await prizeFor(PLAYER, 77), moves: lost.moves, target: "pot" })).status).toBe(422);
+    // A descent lost in the dark: the first seed the diving bot does not come home from.
+    let lost: ReturnType<typeof play> | null = null, lostSeed = 0;
+    for (let tried = 1; tried < 200 && !lost; tried++) {
+      const r = play(() => simulateDiveRun(tried, 3));
+      if (r.final.status === "dead") { lost = r; lostSeed = tried; }
+    }
+    expect(lost).not.toBeNull();
+    expect((await post(potUrl, { player: PLAYER, setup: await prizeFor(PLAYER, lostSeed), moves: lost!.moves, target: "pot" })).status).toBe(422);
 
     // Near the end of a round the signature would land in the next one, so it is refused.
     const closing = await start({ pot: { address: POT, chainId: 31611, launchTime: Number(EVM_NOW) - 604_800 + 60, roundSeconds: 604_800, maxGold: 5000 } });
