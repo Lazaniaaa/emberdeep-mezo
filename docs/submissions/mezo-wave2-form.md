@@ -12,7 +12,7 @@ signing in. A deck that does not open capped Materials at 1 in Wave 1, and so di
 - Live (Mezo Testnet): https://108-61-197-158.sslip.io
 - Code: https://github.com/Lazaniaaa/emberdeep-mezo
 - Pitch deck (PDF in the repo): https://github.com/Lazaniaaa/emberdeep-mezo/blob/main/docs/emberdeep-deck.pdf
-- Video (2:00): TODO
+- Video (1:48): https://youtu.be/xYeMLmB6FHM
 - Proof on chain (every step as a transaction): https://github.com/Lazaniaaa/emberdeep-mezo/blob/main/docs/PROOF.md
 - Contracts (chain 31611), all verified on the explorer:
   EmberPotV3 `0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c` · EmberKeyRouter `0xe81eeb4ac622be0ffe6b127b4e86d93bbd560d3a` ·
@@ -54,7 +54,7 @@ of Descents. Wave 2: see "What changed since Wave 1".
 
 ## Project readiness
 
-Testnet deployment, live and playable end to end: the site, the server and all four Wave 2 contracts are up (checked
+Testnet deployment, live and playable end to end: the site, the server and all six Wave 2 contracts are up (checked
 15 November).
 
 ## How it works
@@ -150,7 +150,7 @@ Wave 1 feedback, point by point, and what we did with it.
    prize descent (`/api/start`). It picks the seed and signs it with the player and the weapon they carry, and the
    Ember Pot takes no descent without that start. One start counts for one claim, and a player gets a new seed only
    every two hours or after a claim, so no one can shop for an easy map or replay a known one.
-5. **"Add a pitch deck."** Done: the deck is a PDF in the repo, linked above, and the video is 2:00.
+5. **"Add a pitch deck."** Done: the deck is a PDF in the repo, linked above, and the video is 1:48.
 6. **"The Ember Pot is still a port of your Arc USDC pool."** The pot is now part of a loop that exists only on
    Mezo: `EmberPotV3` adds `fund()`, through which the Market pays 5% of every sale into the current week, and
    `fundedIn`, which the game shows.
@@ -202,18 +202,25 @@ Telegram: TODO · Discord: TODO · Email: the one on the AKINDO account.
 Paste this block. It is the short form of "What changed since Wave 1"; replace every TODO first.
 
 ```
-Emberdeep, Wave 2 (Mezo Testnet). Play: https://108-61-197-158.sslip.io · Code: https://github.com/Lazaniaaa/emberdeep-mezo · Deck: https://github.com/Lazaniaaa/emberdeep-mezo/blob/main/docs/emberdeep-deck.pdf · Video (2:00): TODO · Proof, every step as a tx: https://github.com/Lazaniaaa/emberdeep-mezo/blob/main/docs/PROOF.md
+Emberdeep, Wave 2 (Mezo Testnet)
+Pitch deck (PDF, public): https://github.com/Lazaniaaa/emberdeep-mezo/blob/main/docs/emberdeep-deck.pdf
+Video (1:48): https://youtu.be/xYeMLmB6FHM
+Play: https://108-61-197-158.sslip.io
+Code: https://github.com/Lazaniaaa/emberdeep-mezo
+Proof, every step as a tx: https://github.com/Lazaniaaa/emberdeep-mezo/blob/main/docs/PROOF.md
 
 What we did with the Wave 1 feedback
-1. "Let players open or top up a trove through BorrowerOperations to fund their keys": done. One button in the game opens a Mezo trove (openTrove, BTC as collateral, 65% LTV) or borrows more on the player's (adjustTrove), sized with Mezo's own PriceFeed, minNetDebt, fee and SortedTroves hints. Shown wherever the game asks for MUSD: keys and weapons.
-2. "Players other than the deployer, and a completed weekly distribute": a second wallet bought keys and a weapon; rounds paid out by gold on chain (a quick test pot, and the Wave 1 pot); hashes in PROOF.md.
+1. "Let players open or top up a trove through BorrowerOperations to fund their keys": done. One button in the game opens a Mezo trove (openTrove, BTC as collateral, 65% LTV) or borrows more on the player's (adjustTrove), sized with Mezo's own PriceFeed, minNetDebt, fee and SortedTroves hints. For keys and weapons.
+2. "Players other than the deployer, and a completed weekly distribute": a second wallet bought keys, bought two weapons and listed one; rounds paid out by gold on chain (a quick test pot, the Wave 1 pot); hashes in PROOF.md.
 3. "Verify the contracts": done, all eight live contracts; links in PROOF.md.
 4. "Server-issued seeds": done. The server starts every prize descent and signs its seed with the player and weapon; the pot takes no descent without it, one claim per start.
-5. "Add a pitch deck": done, a PDF in the repo; the video is 2:00.
+5. "Add a pitch deck": done, a PDF in the repo; the video is 1:48.
 6. "The pot is a port of your Arc pool": EmberPotV3 adds fund(), through which the new Market pays 5% of every sale into the current week.
 
+Our declared Wave 2 goals: the MUSD market with a share of every sale into the pot, done; server-issued seeds, done. Delver NFTs and a page of past rounds moved to Wave 3: we spent the time on the judge's ask (Mezo borrowing in the game) and on weapon NFTs, which the chests and the Market needed first.
+
 New in Wave 2
-- Found weapons as NFTs (EmberItems, ERC-721): 4 kinds x 4 rarities, with on-chain-read metadata, so they show in wallets and on the Mezo explorer.
+- Found weapons as NFTs (EmberItems, ERC-721): 4 kinds x 4 rarities; tokenURI serves their picture and traits to wallets and explorers.
 - Cerberus chests: only for a descent claimed into the pot, one per record, so every chest cost a key.
 - EmberMarket: escrow listings in MUSD; buy with MUSD, or with BTC or MEZO swapped on Tigris in the same transaction; 5% of each sale goes into the week's pot.
 - Found weapons can be carried into prize descents; the server checks ownership on chain before signing.
@@ -221,11 +228,9 @@ New in Wave 2
 
 One loop, all on Mezo: borrow MUSD against BTC (trove) or swap BTC/MEZO on Tigris -> key -> prize descent -> gasless Claim -> chest NFT -> Market (Tigris again) -> 5% back into the pot -> automatic weekly payout.
 
-Contracts (chain 31611): all eight verified; addresses and explorer links in PROOF.md. Ember Pot: 0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c
-
 Business model: 20% of every key goes to the treasury and pays for the replay server and the relayer's gas; 80% of keys and the Market's 5% of every sale are the players' pot, which is what sells the next key. No token.
 
-Limits, honestly: testnet only; a found weapon makes a prize descent easier (everything else is equal); the server is trusted to replay; the pot's idle MUSD is not yet deployed into a Mezo pool (next milestone).
+Limits: testnet only; a found weapon makes a prize descent easier; the server is trusted to replay; the pot's idle MUSD is not yet in a Mezo pool (next milestone).
 
-Track: both. Status: existing game; its Mezo features were built in Waves 1-2. Team: Lazan1aa, solo; X https://x.com/NotYur.
+Team: Lazan1aa, solo; X https://x.com/NotYur
 ```
