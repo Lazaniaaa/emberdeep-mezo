@@ -56,6 +56,9 @@ buy a key (MUSD, or BTC / MEZO swapped on Tigris; or open a Mezo trove from the 
   1,800 MUSD, its fee and gas compensation) and sizes the BTC for a safe 65% loan-to-value, which keeps the loan above
   the 150% collateral ratio Mezo needs in recovery mode; the list hints come from `SortedTroves.findInsertPosition`.
   The trove is the player's own, to repay or close in Mezo's app.
+- **Quick test pots.** Two more EmberPotV3s with 5- and 10-minute rounds, chosen in the pot window: buy a key with
+  MUSD, play a short prize descent, Claim, and watch the server pay the round out by gold a minute after it ends. The
+  whole cycle on chain in one sitting, for judges and new players.
 - **A one-page deploy** (`deploy-mezo.html`) for the four contracts and the market's collection, and a server setup
   that reuses saved keys, so the contracts keep trusting the same signer across servers.
 
@@ -78,6 +81,7 @@ buy a key (MUSD, or BTC / MEZO swapped on Tigris; or open a Mezo trove from the 
 | Ember Pot (V3) | [`0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c`](https://explorer.test.mezo.org/address/0x46cc1c7abe317aaa77ac6df3f206fa38c8b7b86c) | [`contracts/ember-pot/EmberPotV3.sol`](contracts/ember-pot/EmberPotV3.sol) |
 | Key router (BTC or MEZO → keys) | [`0xe81eeb4ac622be0ffe6b127b4e86d93bbd560d3a`](https://explorer.test.mezo.org/address/0xe81eeb4ac622be0ffe6b127b4e86d93bbd560d3a) | [`contracts/EmberKeyRouter.sol`](contracts/EmberKeyRouter.sol) |
 | EmberItems (weapon NFTs) | [`0xc36a4c19760dc368c719eba29159d639b2f62362`](https://explorer.test.mezo.org/address/0xc36a4c19760dc368c719eba29159d639b2f62362) | [`contracts/EmberItems.sol`](contracts/EmberItems.sol) |
+| Quick test pots (5 · 10 min rounds) | [`0xff019fbb…`](https://explorer.test.mezo.org/address/0xff019fbb3ddc88163d605ca2a0abdb879ccfedc8) · [`0x8c91e96c…`](https://explorer.test.mezo.org/address/0x8c91e96c4e846377c95212617bbf58556d39fcb3) | [`contracts/ember-pot/EmberPotV3.sol`](contracts/ember-pot/EmberPotV3.sol) |
 | EmberMarket | [`0x4c598c2146a30b9595b3c224c47fae13ba7a4a04`](https://explorer.test.mezo.org/address/0x4c598c2146a30b9595b3c224c47fae13ba7a4a04) | [`contracts/EmberMarket.sol`](contracts/EmberMarket.sol) |
 | Hall of Descents | [`0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6`](https://explorer.test.mezo.org/address/0x0fa55bd6f5a0c7831bc2fadbae90cb62b347bdd6) | [`contracts/EmberdeepHall.sol`](contracts/EmberdeepHall.sol) |
 | MUSD · MEZO · BTC | `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` · `0x7b7c…0001` · `0x7b7c…0000` | Mezo |

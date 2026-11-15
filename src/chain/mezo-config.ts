@@ -51,7 +51,11 @@ export const WEEKLY_POT: PotInfo = { id: "week", label: "This week's pot", ...ME
  * whole cycle (a key, a claimed descent, the payout by gold) in one sitting. Keys only in MUSD (the key router serves the
  * weekly pot). The server pays their rounds out within a minute of ending.
  */
-export const MEZO_QUICK_POTS: readonly PotInfo[] = [];
+export const MEZO_QUICK_POTS: readonly PotInfo[] = [
+  // Deployed 2026-11-15 from deploy-mezo.html by the owner 0x08e4…51E9, signer 0xc070…1240.
+  { id: "quick5", label: "Quick test pot · 5 min", address: "0xff019fbb3ddc88163d605ca2a0abdb879ccfedc8", launchTime: 1_794_744_658, roundSeconds: 300, maxGoldPerRun: 5000 },
+  { id: "quick10", label: "Quick test pot · 10 min", address: "0x8c91e96c4e846377c95212617bbf58556d39fcb3", launchTime: 1_794_744_672, roundSeconds: 600, maxGoldPerRun: 5000 },
+];
 
 /** Every pot a prize descent may enter, the weekly one first. */
 export const MEZO_POTS: readonly PotInfo[] = [WEEKLY_POT, ...MEZO_QUICK_POTS];

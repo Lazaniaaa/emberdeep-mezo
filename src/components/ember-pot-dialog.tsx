@@ -109,7 +109,7 @@ export function EmberPotDialog() {
         </div>
 
         {/* Where the pot comes from. The Market's line is shown from the first day, so its share is not a surprise. */}
-        {marketLive() && snapshot && (
+        {marketLive() && snapshot && !quick && (
           <p className="text-sm text-gold">
             From Market sales: {marketFunding === 0n ? "0" : marketFunding < 10n ** 16n ? "<0.01" : tokens(marketFunding)} MUSD this week
             <span className="text-muted-foreground"> · 5% of every weapon sold goes into the pot · </span>
@@ -122,8 +122,8 @@ export function EmberPotDialog() {
             {!wallet.account ? (
               <>
                 <p className="text-sm text-foreground/80">
-                  A key costs <b className="text-gold">1 MUSD</b> and enters one prize descent: 80% of it goes into this week's pot.
-                  Pay with MUSD, or with BTC or MEZO, swapped on Tigris in the same transaction. No MUSD and you would rather keep
+                  A key costs <b className="text-gold">1 MUSD</b> and enters one prize descent: 80% of it goes into {quick ? "this round's" : "this week's"} pot.
+                  {quick ? " This test pot takes MUSD." : " Pay with MUSD, or with BTC or MEZO, swapped on Tigris in the same transaction."} No MUSD and you would rather keep
                   your BTC? Borrow MUSD against it on Mezo, from this window.
                 </p>
                 <Button variant="outline" onClick={() => void wallet.connect().then(() => refresh())} disabled={wallet.status === "connecting"}>
